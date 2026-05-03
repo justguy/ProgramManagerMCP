@@ -1,0 +1,39 @@
+#!/bin/sh
+set -eu
+
+if [ "${SKIP_TRACKER_SYNC:-}" = "1" ]; then
+  echo "tracker sync skipped because SKIP_TRACKER_SYNC=1"
+  exit 0
+fi
+
+slug="${PROGRAM_MANAGER_TRACKER_SLUG:-program-manager-mcp}"
+workspace="${LLM_TRACKER_WORKSPACE:-$HOME/.llm-tracker}"
+source_path="${PROGRAM_MANAGER_TRACKER_SOURCE:-$workspace/trackers/$slug.json}"
+dest_path="${PROGRAM_MANAGER_TRACKER_DEST:-trackers/$slug.json}"
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+case "$dest_path" in
+  /*) dest_abs="$dest_path" ;;
+  *) dest_abs="$repo_root/$dest_path" ;;
+esac
+
+case "$dest_abs" in
+  "$repo_root"/*) ;;
+  *)
+    echo "tracker sync destination must stay inside this repository: $dest_abs" >&2
+    exit 1
+    ;;
+esac
+
+if [ ! -f "$source_path" ]; then
+  echo "tracker sync source not found: $source_path" >&2
+  echo "Set PROGRAM_MANAGER_TRACKER_SOURCE or LLM_TRACKER_WORKSPACE, or bypass with SKIP_TRACKER_SYNC=1." >&2
+  exit 1
+fi
+
+mkdir -p "$(dirname "$dest_abs")"
+cp "$source_path" "$dest_abs"
+git add -- "$dest_abs"
+
+echo "synced and staged tracker snapshot: ${dest_abs#$repo_root/}"

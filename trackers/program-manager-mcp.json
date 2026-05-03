@@ -1,0 +1,1539 @@
+{
+  "meta": {
+    "name": "Program Manager MCP",
+    "slug": "program-manager-mcp",
+    "priorities": [
+      {
+        "id": "p0",
+        "label": "Now"
+      },
+      {
+        "id": "p1",
+        "label": "Next"
+      }
+    ],
+    "swimlanes": [
+      {
+        "id": "phase-0",
+        "label": "Phase 0: Design Contract",
+        "description": "Architecture, contracts, threat model, and fixtures that must be stable before implementation."
+      },
+      {
+        "id": "phase-1a",
+        "label": "Phase 1A: Read-Only Graph, Seed, and Impact MVP",
+        "description": "First useful PMO MVP: graph-backed memory, impact analysis, read-only adapters, authz, redaction, and deterministic fixture proof."
+      },
+      {
+        "id": "phase-1b",
+        "label": "Phase 1B: Context Packets, Reports, Adapter Health",
+        "description": "Bounded context panes, reproducible reports, adapter degradation behavior, audit trail, and PMO operational checks."
+      },
+      {
+        "id": "phase-1c",
+        "label": "Phase 1C: Learning and Decision Intelligence",
+        "description": "Evidence-backed learnings, attempts, discarded decisions, failure patterns, risk signals, and deterministic intelligence cards."
+      },
+      {
+        "id": "phase-2",
+        "label": "Phase 2: Flight Plans and Expected Receipts",
+        "description": "Deterministic flight plans, approval/evidence obligations, proposal-only downstream actions, expected receipts, TTL, and loop suppression."
+      },
+      {
+        "id": "phase-3",
+        "label": "Phase 3: Receipt Ledger and Reconciliation",
+        "description": "Receipt recording, expected-vs-observed ledger, audit persistence, desynchronization findings, and compensating plan proposals."
+      },
+      {
+        "id": "phase-4",
+        "label": "Phase 4: Agentic OS Integration and Operational Hardening",
+        "description": "Agentic OS consumption, receipt submission integration, trust root, tenant hardening, retention/PII policy, OTel, replay, and operational smoke."
+      }
+    ],
+    "scratchpad": "Program Manager MCP board is ready: 7 phase swimlanes, 37 tasks, CT-validated dependency graph, pmo-001 is the only currently executable task.",
+    "rev": 9,
+    "updatedAt": "2026-05-03T21:43:57.724Z"
+  },
+  "tasks": [
+    {
+      "dependencies": [],
+      "id": "pmo-001",
+      "title": "ADR, data model, event replay, and hash spec",
+      "goal": "Document Program Manager as a stateful PMO memory service with its own database, deterministic event/replay model, and canonical hashing rules before implementation begins.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-0",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Architecture ADR covering PMO boundaries, TypeScript, Neo4j, repository abstraction, and passive-analyst posture.",
+        "Data model spec for DependencyEdge, ArtifactRef, EvidencePolicy, ContextAnchor, events, replay, and hashes.",
+        "Parseable examples for stateVersionHash and flightPlanHash inputs."
+      ],
+      "definition_of_done": [
+        "ADR states PMO owns its repository/artifact/event memory but does not mutate downstream tools.",
+        "Event/replay policy is explicit enough to rebuild graph projections deterministically.",
+        "Hash fixture computes the same digest from repeated canonical inputs.",
+        "Open Phase 0 questions are listed with owner/decision authority where unresolved."
+      ],
+      "constraints": [
+        "Preserve pointer-only context and no downstream mutation boundary.",
+        "Do not defer authz, redaction, or tenant isolation assumptions out of the design contract."
+      ],
+      "context": {
+        "phase": "0",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:673-697",
+        "ct_validated": true,
+        "tags": [
+          "design-contract",
+          "adr",
+          "hashing",
+          "event-replay"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-001"
+      ],
+      "id": "pmo-002",
+      "title": "Schema examples and parseable fixture contracts",
+      "goal": "Turn core PMO concepts into parseable schema examples and fixture documents that later implementation and conformance tests can reuse.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-0",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Examples for Portfolio, Program, Project, ContextAnchor, DependencyRelationshipProps, ArtifactRef, EvidenceRef, EvidencePolicy, DecisionRecord, and SyncCursor.",
+        "Fixture examples for G0/C0/A0/F0/H0 inputs and expected outputs.",
+        "Validation notes for generated JSON Schema and AJV-compatible examples."
+      ],
+      "definition_of_done": [
+        "All schema/data examples parse under the chosen Zod/JSON Schema contract.",
+        "Fixture names and meanings match the golden fixture backbone.",
+        "Examples avoid raw logs, transcripts, screenshots, secrets, and content-bearing evidence inline.",
+        "The schema examples are ready to be copied into implementation tests without reinterpretation."
+      ],
+      "constraints": [
+        "Keep examples pointer-only and deterministic.",
+        "Use stable IDs and explicit sorted ordering where fixture output depends on collection order."
+      ],
+      "context": {
+        "phase": "0",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:839-854",
+        "tags": [
+          "schemas",
+          "fixtures",
+          "json-schema"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-001 first."
+    },
+    {
+      "dependencies": [
+        "pmo-001"
+      ],
+      "id": "pmo-003",
+      "title": "Adapter, authz, approval, and security contracts",
+      "goal": "Specify how PMO reads standalone capabilities through adapters and how identity, approval authority, isolation, redaction, and threat controls are enforced.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-0",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Adapter manifest spec covering capability domains, side-effect posture, health, freshness, cursor, redaction, and evidence types.",
+        "Impact assessment request/result schema with fixture examples for LLM Tracker and Hoplon.",
+        "Approval authority matrix for tier 0/1 gates, expiration, supersession, evidence, and break-glass handling.",
+        "Security threat model covering artifact URI abuse, SSRF, path traversal, poisoned adapter data, prompt injection, receipt forgery, and confused-deputy risks."
+      ],
+      "definition_of_done": [
+        "Adapter conformance suite requirements are defined before adapter code exists.",
+        "Portfolio-scoped identity and trust-root requirements are explicit.",
+        "Every approval gate has required authority, evidence, expiration/review behavior, and supersession semantics.",
+        "Threat model identifies concrete mitigations or tests for each listed risk."
+      ],
+      "constraints": [
+        "Adapters are read-only in Phase 1A and must not hide mutation-capable downstream actions.",
+        "Do not rely on an LLM to remember propagation, redaction, or approval rules."
+      ],
+      "context": {
+        "phase": "0",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:675-688",
+        "tags": [
+          "adapters",
+          "authz",
+          "security",
+          "approval"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-001 first."
+    },
+    {
+      "dependencies": [
+        "pmo-002",
+        "pmo-003"
+      ],
+      "id": "pmo-004",
+      "title": "Public PMO tool contracts and result envelope",
+      "goal": "Define the small MCP surface and a standard result envelope so every PMO tool returns deterministic core data, evidence refs, artifacts, warnings, and redaction metadata consistently.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-0",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Tool contracts for list_program_capabilities, get_program_documentation, query_program_context, and assess_program_impact.",
+        "Forward-compatible contracts for generate_program_update, get_program_audit_trail, analyze_program_intelligence, plan_program_action, record_program_receipt, and reconcile_program_state.",
+        "ProgramToolResultEnvelope schema with deterministicCore/advisoryPane separation, evidenceRefs, artifactRefs, warnings, trace, correlation, and redaction summary."
+      ],
+      "definition_of_done": [
+        "Phase 1A tools are fully specified with request/response examples and authz/redaction expectations.",
+        "Later tools are scoped enough that Phase 2/3 tasks can depend on them without guessing result shape.",
+        "Advisory/model-assisted content is explicitly excluded from deterministic hashes.",
+        "Tool envelope examples parse and include no raw sensitive/content-bearing payloads."
+      ],
+      "constraints": [
+        "Keep the MCP surface macro-level; do not expose every downstream tool through PMO.",
+        "Every result must preserve the passive analyst boundary and carry evidence/provenance context."
+      ],
+      "context": {
+        "phase": "0",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:409-447",
+        "tags": [
+          "mcp-tools",
+          "envelope",
+          "contracts"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-002 and pmo-003 first."
+    },
+    {
+      "dependencies": [
+        "pmo-002",
+        "pmo-003"
+      ],
+      "id": "pmo-005",
+      "title": "Sample registry and golden fixture scope",
+      "goal": "Define the sample program registry and fixture universe for AMG, Hoplon, Phalanx, Semantix, and Guardrail so all later tests share one backbone.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-0",
+        "priorityId": "p1"
+      },
+      "effort": "s",
+      "expected_changes": [
+        "Sample registry manifest for programs, projects, verticals, integration points, contracts, policies, evidence refs, decisions, and sync cursors.",
+        "Fixture scope for G0, C0, A0, F0, H0, P0, R0, and I0.",
+        "Known open questions for actual project IDs, tracker slugs, adapter sources, trust root, artifact store, URI allowlist, Neo4j features, retention, and approval authorities."
+      ],
+      "definition_of_done": [
+        "Sample registry can seed a fixture graph without invented downstream mutation authority.",
+        "Fixture expected refs include at least one cross-project dependency and one stale/missing evidence condition.",
+        "Open questions from the blueprint are preserved as explicit follow-up decisions.",
+        "All later phase tasks can reference this fixture backbone instead of creating isolated examples."
+      ],
+      "constraints": [
+        "Do not make LLM Tracker the durable PMO memory; registry is only an operational input/source reference.",
+        "Use allowlisted URI schemes as identifiers first, not arbitrary fetch instructions."
+      ],
+      "context": {
+        "phase": "0",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:839-899",
+        "tags": [
+          "registry",
+          "golden-fixture",
+          "open-questions"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-002 and pmo-003 first."
+    },
+    {
+      "dependencies": [
+        "pmo-004"
+      ],
+      "id": "pmo-101",
+      "title": "Package skeleton and repository interface",
+      "goal": "Create the @amg/cp-program-manager implementation package with clean TypeScript boundaries and a repository interface that hides raw graph details from service logic.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1a",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Package scaffold for @amg/cp-program-manager under the control-plane workspace.",
+        "ProgramManagerRepository interface covering programs, projects, context anchors, graph relationships, evidence refs, decisions, artifacts, events, and sync cursors.",
+        "InMemoryProgramManagerRepository skeleton for narrow unit tests.",
+        "Package exports and TypeScript project references aligned with existing control-plane conventions."
+      ],
+      "definition_of_done": [
+        "Package typechecks in isolation.",
+        "Repository interface covers Phase 1A read paths without leaking Neo4j/Cypher into services.",
+        "In-memory repository supports unit fixture setup for schema and service tests.",
+        "Boundary checks confirm the package does not import product app/server code."
+      ],
+      "constraints": [
+        "Do not introduce downstream mutation APIs in the PMO package.",
+        "Keep implementation consistent with existing control-plane package patterns."
+      ],
+      "context": {
+        "phase": "1A",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:699-728",
+        "tags": [
+          "package",
+          "repository",
+          "typescript"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-004 first."
+    },
+    {
+      "dependencies": [
+        "pmo-002"
+      ],
+      "id": "pmo-102",
+      "title": "Shared schemas and JSON Schema export",
+      "goal": "Implement Program Manager Zod schemas and generated JSON Schema outputs that match Phase 0 examples and future adapter/test contracts.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1a",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "shared/schemas/program-manager.ts or equivalent repo-approved schema location.",
+        "Zod schemas for core entities, context anchors, tool envelopes, adapter manifests, evidence refs, artifact refs, findings, warnings, and fixture DTOs.",
+        "JSON Schema generation path and snapshots/examples."
+      ],
+      "definition_of_done": [
+        "Zod parse tests pass for Phase 0 examples.",
+        "Generated JSON Schema snapshots are deterministic.",
+        "Schemas enforce pointer-only evidence/artifact refs where relevant.",
+        "Tool envelope schema separates deterministic core from advisory pane."
+      ],
+      "constraints": [
+        "Schemas must stay isomorphic and reusable by MCP adapters, fixtures, docs, and validators.",
+        "Do not inline raw logs, transcripts, screenshots, credentials, or content-bearing evidence in fixture DTOs."
+      ],
+      "context": {
+        "phase": "1A",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:856-865",
+        "tags": [
+          "schemas",
+          "zod",
+          "json-schema"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-002 first."
+    },
+    {
+      "dependencies": [
+        "pmo-005",
+        "pmo-102"
+      ],
+      "id": "pmo-103",
+      "title": "Golden fixture backbone",
+      "goal": "Build the reusable golden fixture backbone G0/C0/A0/F0/H0 so repository, graph, impact, report, and intelligence tests share one deterministic source of truth.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1a",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Fixture data for G0 seed graph, C0 proposed change, A0 affected refs, F0 findings, and H0 stateVersionHash.",
+        "Fixture loader helpers for unit and integration tests.",
+        "Baseline assertion helpers for exact affected refs and findings."
+      ],
+      "definition_of_done": [
+        "Fixture includes AMG, Hoplon, Phalanx, Semantix, Guardrail, contracts, integration points, decisions, evidence refs, and tracker refs.",
+        "A0 includes exact affected projects/contracts/integration points/tasks/policies/evidence refs.",
+        "F0 includes at least one cross-project dependency and one stale/missing evidence condition.",
+        "Fixture load order is deterministic and reusable by later phase tests."
+      ],
+      "constraints": [
+        "Do not create isolated ad hoc fixtures for each later test family.",
+        "Fixture refs remain pointer-only and stable."
+      ],
+      "context": {
+        "phase": "1A",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:839-854",
+        "tags": [
+          "fixtures",
+          "g0",
+          "determinism"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-005 and pmo-102 first."
+    },
+    {
+      "dependencies": [
+        "pmo-101",
+        "pmo-102"
+      ],
+      "id": "pmo-104",
+      "title": "Neo4j migrations and graph repository",
+      "goal": "Implement graph constraints, indexes, migrations, and ProgramManagerGraphRepository with deterministic traversal ordering and integration-test coverage.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1a",
+        "priorityId": "p0"
+      },
+      "effort": "l",
+      "expected_changes": [
+        "Neo4j migrations for stable PMO IDs, relationship IDs, indexes, and constraints supported by the available edition.",
+        "ProgramManagerGraphRepository implementation.",
+        "Testcontainers Neo4j integration tests for persistence and traversal.",
+        "Explicit ORDER BY behavior at traversal boundaries."
+      ],
+      "definition_of_done": [
+        "Repository unit and Neo4j integration tests pass.",
+        "Constraints/indexes bootstrap cleanly from an empty database.",
+        "Graph projection can persist programs, projects, memberships, contracts, relationships, decisions, evidence refs, artifact refs, and sync cursors.",
+        "Repeated traversal over the same fixture returns identical ordering and hash inputs."
+      ],
+      "constraints": [
+        "Use first-class Neo4j relationships for hot traversal; avoid duplicating every edge as a node unless audit metadata requires it.",
+        "No uncontrolled dual writes without an explicit event/projection policy."
+      ],
+      "context": {
+        "phase": "1A",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:701-728",
+        "tags": [
+          "neo4j",
+          "repository",
+          "migrations"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-101 and pmo-102 first."
+    },
+    {
+      "dependencies": [
+        "pmo-103",
+        "pmo-104"
+      ],
+      "id": "pmo-105",
+      "title": "Seed graph and hash stability proof",
+      "goal": "Load the golden fixture into the graph repository and prove deterministic impact inputs, traversal order, and stateVersionHash stability.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1a",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Seed graph import for G0.",
+        "stateVersionHash implementation over canonical deterministic inputs.",
+        "Tests asserting repeated G0/C0 queries return H0 and stable ordered refs."
+      ],
+      "definition_of_done": [
+        "From an empty graph, fixture import produces expected programs, projects, contracts, integration points, dependencies, evidence refs, decisions, and cursors.",
+        "stateVersionHash matches H0 across repeated runs.",
+        "Hash input excludes raw artifacts, raw logs, model-assisted summaries, generated timestamps, and non-deterministic ordering.",
+        "Traversal budget defaults are represented in tests or configuration."
+      ],
+      "constraints": [
+        "Use canonical JSON plus SHA-256 for hash material.",
+        "Model-assisted/advisory content must not affect deterministic hashes."
+      ],
+      "context": {
+        "phase": "1A",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:286-315",
+        "tags": [
+          "hashing",
+          "seed-graph",
+          "stateVersionHash"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-103 and pmo-104 first."
+    },
+    {
+      "dependencies": [
+        "pmo-101",
+        "pmo-102",
+        "pmo-104"
+      ],
+      "id": "pmo-106",
+      "title": "Phase 1A MCP tools, authz, redaction, and boundary tests",
+      "goal": "Expose list_program_capabilities, get_program_documentation, query_program_context, and assess_program_impact through the MCP gateway with standard envelopes and no downstream mutation.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1a",
+        "priorityId": "p1"
+      },
+      "effort": "l",
+      "expected_changes": [
+        "MCP gateway tool wiring for Phase 1A public tools.",
+        "Tool result envelope application for every response.",
+        "Portfolio-scoped authz guard and redaction guard.",
+        "Boundary tests proving no tracker, Hoplon, GitHub, Guardrail, Semantix, or Phalanx mutation happens through PMO."
+      ],
+      "definition_of_done": [
+        "All four Phase 1A tools return parseable standard envelopes.",
+        "Authz tests deny cross-portfolio reads and unauthorized actor scopes.",
+        "Redaction tests prove prohibited payload kinds are omitted or pointerized.",
+        "No-mutation tests prove the MCP facade only reads PMO/adapters and never calls mutation-capable downstream APIs."
+      ],
+      "constraints": [
+        "Keep the surface macro-level and avoid exposing arbitrary downstream tool calls.",
+        "Every meaningful tool result carries trace/correlation/evidence/provenance context."
+      ],
+      "context": {
+        "phase": "1A",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:413-420",
+        "tags": [
+          "mcp-gateway",
+          "authz",
+          "redaction",
+          "no-mutation"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-101, pmo-102, and pmo-104 first."
+    },
+    {
+      "dependencies": [
+        "pmo-003",
+        "pmo-101",
+        "pmo-102"
+      ],
+      "id": "pmo-107",
+      "title": "Read-only adapter registry with LLM Tracker and Hoplon stubs",
+      "goal": "Add a PMO adapter registry and read-only LLM Tracker/Hoplon adapter stubs that provide manifests, bounded reads, impact hooks, health, cursor, and evidence behavior.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1a",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Adapter registry service and capability manifest loading.",
+        "Read-only LLM Tracker adapter stub for status/dependency/context/evidence refs.",
+        "Read-only Hoplon/code-context adapter stub for policy/session/context refs.",
+        "Conformance fixtures for manifest shape, side-effect posture, redaction, health, cursor, and no-mutation behavior."
+      ],
+      "definition_of_done": [
+        "Adapter manifests are discoverable through PMO capability listings.",
+        "Adapter stubs expose bounded read data needed by G0/C0 impact tests.",
+        "Conformance tests fail if an adapter claims or performs mutation authority.",
+        "Health and cursor fields are represented even when the adapter is stubbed."
+      ],
+      "constraints": [
+        "Use native file/API adapters first unless the MCP host has safe audited MCP-to-MCP calls.",
+        "Do not make LLM Tracker the PMO source of truth."
+      ],
+      "context": {
+        "phase": "1A",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:711-717",
+        "tags": [
+          "adapters",
+          "llm-tracker",
+          "hoplon"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-003, pmo-101, and pmo-102 first."
+    },
+    {
+      "dependencies": [
+        "pmo-105",
+        "pmo-106",
+        "pmo-107"
+      ],
+      "id": "pmo-108",
+      "title": "Phase 1A acceptance proof",
+      "goal": "Close Phase 1A by proving the read-only graph-backed PMO MVP meets repository, graph, fixture, impact, authz, redaction, adapter, and boundary criteria.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1a",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Phase 1A evidence report or implementation report.",
+        "Fixture run output proving G0/C0 produces A0/F0/H0.",
+        "Test evidence for repository, Neo4j, authz, redaction, adapters, and no-mutation boundaries."
+      ],
+      "definition_of_done": [
+        "PMO can answer capability/documentation/context/impact questions for the golden fixture.",
+        "Impact returns exact A0/F0 and identifies stale/missing evidence plus a cross-project dependency.",
+        "Portfolio isolation and redaction tests pass.",
+        "A user or agent can rely on Phase 1A as the first useful MVP without flight plans or receipt mutation."
+      ],
+      "constraints": [
+        "Do not mark complete until all Phase 1A acceptance criteria from the blueprint are evidenced.",
+        "Flight-plan hard-block behavior remains Phase 2; Phase 1A exposes hard blocks as read-only findings."
+      ],
+      "context": {
+        "phase": "1A",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:872-886",
+        "tags": [
+          "acceptance",
+          "mvp",
+          "evidence"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-105, pmo-106, and pmo-107 first."
+    },
+    {
+      "dependencies": [
+        "pmo-108"
+      ],
+      "id": "pmo-201",
+      "title": "Context packet panes",
+      "goal": "Enhance query_program_context so agents receive bounded, evidence-backed PMO packets instead of raw database state or chat-memory instructions.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1b",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Context panes for currentState, blockingDependencies, applicableDecisions, supersededDecisions, futureDecisions, staleEvidence, and recommendedActions.",
+        "Context anchor behavior across program, project, branch, commit, tracker revision, and as-of time.",
+        "Packet byte/traversal budgets and redaction-safe evidence refs."
+      ],
+      "definition_of_done": [
+        "query_program_context returns concise packets for fixture anchors.",
+        "Decisions are correctly applicable, superseded, discarded, or future-not-applicable by anchor.",
+        "Packets include evidence refs and one-line inclusion reasons.",
+        "Raw logs, diffs, screenshots, transcripts, secrets, and bulky reports stay behind refs."
+      ],
+      "constraints": [
+        "Keep model-assisted summaries out of deterministic state hashes.",
+        "Preserve pointer-only context discipline."
+      ],
+      "context": {
+        "phase": "1B",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:730-750",
+        "tags": [
+          "context-packets",
+          "anchors",
+          "redaction"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-108 first."
+    },
+    {
+      "dependencies": [
+        "pmo-108"
+      ],
+      "id": "pmo-202",
+      "title": "Report generator and JSON evidence envelope",
+      "goal": "Generate reproducible PMO alignment reports and machine-readable evidence envelopes from PMO state without making reports the source of truth.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1b",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Markdown report generator for alignment/update artifacts.",
+        "JSON evidence envelope containing inputs, stateVersionHash, artifact refs, evidence refs, template version, and deterministic section ordering.",
+        "Report deletion/regeneration tests."
+      ],
+      "definition_of_done": [
+        "Regenerated report output is stable for the same fixture inputs and template version.",
+        "JSON evidence refs match fixture expectations.",
+        "Report artifact metadata points back to PMO state, evidence, and hash inputs.",
+        "Deleting and regenerating the report reproduces the expected artifact/evidence envelope."
+      ],
+      "constraints": [
+        "Reports are generated artifacts, not canonical PMO memory.",
+        "Do not embed raw logs, screenshots, prompts, or transcript payloads in report evidence envelopes."
+      ],
+      "context": {
+        "phase": "1B",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:734-750",
+        "tags": [
+          "reports",
+          "evidence-envelope",
+          "determinism"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-108 first."
+    },
+    {
+      "dependencies": [
+        "pmo-107",
+        "pmo-108"
+      ],
+      "id": "pmo-203",
+      "title": "Adapter health, circuit behavior, and stale cursors",
+      "goal": "Add deterministic adapter health handling so degraded, stale, or unavailable sources affect confidence and findings without corrupting deterministic core state.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1b",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Adapter health status model: healthy, degraded, stale, unavailable.",
+        "Retry/backoff and circuit-break reset behavior for read adapters.",
+        "Stale cursor policy and degraded-mode caps.",
+        "Tests for degraded/unavailable/circuit/stale-cursor behavior."
+      ],
+      "definition_of_done": [
+        "Adapter health affects warnings/findings consistently for fixture scenarios.",
+        "Stale cursors cannot satisfy current evidence freshness requirements silently.",
+        "Circuit/degraded states are visible through PMO envelopes and reports.",
+        "Deterministic core excludes unreliable model/advisory inference while preserving adapter health facts."
+      ],
+      "constraints": [
+        "Do not let adapter failures trigger downstream mutation through PMO.",
+        "Keep health and freshness evidence pointer-based and traceable."
+      ],
+      "context": {
+        "phase": "1B",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:735-750",
+        "tags": [
+          "adapter-health",
+          "stale-cursors",
+          "circuit-breaker"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-107 and pmo-108 first."
+    },
+    {
+      "dependencies": [
+        "pmo-201",
+        "pmo-202"
+      ],
+      "id": "pmo-204",
+      "title": "Audit trail and program update tools",
+      "goal": "Expose get_program_audit_trail and generate_program_update on top of the Phase 1B context/report foundations.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1b",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "get_program_audit_trail tool with filtered, redaction-safe audit entries and evidence refs.",
+        "generate_program_update tool returning markdown artifact refs plus JSON evidence envelope refs.",
+        "Tool envelope coverage and authz/redaction tests."
+      ],
+      "definition_of_done": [
+        "Audit trail queries are scoped by portfolio/program/project/context anchor.",
+        "Program update generation is reproducible and linked to stateVersionHash.",
+        "Both tools return standard envelopes with evidenceRefs, artifactRefs, warnings, trace, correlation, and redaction summaries.",
+        "Authz tests prevent cross-portfolio audit/report reads."
+      ],
+      "constraints": [
+        "Do not expose raw audit logs or unrestricted report contents inline.",
+        "Program updates propose/describe state; they do not mutate trackers or downstream systems."
+      ],
+      "context": {
+        "phase": "1B",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:422-428",
+        "tags": [
+          "audit-trail",
+          "program-update",
+          "mcp-tools"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-201 and pmo-202 first."
+    },
+    {
+      "dependencies": [
+        "pmo-202",
+        "pmo-203"
+      ],
+      "id": "pmo-205",
+      "title": "PMO Doctor, replay smoke, report regeneration, and conformance checks",
+      "goal": "Add operator-facing checks that prove schema, registry, graph, replay, report, hash, redaction, fixture, and adapter conformance health.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1b",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "PMO Doctor CLI/check target for schema, registry, graph, hash, redaction, fixture, and report smoke checks.",
+        "Replay smoke test from empty graph through events, adapter cursors, projections, and report regeneration.",
+        "Adapter conformance target integrated with fixture stubs."
+      ],
+      "definition_of_done": [
+        "pmo:doctor reports actionable pass/fail output for core PMO invariants.",
+        "pmo:replay-smoke rebuilds projections from deterministic inputs and asserts expected hash/report refs.",
+        "pmo:report-regenerate confirms generated artifacts match fixture expectations.",
+        "pmo:adapter-conformance covers manifest, health, cursor, redaction, evidence, and no-mutation guarantees."
+      ],
+      "constraints": [
+        "Checks should be narrow enough to run in CI for the package/control-plane scope.",
+        "Do not depend on live external mutation-capable services for default checks."
+      ],
+      "context": {
+        "phase": "1B",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:913-922",
+        "tags": [
+          "doctor",
+          "replay",
+          "conformance",
+          "ci"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-202 and pmo-203 first."
+    },
+    {
+      "dependencies": [
+        "pmo-201",
+        "pmo-204",
+        "pmo-205"
+      ],
+      "id": "pmo-206",
+      "title": "Phase 1B acceptance proof",
+      "goal": "Close Phase 1B by proving context packets, reports, audit trail, adapter health, evidence freshness, and anchor behavior satisfy the blueprint.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1b",
+        "priorityId": "p1"
+      },
+      "effort": "s",
+      "expected_changes": [
+        "Phase 1B evidence report or implementation report.",
+        "Verification artifacts for report regeneration, JSON evidence envelope, adapter degradation, stale cursor, freshness, and context anchor tests."
+      ],
+      "definition_of_done": [
+        "Report deletion/regeneration test passes.",
+        "JSON evidence envelope deterministic refs match fixture.",
+        "Adapter degraded/unavailable/circuit and stale cursor tests pass.",
+        "Evidence freshness and context anchor tests pass across branch, commit, tracker revision, and as-of time."
+      ],
+      "constraints": [
+        "Do not proceed to Phase 1C intelligence until Phase 1B context/evidence/report foundations are stable.",
+        "Acceptance proof must cite command output or artifact refs, not chat-only claims."
+      ],
+      "context": {
+        "phase": "1B",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:743-750",
+        "tags": [
+          "acceptance",
+          "evidence",
+          "phase-1b"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-201, pmo-204, and pmo-205 first."
+    },
+    {
+      "dependencies": [
+        "pmo-206"
+      ],
+      "id": "pmo-301",
+      "title": "Learning, attempt, discarded decision, failure pattern, and risk records",
+      "goal": "Add read-only intelligence record types so Program Manager can preserve reusable lessons, failed attempts, rejected options, and risk signals as typed memory.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1c",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Schemas and repository support for LearningRecord, AttemptRecord, DiscardedDecision, FailurePattern, and RiskSignal.",
+        "Fixture records derived from tracker history, Hoplon audit blocks, Semantix/Guardrail findings, GitHub/CI state, and PMO ledger events where available.",
+        "Confidence calculation model for learning records."
+      ],
+      "definition_of_done": [
+        "Records are typed, evidence-backed, temporally scoped, and queryable through the repository.",
+        "Learning confidence is calculated through an explicit supported mode or marked needs_review with confidence <= 0.5.",
+        "Discarded decisions preserve condition tags, rationale, evidence refs, and valid/supersession scope.",
+        "Records remain read-only intelligence inputs and do not trigger downstream mutation."
+      ],
+      "constraints": [
+        "Do not create free-form LLM memory as source truth.",
+        "Every learning/risk/failure record must include evidence refs or an explicit needs_review status."
+      ],
+      "context": {
+        "phase": "1C",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:752-769",
+        "tags": [
+          "learning",
+          "attempts",
+          "discarded-decisions",
+          "risk"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-206 first."
+    },
+    {
+      "dependencies": [
+        "pmo-301"
+      ],
+      "id": "pmo-302",
+      "title": "Deterministic intelligence matching rules",
+      "goal": "Implement deterministic rules for discarded-decision matching, repeated blockers, stale evidence, failure patterns, and cross-program learning cards.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1c",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Rule registry entries for deterministic intelligence checks.",
+        "Typed condition-tag matching for discarded decisions and proposed changes.",
+        "Repeated blocker and stale evidence detection over graph facts and fixture records.",
+        "Tests proving anchor scoping and deterministic ordering."
+      ],
+      "definition_of_done": [
+        "Discarded decision matching requires shared contract/integration and action/risk tags with no conflicting branch/program/valid-time condition.",
+        "Repeated blocker and stale evidence rules produce stable issue cards from the same fixture inputs.",
+        "Superseded, discarded, and future-not-applicable decisions do not apply to the wrong anchor.",
+        "Rules are versioned and included in deterministic hash inputs where appropriate."
+      ],
+      "constraints": [
+        "Embeddings or model summaries may only add advisory matches unless converted into deterministic tags/evidence.",
+        "Do not let intelligence cards suppress or block execution unless backed by deterministic persisted facts/policies."
+      ],
+      "context": {
+        "phase": "1C",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:321-349",
+        "tags": [
+          "rules",
+          "deterministic-intelligence",
+          "condition-tags"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-301 first."
+    },
+    {
+      "dependencies": [
+        "pmo-302"
+      ],
+      "id": "pmo-303",
+      "title": "analyze_program_intelligence tool",
+      "goal": "Expose deterministic proactive intelligence through analyze_program_intelligence while cleanly separating advisory/model-assisted content.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1c",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "MCP tool contract and gateway wiring for analyze_program_intelligence.",
+        "Issue card payloads containing issue type, affected scope, relevance, evidence refs, confidence/source, recommended next action, and proposed update status.",
+        "Advisory pane support for model-assisted summaries excluded from deterministic hashes."
+      ],
+      "definition_of_done": [
+        "Tool returns evidence-backed issue cards for cross-program learning fixture queries.",
+        "Deterministic cards include rule/source/provenance and stable ordering.",
+        "Model-assisted cards are labeled and excluded from stateVersionHash/flightPlanHash inputs.",
+        "Authz/redaction tests pass for intelligence output."
+      ],
+      "constraints": [
+        "The tool may propose tracker/report/decision updates but must not execute them.",
+        "Advisory intelligence must never silently alter deterministic core output."
+      ],
+      "context": {
+        "phase": "1C",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:430-434",
+        "tags": [
+          "mcp-tool",
+          "intelligence",
+          "advisory-separation"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-302 first."
+    },
+    {
+      "dependencies": [
+        "pmo-303"
+      ],
+      "id": "pmo-304",
+      "title": "Phase 1C acceptance proof",
+      "goal": "Close Phase 1C by proving evidence-backed intelligence, anchor-scoped decision behavior, deterministic matching, and advisory hash exclusion.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-1c",
+        "priorityId": "p1"
+      },
+      "effort": "s",
+      "expected_changes": [
+        "Phase 1C evidence report or implementation report.",
+        "Verification artifacts for learning queries, discarded-decision matching, anchor scoping, and model-assisted hash exclusion."
+      ],
+      "definition_of_done": [
+        "Cross-program learning queries return evidence-backed issue cards.",
+        "Superseded, discarded, and future-not-applicable decisions are not applied to the wrong anchor.",
+        "Discarded decision typed-tag matching is deterministic.",
+        "Model-assisted advisory cards are labeled and excluded from deterministic hashes."
+      ],
+      "constraints": [
+        "Do not proceed to flight-plan planning until intelligence semantics are stable and non-mutating.",
+        "Acceptance proof must be reproducible from fixture/test evidence."
+      ],
+      "context": {
+        "phase": "1C",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:764-769",
+        "tags": [
+          "acceptance",
+          "phase-1c",
+          "determinism"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-303 first."
+    },
+    {
+      "dependencies": [
+        "pmo-304"
+      ],
+      "id": "pmo-401",
+      "title": "Deterministic flight-plan model and planner",
+      "goal": "Implement plan_program_action as a deterministic PMO planner that turns proposed work into affected scope, risks, approvals, evidence obligations, and expected receipts.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-2",
+        "priorityId": "p0"
+      },
+      "effort": "l",
+      "expected_changes": [
+        "FlightPlan schema and deterministic planner service.",
+        "plan_program_action MCP tool wiring.",
+        "flightPlanHash implementation over state hash, context anchor, proposed change, adapter manifest versions, and rule versions.",
+        "Fixture scenarios for stable repeated planning."
+      ],
+      "definition_of_done": [
+        "Same inputs produce the same deterministic flight plan and flightPlanHash.",
+        "Planner returns affected projects/contracts/tasks/policies/evidence refs and explicit proposed external actions.",
+        "Advisory content is excluded from flightPlanHash.",
+        "Planner does not execute downstream actions."
+      ],
+      "constraints": [
+        "A PMO flight plan is not execution authority beyond an executor's delegated scope.",
+        "Do not implement receipt recording or reconciliation here; those belong to Phase 3."
+      ],
+      "context": {
+        "phase": "2",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:771-791",
+        "tags": [
+          "flight-plan",
+          "planner",
+          "hashing"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-304 first."
+    },
+    {
+      "dependencies": [
+        "pmo-401"
+      ],
+      "id": "pmo-402",
+      "title": "Approval, evidence, expected receipt, TTL, and stale-plan behavior",
+      "goal": "Model the obligations a flight plan creates, including human approval gates, evidence requirements, expected receipts, expiration, and stale-plan revalidation.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-2",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "ExpectedReceipt model and receipt requirement generation.",
+        "Approval/evidence obligation model with hard block/warn behavior by policy.",
+        "Flight plan TTL and stale-plan behavior.",
+        "Tests for unsatisfied HITL gates, missing evidence, advisory exclusion, and stale revalidation."
+      ],
+      "definition_of_done": [
+        "Unsatisfied required approvals appear as hard blocks.",
+        "Missing evidence blocks or warns according to EvidencePolicy and criticality.",
+        "Expired/stale plans require revalidation before receipts can satisfy obligations.",
+        "Expected receipts carry trace, correlation, idempotency, scope, required verifier, and evidence requirements."
+      ],
+      "constraints": [
+        "Do not let old plan hashes satisfy current state when stateVersionHash, rules, manifests, or anchors changed.",
+        "Approval authority must be explicit; no hidden default approval by PMO."
+      ],
+      "context": {
+        "phase": "2",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:775-791",
+        "tags": [
+          "approval",
+          "evidence",
+          "expected-receipts",
+          "ttl"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-401 first."
+    },
+    {
+      "dependencies": [
+        "pmo-401",
+        "pmo-402"
+      ],
+      "id": "pmo-403",
+      "title": "Tracker and decision proposals without downstream mutation",
+      "goal": "Let flight plans propose tracker updates and decision requests while preserving the PMO boundary that execution agents perform actual writes.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-2",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Proposal payloads for tracker comments/blockers/tasks, report updates, verification reruns, and decision requests.",
+        "No-mutation enforcement tests for tracker/GitHub/Hoplon/Semantix/Guardrail/Phalanx operations.",
+        "Receipt expectations tied to proposed external actions."
+      ],
+      "definition_of_done": [
+        "PMO output clearly separates proposed external actions from actions already performed.",
+        "Tracker update proposals identify target slug/task/ref, rationale, approval/evidence needs, and expected receipt shape.",
+        "Decision request proposals include authority required, scope, due/review behavior, affected refs, and evidence obligations.",
+        "Tests prove PMO does not call tracker write endpoints or other mutation-capable downstream APIs."
+      ],
+      "constraints": [
+        "Execution agents own downstream mutations and must return receipts.",
+        "Avoid hiding external side effects behind adapter method names."
+      ],
+      "context": {
+        "phase": "2",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:775-790",
+        "tags": [
+          "tracker-proposals",
+          "decision-requests",
+          "no-mutation"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-401 and pmo-402 first."
+    },
+    {
+      "dependencies": [
+        "pmo-401"
+      ],
+      "id": "pmo-404",
+      "title": "Circular propagation suppression and repeated-plan stability",
+      "goal": "Prevent adapter-to-adapter feedback loops and prove repeated planning is stable under unchanged deterministic inputs.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-2",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Propagation ancestry, causation, idempotency, and suppression metadata.",
+        "Loop-detection tests for repeated proposed actions and adapter feedback.",
+        "Repeated-plan stability tests over unchanged state hash, context anchor, proposed change, manifests, and rules."
+      ],
+      "definition_of_done": [
+        "A proposed propagation action carries enough ancestry/causation metadata to avoid recursive loops.",
+        "Repeated flight plan generation under identical deterministic inputs is stable.",
+        "Suppressed duplicate/looping proposals are visible as findings or warnings with evidence refs.",
+        "Suppression does not hide genuinely new state changes with new hashes/cursors."
+      ],
+      "constraints": [
+        "Propagation must be loop-safe and idempotent.",
+        "Cross-tool execution is not a PMO transaction; partial completion remains explicit."
+      ],
+      "context": {
+        "phase": "2",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:70-78",
+        "tags": [
+          "propagation",
+          "idempotency",
+          "loop-suppression"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-401 first."
+    },
+    {
+      "dependencies": [
+        "pmo-402",
+        "pmo-403",
+        "pmo-404"
+      ],
+      "id": "pmo-405",
+      "title": "Phase 2 acceptance proof",
+      "goal": "Close Phase 2 by proving deterministic flight plans, approval gates, evidence obligations, proposal-only downstream actions, and stale-plan behavior.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-2",
+        "priorityId": "p1"
+      },
+      "effort": "s",
+      "expected_changes": [
+        "Phase 2 evidence report or implementation report.",
+        "Verification artifacts for stable flightPlanHash, no tracker writes, HITL gates, evidence policy behavior, advisory exclusion, and stale-plan revalidation."
+      ],
+      "definition_of_done": [
+        "No tracker writes occur through PMO.",
+        "Repeated flight plans are stable under the same deterministic inputs.",
+        "Unsatisfied HITL approval gates appear as hard blocks.",
+        "Missing evidence blocks or warns according to policy.",
+        "Expired or stale plans require revalidation before receipts can satisfy them."
+      ],
+      "constraints": [
+        "Do not move to receipt ledger until expected receipt obligations and no-mutation behavior are proven.",
+        "Acceptance proof must include reproducible test or fixture evidence."
+      ],
+      "context": {
+        "phase": "2",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:784-791",
+        "tags": [
+          "acceptance",
+          "phase-2",
+          "flight-plan"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-402, pmo-403, and pmo-404 first."
+    },
+    {
+      "dependencies": [
+        "pmo-405"
+      ],
+      "id": "pmo-501",
+      "title": "Expected-vs-observed receipt ledger and audit events",
+      "goal": "Implement PMO-owned ledger storage for expected receipts, observed receipts, action ledger entries, audit events, and reconcile status.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-3",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Ledger schemas/repository support for ActionLedgerEntry, ExpectedReceipt, ObservedReceipt, audit events, and reconcile status.",
+        "Persistence model linking receipts to flight plans, evidence refs, actors, trace/correlation, idempotency keys, and affected scope.",
+        "Fixture scenarios for accepted, missing, late, lost, duplicate, and conflicting receipts."
+      ],
+      "definition_of_done": [
+        "Expected and observed receipts can be persisted and queried by plan, action, project, contract, actor, and evidence refs.",
+        "Audit events are append-only and replay-compatible.",
+        "Ledger state represents partial completion explicitly.",
+        "Ledger records do not imply downstream mutation was performed unless an observed receipt/evidence supports it."
+      ],
+      "constraints": [
+        "PMO records receipts and reconciles state; it still does not execute downstream actions.",
+        "Every ledger entry must preserve trace, correlation, actor, scope, and evidence context."
+      ],
+      "context": {
+        "phase": "3",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:793-814",
+        "tags": [
+          "ledger",
+          "receipts",
+          "audit-events"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-405 first."
+    },
+    {
+      "dependencies": [
+        "pmo-501"
+      ],
+      "id": "pmo-502",
+      "title": "record_program_receipt tool and validation",
+      "goal": "Expose receipt submission with validation for digest, signature, operator attestation, authz, idempotency, stale plan state, and required evidence.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-3",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "record_program_receipt MCP tool contract and gateway wiring.",
+        "Receipt validation service for expected receipt matching, digest/signature/operator-attestation methods, actor authority, idempotency, and stale-plan checks.",
+        "Tests for accepted, rejected, duplicate, incomplete, forged, and stale flight-plan receipts."
+      ],
+      "definition_of_done": [
+        "Valid receipts are recorded exactly once and linked to expected receipt obligations.",
+        "Unauthorized, forged, incomplete, duplicate, or stale-plan receipts are rejected with standard envelope warnings/errors.",
+        "Receipt validation respects EvidencePolicy and approval authority rules.",
+        "Accepted receipts update PMO ledger/projections without mutating downstream systems."
+      ],
+      "constraints": [
+        "Do not trust receipt claims without digest/signature/operator-attestation or adapter-observed evidence as required by policy.",
+        "Idempotency must prevent repeated receipt submission from corrupting ledger state."
+      ],
+      "context": {
+        "phase": "3",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:797-814",
+        "tags": [
+          "record-receipt",
+          "validation",
+          "idempotency"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-501 first."
+    },
+    {
+      "dependencies": [
+        "pmo-501",
+        "pmo-502"
+      ],
+      "id": "pmo-503",
+      "title": "reconcile_program_state tool and findings",
+      "goal": "Compare expected receipts and PMO graph state against observed adapter state to raise missing, stale, conflicting, or desynchronized findings.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-3",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "reconcile_program_state MCP tool contract and gateway wiring.",
+        "Reconciliation service comparing expected receipts, observed receipts, adapter state, dependency edges, evidence freshness, and sync cursors.",
+        "Desynchronization finding types and compensating/replacement flight plan proposal payloads."
+      ],
+      "definition_of_done": [
+        "Reconciliation detects one accepted receipt with another missing in fixture scenarios.",
+        "Conflicting adapter-observed state versus receipt claims produces a deterministic finding.",
+        "Late/lost/stuck due-policy timing is surfaced with evidence refs and recommended next action.",
+        "Compensating/replacement plan proposals are generated without executing downstream mutation."
+      ],
+      "constraints": [
+        "Adapter observations can degrade confidence but must be represented with health/freshness metadata.",
+        "Do not hide partial failures behind an overall success status."
+      ],
+      "context": {
+        "phase": "3",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:797-814",
+        "tags": [
+          "reconciliation",
+          "findings",
+          "desynchronization"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-501 and pmo-502 first."
+    },
+    {
+      "dependencies": [
+        "pmo-502",
+        "pmo-503"
+      ],
+      "id": "pmo-504",
+      "title": "Receipt security, idempotency, due-policy, and conflict tests",
+      "goal": "Harden receipt and reconciliation behavior with tests for authz rejection, duplicates, stale plan receipts, due-policy timing, forgery, incompleteness, and conflicting observed state.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-3",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Receipt validation test suite.",
+        "Reconciliation conflict/staleness test suite.",
+        "Due-policy timing tests for in_flight, late, lost, and stuck plans.",
+        "Fixture additions for forged, incomplete, duplicate, stale, missing, and conflicting receipts."
+      ],
+      "definition_of_done": [
+        "Authz rejection tests pass.",
+        "Duplicate receipt and idempotency tests pass.",
+        "Stale flight-plan receipt tests pass.",
+        "Due-policy timing tests pass for in_flight, late, lost, and stuck states.",
+        "Forged/incomplete/conflicting-state tests produce deterministic findings or rejections."
+      ],
+      "constraints": [
+        "Tests must not require live downstream mutation.",
+        "Security failures must return traceable evidence and not merely generic errors."
+      ],
+      "context": {
+        "phase": "3",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:805-814",
+        "tags": [
+          "tests",
+          "receipt-security",
+          "due-policy"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-502 and pmo-503 first."
+    },
+    {
+      "dependencies": [
+        "pmo-504"
+      ],
+      "id": "pmo-505",
+      "title": "Phase 3 acceptance proof",
+      "goal": "Close Phase 3 by proving receipt ledger, validation, idempotency, due policy, reconciliation, and desynchronization behavior.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-3",
+        "priorityId": "p1"
+      },
+      "effort": "s",
+      "expected_changes": [
+        "Phase 3 evidence report or implementation report.",
+        "Verification artifacts for receipt validation, authz rejection, idempotency, stale receipts, due-policy timing, forged/incomplete receipt rejection, conflicting state, and mixed accepted/missing reconciliation."
+      ],
+      "definition_of_done": [
+        "Receipt validation tests pass.",
+        "Authz rejection, duplicate receipt, idempotency, stale flight-plan, due-policy, forged/incomplete, and conflicting-state tests pass.",
+        "Reconciliation tests show one receipt accepted and another missing.",
+        "Desynchronization findings include evidence refs and proposed next actions."
+      ],
+      "constraints": [
+        "Do not proceed to Agentic OS integration until receipt semantics and reconciliation are stable.",
+        "Acceptance evidence must be reproducible through test commands or artifact refs."
+      ],
+      "context": {
+        "phase": "3",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:805-814",
+        "tags": [
+          "acceptance",
+          "phase-3",
+          "reconciliation"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-504 first."
+    },
+    {
+      "dependencies": [
+        "pmo-505"
+      ],
+      "id": "pmo-601",
+      "title": "Agentic OS context packet and receipt submission integration",
+      "goal": "Wire Agentic OS workflows to consume PMO context packets and submit receipts back into Program Manager after execution agents perform external work.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-4",
+        "priorityId": "p0"
+      },
+      "effort": "l",
+      "expected_changes": [
+        "Agentic OS integration points for PMO context packet retrieval.",
+        "Receipt submission path from execution agents to record_program_receipt.",
+        "End-to-end fixture flow from proposed work through PMO context, executor action outside PMO, receipt submission, and ledger update."
+      ],
+      "definition_of_done": [
+        "Agentic OS can request PMO context packets and graph refs for a work context.",
+        "Execution agents can submit receipts back to PMO with trace/correlation/evidence context.",
+        "Integration preserves the passive analyst boundary: PMO does not perform downstream execution.",
+        "Context packet and receipt contracts stay compatible with Phase 1B/3 tests."
+      ],
+      "constraints": [
+        "Do not make PMO the hidden executor in Agentic OS workflows.",
+        "Keep external side effects in specialized execution agents and require receipts back to PMO."
+      ],
+      "context": {
+        "phase": "4",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:816-837",
+        "tags": [
+          "agentic-os",
+          "context-packets",
+          "receipts"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-505 first."
+    },
+    {
+      "dependencies": [
+        "pmo-601"
+      ],
+      "id": "pmo-602",
+      "title": "Trust root, tenant isolation, retention, PII, and redaction hardening",
+      "goal": "Harden production-facing security and governance controls for verified identity, portfolio isolation, trust roots, retention policy, PII handling, and redaction enforcement.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-4",
+        "priorityId": "p0"
+      },
+      "effort": "l",
+      "expected_changes": [
+        "Trust-root integration for server-verified actor identity.",
+        "Tenant/portfolio isolation hardening for all public tools and operational paths.",
+        "Retention and PII policies for PMO events, artifact refs, evidence refs, actor metadata, reports, and receipts.",
+        "Expanded redaction tests and operational policy checks."
+      ],
+      "definition_of_done": [
+        "Tenant isolation tests pass across read, plan, receipt, reconcile, audit, and report paths.",
+        "Auth trust-root tests verify actor identity and scoped authority.",
+        "Retention/redaction tests prove sensitive or expired data is omitted, redacted, or blocked according to policy.",
+        "Tier 0/1 approval and evidence behavior remains enforceable after hardening."
+      ],
+      "constraints": [
+        "Do not store secrets, credentials, raw sessions, or content-bearing evidence inline.",
+        "RetentionPolicyRef must resolve to concrete policy before production-style operations."
+      ],
+      "context": {
+        "phase": "4",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:820-837",
+        "tags": [
+          "security",
+          "trust-root",
+          "tenant-isolation",
+          "retention"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-601 first."
+    },
+    {
+      "dependencies": [
+        "pmo-205",
+        "pmo-505"
+      ],
+      "id": "pmo-603",
+      "title": "OpenTelemetry and operational replay/report checks",
+      "goal": "Add production observability and operational checks for PMO metrics, traces, logs, replay, report regeneration, and degraded adapter behavior.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-4",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "OpenTelemetry metrics, traces, and logs for PMO tool calls, adapter reads, plan generation, receipt validation, reconciliation, replay, and report generation.",
+        "Operational replay and report regeneration checks integrated into runbooks or CI/ops smoke.",
+        "Adapter degraded/circuit evidence surfaced in observability."
+      ],
+      "definition_of_done": [
+        "OTel smoke tests pass and show trace/correlation propagation through PMO flows.",
+        "Replay and report regeneration are part of operational checks.",
+        "Adapter degraded/circuit states emit useful telemetry and evidence refs.",
+        "Observability output does not leak raw sensitive/content-bearing payloads."
+      ],
+      "constraints": [
+        "Telemetry must respect redaction and pointer-only evidence rules.",
+        "Operational checks should distinguish unavailable/degraded dependencies from PMO logic failures."
+      ],
+      "context": {
+        "phase": "4",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:825-837",
+        "tags": [
+          "otel",
+          "operations",
+          "replay",
+          "reports"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-205 and pmo-505 first."
+    },
+    {
+      "dependencies": [
+        "pmo-601",
+        "pmo-602",
+        "pmo-603"
+      ],
+      "id": "pmo-604",
+      "title": "End-to-end Agentic OS operational smoke",
+      "goal": "Prove the hardened Program Manager path works end to end across context packets, execution-agent receipts, reconciliation, tenant isolation, degraded adapters, replay, retention, and OTel evidence.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-4",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "End-to-end smoke scenario and evidence artifact.",
+        "Verification evidence for context packets, receipts, reconciliation, tenant isolation, trust root, degraded adapters, schema migration/replay, retention/redaction, and OTel."
+      ],
+      "definition_of_done": [
+        "End-to-end workflow smoke passes.",
+        "Context packet, tenant isolation, auth trust-root, adapter degraded/circuit, schema migration/replay, retention/redaction, and OTel smoke tests pass.",
+        "Smoke evidence includes artifact/evidence refs and trace/correlation IDs.",
+        "Any unresolved production hardening gaps are recorded as explicit follow-up tasks or decision gates."
+      ],
+      "constraints": [
+        "Do not call external production mutation paths without explicit operator approval.",
+        "Smoke must preserve PMO as analyst/planner/ledger, not executor."
+      ],
+      "context": {
+        "phase": "4",
+        "roadmap_reference": "program-manager-mcp-integrated-blueprint-2026-05-03.md:828-837",
+        "tags": [
+          "e2e",
+          "operational-smoke",
+          "hardening"
+        ]
+      },
+      "comment": "Dependency-only sequencing blocker: complete pmo-601, pmo-602, and pmo-603 first."
+    }
+  ]
+}
