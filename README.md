@@ -8,6 +8,10 @@ The current authoritative planning documents are:
 
 - [Integrated implementation blueprint](program-manager-mcp-integrated-blueprint-2026-05-03.md)
 - [Original agent handoff](program-manager-mcp-agent-handoff-2026-05-03.md)
+- [Phase 0 schema examples and fixture contracts](docs/phase-0/schema-examples-and-fixture-contracts.md)
+- [Phase 0 adapter, authz, approval, and security contracts](docs/phase-0/adapter-authz-approval-security-contracts.md)
+- [Phase 0 public PMO tool contracts and result envelope](docs/phase-0/public-pmo-tool-contracts-and-result-envelope.md)
+- [Phase 0 sample registry and golden fixture scope](docs/phase-0/sample-registry-and-golden-fixture-scope.md)
 
 The integrated blueprint supersedes the original handoff wherever the two differ. The original handoff remains useful for historical context, fuller rationale, and background requirements.
 

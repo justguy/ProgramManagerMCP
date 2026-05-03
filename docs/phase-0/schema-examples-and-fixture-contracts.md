@@ -26,6 +26,8 @@ The parseable examples live under [`docs/phase-0/fixtures`](./fixtures).
 |---|---|
 | `schema-examples.example.json` | Canonical examples for core PMO schema objects. |
 | `golden-fixture-backbone.example.json` | The shared `G0/C0/A0/F0/H0` fixture backbone. |
+| `tool-contracts.example.json` | Public PMO tool request/result envelope examples and forward-compatible tool scopes. |
+| `sample-registry.example.json` | Seed registry manifest and extended `G0/C0/A0/F0/H0/P0/R0/I0` fixture scope. |
 | `state-version-hash-input.example.json` | Parseable `stateVersionHash` input and expected digest. |
 | `flight-plan-hash-input.example.json` | Parseable `flightPlanHash` input and expected digest. |
 
@@ -63,6 +65,9 @@ Every phase should extend one shared fixture backbone instead of creating isolat
 | `A0` | Expected affected refs: projects, contracts, integration points, tracker tasks, policies, and evidence refs. |
 | `F0` | Expected findings: at least one cross-project dependency and one stale/missing evidence condition. |
 | `H0` | Expected `stateVersionHash`. |
+| `P0` | Public PMO tool envelope and Phase 1A tool examples. |
+| `R0` | Sample registry seed manifest for programs, projects, integration points, contracts, policies, evidence refs, decisions, and sync cursors. |
+| `I0` | Initial intelligence fixture for repeated blockers, stale evidence, missing evidence, discarded decisions, and risk signals. |
 
 `golden-fixture-backbone.example.json` keeps these names as first-class keys so later tests can address them directly.
 

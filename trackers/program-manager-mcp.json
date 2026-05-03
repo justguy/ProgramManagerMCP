@@ -50,8 +50,8 @@
       }
     ],
     "scratchpad": "Program Manager MCP board is ready: 7 phase swimlanes, 37 tasks, CT-validated dependency graph, pmo-001 is the only currently executable task.",
-    "rev": 13,
-    "updatedAt": "2026-05-03T22:13:22.777Z"
+    "rev": 16,
+    "updatedAt": "2026-05-03T22:25:24.010Z"
   },
   "tasks": [
     {
@@ -203,7 +203,7 @@
       "id": "pmo-004",
       "title": "Public PMO tool contracts and result envelope",
       "goal": "Define the small MCP surface and a standard result envelope so every PMO tool returns deterministic core data, evidence refs, artifacts, warnings, and redaction metadata consistently.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-0",
         "priorityId": "p1"
@@ -233,7 +233,15 @@
           "contracts"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-002 and pmo-003 first."
+      "comment": "Completed public PMO tool contracts and result envelope. Added Phase 1A request/core examples, forward-compatible later tool scopes, authz/redaction expectations, and parseable envelope fixture examples.",
+      "assignee": "codex",
+      "blocker_reason": null,
+      "references": [
+        "docs/phase-0/public-pmo-tool-contracts-and-result-envelope.md:3",
+        "docs/phase-0/public-pmo-tool-contracts-and-result-envelope.md:62",
+        "docs/phase-0/fixtures/tool-contracts.example.json:39",
+        "docs/phase-0/schema-examples-and-fixture-contracts.md:29"
+      ]
     },
     {
       "dependencies": [
@@ -243,7 +251,7 @@
       "id": "pmo-005",
       "title": "Sample registry and golden fixture scope",
       "goal": "Define the sample program registry and fixture universe for AMG, Hoplon, Phalanx, Semantix, and Guardrail so all later tests share one backbone.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-0",
         "priorityId": "p1"
@@ -273,7 +281,15 @@
           "open-questions"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-002 and pmo-003 first."
+      "comment": "Completed sample registry and golden fixture scope. Added parseable seed registry, extended fixture anchors P0/R0/I0, and added stale plus missing evidence cases to the golden backbone.",
+      "assignee": "codex",
+      "blocker_reason": null,
+      "references": [
+        "docs/phase-0/sample-registry-and-golden-fixture-scope.md:3",
+        "docs/phase-0/sample-registry-and-golden-fixture-scope.md:89-91",
+        "docs/phase-0/fixtures/sample-registry.example.json:2",
+        "docs/phase-0/fixtures/golden-fixture-backbone.example.json:197"
+      ]
     },
     {
       "dependencies": [

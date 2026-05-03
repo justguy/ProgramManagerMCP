@@ -1,0 +1,336 @@
+{
+  "manifestId": "registry://program-manager/seed-agentic-os-v0",
+  "schemaVersion": "1.0.0",
+  "portfolios": [
+    {
+      "displayName": "Default Portfolio",
+      "portfolioId": "portfolio://default",
+      "tenantId": "tenant://local-dev"
+    }
+  ],
+  "programs": [
+    {
+      "displayName": "Agentic OS",
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os"
+    }
+  ],
+  "projects": [
+    {
+      "displayName": "Ask MR Gambler",
+      "portfolioId": "portfolio://default",
+      "programIds": [
+        "program://agentic-os"
+      ],
+      "projectId": "project://ask-mr-gambler",
+      "repoRefs": [
+        "repo://AskMrGambler"
+      ],
+      "sourceRefs": [
+        "tracker://ask-mr-gambler-agentic-os"
+      ]
+    },
+    {
+      "displayName": "Guardrail",
+      "portfolioId": "portfolio://default",
+      "programIds": [
+        "program://agentic-os"
+      ],
+      "projectId": "project://guardrail",
+      "repoRefs": [
+        "repo://Guardian"
+      ],
+      "sourceRefs": [
+        "tracker://guardrail-roadmap"
+      ]
+    },
+    {
+      "displayName": "Hoplon",
+      "portfolioId": "portfolio://default",
+      "programIds": [
+        "program://agentic-os"
+      ],
+      "projectId": "project://hoplon",
+      "repoRefs": [
+        "repo://Hoplon"
+      ],
+      "sourceRefs": [
+        "tracker://hoplon"
+      ]
+    },
+    {
+      "displayName": "Project Phalanx",
+      "portfolioId": "portfolio://default",
+      "programIds": [
+        "program://agentic-os"
+      ],
+      "projectId": "project://phalanx",
+      "repoRefs": [
+        "repo://Phalanx"
+      ],
+      "sourceRefs": [
+        "tracker://project-phalanx"
+      ]
+    },
+    {
+      "displayName": "Semantix",
+      "portfolioId": "portfolio://default",
+      "programIds": [
+        "program://agentic-os"
+      ],
+      "projectId": "project://semantix",
+      "repoRefs": [
+        "repo://Semantix"
+      ],
+      "sourceRefs": [
+        "tracker://semantix"
+      ]
+    }
+  ],
+  "verticals": [
+    {
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectIds": [
+        "project://ask-mr-gambler",
+        "project://phalanx"
+      ],
+      "verticalId": "vertical://agentic-os/runtime-orchestration"
+    },
+    {
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectIds": [
+        "project://guardrail",
+        "project://hoplon",
+        "project://semantix"
+      ],
+      "verticalId": "vertical://agentic-os/control-and-readiness"
+    }
+  ],
+  "integrationPoints": [
+    {
+      "consumerProjectIds": [
+        "project://ask-mr-gambler",
+        "project://phalanx"
+      ],
+      "integrationPointId": "integration://guardrail/runtime-controls",
+      "portfolioId": "portfolio://default",
+      "producerProjectId": "project://guardrail",
+      "purpose": "Runtime, provider, and policy constraints consumed by orchestration."
+    },
+    {
+      "consumerProjectIds": [
+        "project://ask-mr-gambler",
+        "project://phalanx"
+      ],
+      "integrationPointId": "integration://hoplon/authz-gateway",
+      "portfolioId": "portfolio://default",
+      "producerProjectId": "project://hoplon",
+      "purpose": "Hoplon authorization contracts consumed by agentic program flows."
+    },
+    {
+      "consumerProjectIds": [
+        "project://ask-mr-gambler"
+      ],
+      "integrationPointId": "integration://phalanx/orchestration",
+      "portfolioId": "portfolio://default",
+      "producerProjectId": "project://phalanx",
+      "purpose": "Orchestration state consumed by Agentic OS program workflows."
+    },
+    {
+      "consumerProjectIds": [
+        "project://ask-mr-gambler",
+        "project://phalanx"
+      ],
+      "integrationPointId": "integration://semantix/readiness-spec-flow",
+      "portfolioId": "portfolio://default",
+      "producerProjectId": "project://semantix",
+      "purpose": "Spec readiness and alignment state consumed by planning."
+    },
+    {
+      "consumerProjectIds": [
+        "project://ask-mr-gambler",
+        "project://guardrail",
+        "project://hoplon",
+        "project://phalanx",
+        "project://semantix"
+      ],
+      "integrationPointId": "integration://tracker/program-state",
+      "portfolioId": "portfolio://default",
+      "producerProjectId": "project://program-manager-mcp",
+      "purpose": "Tracker task, blocker, and status observations consumed as PMO evidence."
+    }
+  ],
+  "contracts": [
+    {
+      "contractRef": "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "integrationPointId": "integration://guardrail/runtime-controls",
+      "portfolioId": "portfolio://default",
+      "producerProjectId": "project://guardrail"
+    },
+    {
+      "contractRef": "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "integrationPointId": "integration://hoplon/authz-gateway",
+      "portfolioId": "portfolio://default",
+      "producerProjectId": "project://hoplon"
+    },
+    {
+      "contractRef": "contract://semantix/readiness-spec@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "integrationPointId": "integration://semantix/readiness-spec-flow",
+      "portfolioId": "portfolio://default",
+      "producerProjectId": "project://semantix"
+    }
+  ],
+  "policies": [
+    {
+      "allowedVerificationMethods": [
+        "adapter_observed_state",
+        "content_digest",
+        "operator_attestation"
+      ],
+      "policyId": "policy://active-adapters/hoplon-authz-tier1"
+    },
+    {
+      "allowedVerificationMethods": [
+        "adapter_observed_state",
+        "content_digest"
+      ],
+      "policyId": "policy://evidence/guardrail-runtime-current"
+    },
+    {
+      "allowedVerificationMethods": [
+        "adapter_observed_state",
+        "content_digest"
+      ],
+      "policyId": "policy://evidence/tracker-snapshot-fast-expiry"
+    },
+    {
+      "allowedVerificationMethods": [
+        "adapter_observed_state",
+        "content_digest"
+      ],
+      "policyId": "policy://evidence/semantix-readiness-current"
+    }
+  ],
+  "evidenceRefs": [
+    {
+      "classification": "internal",
+      "evidenceRef": "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidenceType": "alignment_report_envelope",
+      "portfolioId": "portfolio://default",
+      "redactionStatus": "redacted"
+    },
+    {
+      "classification": "internal",
+      "evidenceRef": "evidence://guardrail/runtime-controls/missing-current-snapshot",
+      "evidenceType": "missing_runtime_policy_snapshot",
+      "portfolioId": "portfolio://default",
+      "redactionStatus": "not_required"
+    },
+    {
+      "classification": "internal",
+      "evidenceRef": "tracker://program-manager-mcp/PMO-001",
+      "evidenceType": "tracker_task_ref",
+      "portfolioId": "portfolio://default",
+      "redactionStatus": "redacted"
+    }
+  ],
+  "decisions": [
+    {
+      "actorId": "actor://human/operator-001",
+      "appliesToRefs": [
+        "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "authorityRef": "authority://portfolio/default/tier1-operator",
+      "decisionId": "decision://agentic-os/hoplon-authz-tier1-approval",
+      "decisionType": "approval_gate",
+      "evidenceRefs": [
+        "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "recordedAt": "2026-05-03T12:04:00Z",
+      "status": "active",
+      "validFrom": "2026-05-03T12:00:00Z"
+    }
+  ],
+  "syncCursors": [
+    {
+      "adapterId": "guardrail-local",
+      "cursor": "cursor://guardrail/runtime-controls/missing",
+      "observedAt": "2026-05-03T12:05:00Z",
+      "portfolioId": "portfolio://default",
+      "sourceRevisionHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "status": "unavailable"
+    },
+    {
+      "adapterId": "hoplon-local",
+      "cursor": "snapshot:s-2026-05-03",
+      "observedAt": "2026-05-03T12:05:00Z",
+      "portfolioId": "portfolio://default",
+      "sourceRevisionHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "status": "current"
+    },
+    {
+      "adapterId": "tracker-local",
+      "cursor": "rev:12",
+      "observedAt": "2026-05-03T12:05:00Z",
+      "portfolioId": "portfolio://default",
+      "sourceRevisionHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "status": "stale"
+    }
+  ],
+  "fixtureScope": {
+    "A0": {
+      "description": "Expected affected refs for C0 over G0."
+    },
+    "C0": {
+      "description": "Hoplon authz contract update plus tracker evidence freshness check."
+    },
+    "F0": {
+      "description": "Expected cross-project dependency plus stale and missing evidence findings."
+    },
+    "G0": {
+      "description": "Seed graph loaded from this registry plus adapter manifests."
+    },
+    "H0": {
+      "description": "Expected stateVersionHash over deterministic fixture input."
+    },
+    "I0": {
+      "description": "Initial intelligence findings over G0."
+    },
+    "P0": {
+      "description": "Phase 1A public tool envelope examples."
+    },
+    "R0": {
+      "description": "This sample registry manifest."
+    }
+  },
+  "openQuestions": [
+    {
+      "decisionRef": "decision://program-manager/actual-hoplon-project-ids",
+      "question": "Which exact project IDs does Hoplon register for AMG, Hoplon, Phalanx, Semantix, and Guardrail?"
+    },
+    {
+      "decisionRef": "decision://program-manager/tracker-adapter-source",
+      "question": "Should the first tracker adapter read local JSON, the tracker API, the tracker CLI, or an MCP client?"
+    },
+    {
+      "decisionRef": "decision://program-manager/runtime-trust-root",
+      "question": "What is the runtime trust root for verified actor identity?"
+    },
+    {
+      "decisionRef": "decision://program-manager/artifact-store-uri-allowlist",
+      "question": "Which artifact store backs artifact refs, and what is the final URI allowlist for fetchable refs?"
+    },
+    {
+      "decisionRef": "decision://program-manager/neo4j-feature-baseline",
+      "question": "Which Neo4j edition and features are assumed for constraints, indexes, and migrations?"
+    },
+    {
+      "decisionRef": "decision://program-manager/retention-and-approval-authorities",
+      "question": "What retention policies and tier 0 or tier 1 approval authorities apply by portfolio and program?"
+    }
+  ]
+}

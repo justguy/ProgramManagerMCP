@@ -67,6 +67,14 @@
         "producerProjectId": "project://hoplon"
       },
       {
+        "integrationPointId": "integration://guardrail/runtime-controls",
+        "consumerProjectIds": [
+          "project://ask-mr-gambler",
+          "project://phalanx"
+        ],
+        "producerProjectId": "project://guardrail"
+      },
+      {
         "integrationPointId": "integration://tracker/local-json",
         "consumerProjectIds": [
           "project://program-manager-mcp"
@@ -96,6 +104,17 @@
         ],
         "status": "stale",
         "toRef": "tracker://program-manager-mcp/PMO-001"
+      },
+      {
+        "criticality": "tier_1",
+        "dependencyId": "dep-guardrail-runtime-controls",
+        "dependencyType": "REQUIRES_EVIDENCE",
+        "fromRef": "project://ask-mr-gambler",
+        "policyRefs": [
+          "policy://evidence/guardrail-runtime-current"
+        ],
+        "status": "blocked",
+        "toRef": "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       }
     ],
     "decisionRefs": [
@@ -134,6 +153,10 @@
         "ref": "policy://active-adapters/hoplon-authz-tier1"
       },
       {
+        "kind": "policy",
+        "ref": "policy://evidence/guardrail-runtime-current"
+      },
+      {
         "kind": "project",
         "ref": "project://ask-mr-gambler"
       },
@@ -164,11 +187,48 @@
         "findingId": "finding-stale-tracker-evidence",
         "severity": "high",
         "type": "stale_evidence"
+      },
+      {
+        "evidenceRefs": [
+          "evidence://guardrail/runtime-controls/missing-current-snapshot"
+        ],
+        "findingId": "finding-missing-guardrail-runtime-evidence",
+        "severity": "critical",
+        "type": "missing_evidence"
       }
     ]
   },
   "H0": {
     "expectedStateVersionHash": "sha256:e09a293b2e26336a28c45edbbb7da59c2b5edcd3dce5bd740284e569b67a20dc",
     "hashInputRef": "docs/phase-0/fixtures/state-version-hash-input.example.json"
+  },
+  "P0": {
+    "description": "Phase 1A public tool request/result envelope examples.",
+    "fixtureRef": "docs/phase-0/fixtures/tool-contracts.example.json"
+  },
+  "R0": {
+    "description": "Sample registry manifest for AMG, Hoplon, Phalanx, Semantix, and Guardrail.",
+    "fixtureRef": "docs/phase-0/fixtures/sample-registry.example.json"
+  },
+  "I0": {
+    "description": "Initial intelligence findings over G0.",
+    "findings": [
+      {
+        "evidenceRefs": [
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "findingId": "intel-stale-tracker-evidence",
+        "severity": "high",
+        "type": "stale_evidence"
+      },
+      {
+        "evidenceRefs": [
+          "evidence://guardrail/runtime-controls/missing-current-snapshot"
+        ],
+        "findingId": "intel-missing-guardrail-runtime-evidence",
+        "severity": "critical",
+        "type": "missing_evidence"
+      }
+    ]
   }
 }

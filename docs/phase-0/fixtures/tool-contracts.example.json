@@ -1,0 +1,425 @@
+{
+  "schemaVersion": "1.0.0",
+  "validationContract": {
+    "advisoryExcludedFromDeterministicHash": true,
+    "envelopeSchemaVersion": "1",
+    "pointerOnly": true,
+    "prohibitedInlineKinds": [
+      "credentials",
+      "logs",
+      "product_rows",
+      "provider_transcripts",
+      "scratchpads",
+      "screenshots",
+      "secrets",
+      "session_data",
+      "traces"
+    ]
+  },
+  "commonRequestContext": {
+    "contextAnchor": {
+      "asOf": "2026-05-03T12:00:00Z",
+      "branchName": "main",
+      "gitCommit": "abc123def456",
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "repoId": "repo://ProgramManagerMCP",
+      "trackerRev": 12,
+      "trackerSlug": "program-manager-mcp"
+    },
+    "correlationId": "corr-pmo-phase0-tool-contracts",
+    "portfolioId": "portfolio://default",
+    "programId": "program://agentic-os",
+    "projectIds": [
+      "project://program-manager-mcp"
+    ],
+    "traceId": "trace-pmo-phase0-tool-contracts"
+  },
+  "phase1aToolExamples": {
+    "assess_program_impact": {
+      "request": {
+        "changeKind": "contract_update",
+        "changeRef": "change://program-manager-mcp/c0-hoplon-authz-contract-update",
+        "contextAnchor": {
+          "asOf": "2026-05-03T12:00:00Z",
+          "branchName": "main",
+          "gitCommit": "abc123def456",
+          "portfolioId": "portfolio://default",
+          "programId": "program://agentic-os",
+          "projectId": "project://hoplon",
+          "repoId": "repo://Hoplon"
+        },
+        "correlationId": "corr-pmo-impact-c0",
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "targetRefs": [
+          "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "traceId": "trace-pmo-impact-c0",
+        "traversalBudgetRef": "budget://phase-1a/default"
+      },
+      "result": {
+        "advisoryPane": {
+          "content": {
+            "summary": "Hoplon authz changes affect two consuming projects and require fresh tracker evidence before downstream execution."
+          },
+          "excludedFromDeterministicHash": true,
+          "modelAssisted": true
+        },
+        "artifactRefs": [
+          "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "correlationId": "corr-pmo-impact-c0",
+        "deterministicCore": {
+          "affectedRefs": [
+            {
+              "kind": "contract",
+              "reason": "target_contract_changed",
+              "ref": "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            },
+            {
+              "kind": "evidence",
+              "reason": "stale_evidence_candidate",
+              "ref": "tracker://program-manager-mcp/PMO-001"
+            },
+            {
+              "kind": "project",
+              "reason": "consumes_contract",
+              "ref": "project://ask-mr-gambler"
+            },
+            {
+              "kind": "project",
+              "reason": "consumes_contract",
+              "ref": "project://phalanx"
+            }
+          ],
+          "changeRef": "change://program-manager-mcp/c0-hoplon-authz-contract-update",
+          "evidenceObligations": [
+            {
+              "policyRef": "policy://active-adapters/hoplon-authz-tier1",
+              "status": "satisfied",
+              "targetRef": "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            },
+            {
+              "policyRef": "policy://evidence/tracker-snapshot-fast-expiry",
+              "status": "stale",
+              "targetRef": "tracker://program-manager-mcp/PMO-001"
+            }
+          ],
+          "findings": [
+            {
+              "evidenceRefs": [
+                "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              ],
+              "findingId": "finding-cross-project-hoplon-authz",
+              "severity": "high",
+              "summary": "Hoplon authz contract has consuming projects outside Hoplon.",
+              "type": "cross_project_dependency"
+            },
+            {
+              "evidenceRefs": [
+                "tracker://program-manager-mcp/PMO-001"
+              ],
+              "findingId": "finding-stale-tracker-evidence",
+              "severity": "high",
+              "summary": "Tracker evidence cursor is older than the fast-expiry policy.",
+              "type": "stale_evidence"
+            }
+          ],
+          "requiredApprovals": [
+            {
+              "authorityRef": "authority://portfolio/default/tier1-operator",
+              "evidencePolicyRefs": [
+                "policy://active-adapters/hoplon-authz-tier1"
+              ],
+              "reason": "tier_1_contract_dependency"
+            }
+          ]
+        },
+        "evidenceRefs": [
+          "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectIds": [
+          "project://ask-mr-gambler",
+          "project://hoplon",
+          "project://phalanx"
+        ],
+        "redactionSummary": {
+          "omittedKinds": [
+            "code_context_body",
+            "task_comment_body"
+          ],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": true
+        },
+        "schemaVersion": "1",
+        "stateVersionHash": "sha256:e09a293b2e26336a28c45edbbb7da59c2b5edcd3dce5bd740284e569b67a20dc",
+        "status": "warning",
+        "toolName": "assess_program_impact",
+        "traceId": "trace-pmo-impact-c0",
+        "warnings": [
+          {
+            "evidenceRefs": [
+              "tracker://program-manager-mcp/PMO-001"
+            ],
+            "severity": "high",
+            "summary": "Tracker evidence is stale for the requested context.",
+            "warningId": "warning-stale-tracker-evidence"
+          }
+        ]
+      }
+    },
+    "get_program_documentation": {
+      "request": {
+        "correlationId": "corr-pmo-docs-tool-contracts",
+        "format": "json_summary",
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "topic": "tool_contracts",
+        "traceId": "trace-pmo-docs-tool-contracts"
+      },
+      "result": {
+        "artifactRefs": [
+          "artifact://pmo/docs/tool-contracts@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        ],
+        "correlationId": "corr-pmo-docs-tool-contracts",
+        "deterministicCore": {
+          "sections": [
+            {
+              "artifactRefs": [
+                "artifact://pmo/docs/tool-contracts@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              ],
+              "evidenceRefs": [],
+              "schemaRefs": [
+                "schema://program-manager/tool-result-envelope/v1"
+              ],
+              "sectionId": "tool-result-envelope",
+              "summary": "All public PMO tools return deterministic core data, optional advisory data, refs, warnings, redaction metadata, trace id, and correlation id.",
+              "title": "Tool Result Envelope"
+            }
+          ],
+          "topic": "tool_contracts"
+        },
+        "evidenceRefs": [],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "redactionSummary": {
+          "omittedKinds": [],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": false
+        },
+        "schemaVersion": "1",
+        "status": "ok",
+        "toolName": "get_program_documentation",
+        "traceId": "trace-pmo-docs-tool-contracts",
+        "warnings": []
+      }
+    },
+    "list_program_capabilities": {
+      "request": {
+        "capabilityDomain": "impact",
+        "correlationId": "corr-pmo-capabilities",
+        "includeAdapters": true,
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "traceId": "trace-pmo-capabilities"
+      },
+      "result": {
+        "artifactRefs": [],
+        "correlationId": "corr-pmo-capabilities",
+        "deterministicCore": {
+          "capabilities": [
+            {
+              "adapterIds": [
+                "hoplon-local",
+                "tracker-local"
+              ],
+              "capabilityId": "capability://program-manager/impact-analysis",
+              "domains": [
+                "contract_context",
+                "impact",
+                "task_dependency"
+              ],
+              "evidencePolicyRefs": [
+                "policy://active-adapters/hoplon-authz-tier1",
+                "policy://evidence/tracker-snapshot-fast-expiry"
+              ],
+              "phase": "1A",
+              "sideEffectPosture": "read_only",
+              "status": "available",
+              "toolNames": [
+                "assess_program_impact",
+                "query_program_context"
+              ]
+            }
+          ]
+        },
+        "evidenceRefs": [],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "redactionSummary": {
+          "omittedKinds": [
+            "downstream_mutation_methods"
+          ],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": true
+        },
+        "schemaVersion": "1",
+        "status": "ok",
+        "toolName": "list_program_capabilities",
+        "traceId": "trace-pmo-capabilities",
+        "warnings": []
+      }
+    },
+    "query_program_context": {
+      "request": {
+        "contextAnchor": {
+          "asOf": "2026-05-03T12:00:00Z",
+          "branchName": "main",
+          "gitCommit": "abc123def456",
+          "portfolioId": "portfolio://default",
+          "programId": "program://agentic-os",
+          "projectId": "project://hoplon",
+          "repoId": "repo://Hoplon"
+        },
+        "correlationId": "corr-pmo-context-hoplon",
+        "includeFutureNotApplicable": true,
+        "includeSuperseded": true,
+        "limit": 25,
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "queryKind": "dependency_status",
+        "targetRefs": [
+          "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        ],
+        "traceId": "trace-pmo-context-hoplon"
+      },
+      "result": {
+        "artifactRefs": [],
+        "correlationId": "corr-pmo-context-hoplon",
+        "deterministicCore": {
+          "contextAnchor": {
+            "asOf": "2026-05-03T12:00:00Z",
+            "branchName": "main",
+            "gitCommit": "abc123def456",
+            "portfolioId": "portfolio://default",
+            "programId": "program://agentic-os",
+            "projectId": "project://hoplon",
+            "repoId": "repo://Hoplon"
+          },
+          "matchedRefs": [
+            {
+              "evidenceRefs": [
+                "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              ],
+              "kind": "contract",
+              "reason": "active_consumed_contract",
+              "recordedAt": "2026-05-03T12:02:00Z",
+              "ref": "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "status": "active",
+              "validFrom": "2026-05-03T00:00:00Z"
+            }
+          ],
+          "omittedRefCount": 0
+        },
+        "evidenceRefs": [
+          "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectIds": [
+          "project://hoplon"
+        ],
+        "redactionSummary": {
+          "omittedKinds": [
+            "code_context_body"
+          ],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": true
+        },
+        "schemaVersion": "1",
+        "stateVersionHash": "sha256:e09a293b2e26336a28c45edbbb7da59c2b5edcd3dce5bd740284e569b67a20dc",
+        "status": "ok",
+        "toolName": "query_program_context",
+        "traceId": "trace-pmo-context-hoplon",
+        "warnings": []
+      }
+    }
+  },
+  "laterToolContractScope": [
+    {
+      "deterministicCoreIncludes": [
+        "templateVersion",
+        "sectionRefs",
+        "artifactRefs",
+        "evidenceEnvelopeRef"
+      ],
+      "phase": "1B",
+      "toolName": "generate_program_update"
+    },
+    {
+      "deterministicCoreIncludes": [
+        "auditEntries",
+        "cursor",
+        "evidenceRefs",
+        "redactionSummary"
+      ],
+      "phase": "1B",
+      "toolName": "get_program_audit_trail"
+    },
+    {
+      "deterministicCoreIncludes": [
+        "riskSignals",
+        "staleEvidence",
+        "discardedDecisionMatches",
+        "learningRefs"
+      ],
+      "phase": "1C",
+      "toolName": "analyze_program_intelligence"
+    },
+    {
+      "deterministicCoreIncludes": [
+        "flightPlanHash",
+        "affectedScope",
+        "approvalGates",
+        "expectedReceipts",
+        "evidenceObligations"
+      ],
+      "phase": "2",
+      "toolName": "plan_program_action"
+    },
+    {
+      "deterministicCoreIncludes": [
+        "receiptValidation",
+        "ledgerEntryRef",
+        "missingEvidence",
+        "conflictingObservedState"
+      ],
+      "phase": "3",
+      "toolName": "record_program_receipt"
+    },
+    {
+      "deterministicCoreIncludes": [
+        "expectedVsObserved",
+        "desyncFindings",
+        "staleCursors",
+        "evidenceRefs"
+      ],
+      "phase": "3",
+      "toolName": "reconcile_program_state"
+    }
+  ]
+}
