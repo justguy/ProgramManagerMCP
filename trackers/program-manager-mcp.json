@@ -50,8 +50,8 @@
       }
     ],
     "scratchpad": "Program Manager MCP board is ready: 7 phase swimlanes, 37 tasks, CT-validated dependency graph, pmo-001 is the only currently executable task.",
-    "rev": 9,
-    "updatedAt": "2026-05-03T21:43:57.724Z"
+    "rev": 13,
+    "updatedAt": "2026-05-03T22:13:22.777Z"
   },
   "tasks": [
     {
@@ -59,7 +59,7 @@
       "id": "pmo-001",
       "title": "ADR, data model, event replay, and hash spec",
       "goal": "Document Program Manager as a stateful PMO memory service with its own database, deterministic event/replay model, and canonical hashing rules before implementation begins.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-0",
         "priorityId": "p0"
@@ -89,8 +89,18 @@
           "adr",
           "hashing",
           "event-replay"
-        ]
-      }
+        ],
+        "files_touched": [
+          "docs/phase-0/adr-pmo-stateful-memory-service.md",
+          "docs/phase-0/data-model-event-replay-and-hash-spec.md",
+          "docs/phase-0/fixtures/state-version-hash-input.example.json",
+          "docs/phase-0/fixtures/flight-plan-hash-input.example.json"
+        ],
+        "notes": "Verified the two JSON fixtures by recomputing canonical SHA-256 over the input objects and matching the stored expectedHash values. tracker_verify was run before completion."
+      },
+      "assignee": "codex",
+      "blocker_reason": null,
+      "comment": "Completed the Phase 0 ADR plus the data model, event replay, and canonical hash spec with parseable stateVersionHash and flightPlanHash fixtures. The docs keep PMO pointer-only, passive, and non-mutating toward downstream systems, and they make authz, redaction, and portfolio isolation explicit design assumptions."
     },
     {
       "dependencies": [
@@ -99,7 +109,7 @@
       "id": "pmo-002",
       "title": "Schema examples and parseable fixture contracts",
       "goal": "Turn core PMO concepts into parseable schema examples and fixture documents that later implementation and conformance tests can reuse.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-0",
         "priorityId": "p0"
@@ -127,9 +137,16 @@
           "schemas",
           "fixtures",
           "json-schema"
-        ]
+        ],
+        "files_touched": [
+          "docs/phase-0/schema-examples-and-fixture-contracts.md",
+          "docs/phase-0/fixtures/schema-examples.example.json",
+          "docs/phase-0/fixtures/golden-fixture-backbone.example.json"
+        ],
+        "notes": "Validation: all Phase 0 JSON fixtures parsed with Node; structural checks confirmed required schema examples and G0/C0/A0/F0/H0 keys; stateVersionHash and flightPlanHash fixtures recomputed successfully."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-001 first."
+      "comment": "Completed schema examples, validation notes, and the shared G0/C0/A0/F0/H0 fixture backbone. The JSON examples parse, include the required core PMO concepts, and stay pointer-only with deterministic ordering rules documented.",
+      "assignee": "codex"
     },
     {
       "dependencies": [
@@ -138,7 +155,7 @@
       "id": "pmo-003",
       "title": "Adapter, authz, approval, and security contracts",
       "goal": "Specify how PMO reads standalone capabilities through adapters and how identity, approval authority, isolation, redaction, and threat controls are enforced.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-0",
         "priorityId": "p0"
@@ -168,9 +185,15 @@
           "authz",
           "security",
           "approval"
-        ]
+        ],
+        "files_touched": [
+          "docs/phase-0/adapter-authz-approval-security-contracts.md",
+          "docs/phase-0/fixtures/adapter-contract-fixtures.example.json"
+        ],
+        "notes": "Validation: adapter fixture JSON parsed; structural checks confirmed explicit side-effect posture and required approval authority/evidence fields. tracker_verify was run before completion."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-001 first."
+      "comment": "Completed adapter, authz, approval, and security contracts with read-only adapter posture, trust-root and portfolio isolation assumptions, approval gate semantics, conformance suite requirements, and threat model tests.",
+      "assignee": "codex"
     },
     {
       "dependencies": [

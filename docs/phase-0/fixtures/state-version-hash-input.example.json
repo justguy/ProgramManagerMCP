@@ -1,0 +1,102 @@
+{
+  "canonicalization": "RFC8785-JCS",
+  "hashAlgorithm": "sha256",
+  "input": {
+    "adapterCursors": [
+      {
+        "adapterId": "tracker-local",
+        "cursor": "rev:10",
+        "sourceRevisionHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "adapterId": "hoplon-local",
+        "cursor": "snapshot:s-2026-05-03",
+        "sourceRevisionHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    ],
+    "adapterManifests": [
+      {
+        "adapterId": "hoplon-local",
+        "version": "1.0.0"
+      },
+      {
+        "adapterId": "tracker-local",
+        "version": "1.0.0"
+      }
+    ],
+    "artifactRefs": [
+      {
+        "artifactId": "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "contextAnchor": {
+      "asOf": "2026-05-03T12:00:00Z",
+      "branchName": "main",
+      "gitCommit": "abc123def456",
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "repoId": "repo://ProgramManagerMCP",
+      "trackerRev": 10,
+      "trackerSlug": "program-manager-mcp"
+    },
+    "dependencyRelationships": [
+      {
+        "criticality": "tier_1",
+        "dependencyId": "dep-approval-hoplon-authz",
+        "dependencyType": "REQUIRES_APPROVAL",
+        "evidenceRefs": [
+          "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "policyRefs": [
+          "policy://active-adapters/hoplon-authz-tier1"
+        ],
+        "sourceCursor": "rev:10",
+        "status": "active",
+        "supersededBy": "",
+        "validFrom": "2026-05-03T00:00:00Z",
+        "verificationRequired": true
+      },
+      {
+        "criticality": "tier_2",
+        "dependencyId": "dep-tracker-evidence-freshness",
+        "dependencyType": "REQUIRES_EVIDENCE",
+        "evidenceRefs": [
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "policyRefs": [
+          "policy://evidence/tracker-snapshot-fast-expiry"
+        ],
+        "sourceCursor": "rev:10",
+        "status": "stale",
+        "supersededBy": "",
+        "validFrom": "2026-05-03T00:00:00Z",
+        "verificationRequired": true
+      }
+    ],
+    "evidenceRefs": [
+      {
+        "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "ref": "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "contentHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ref": "tracker://program-manager-mcp/PMO-001"
+      }
+    ],
+    "reducerVersion": "1.0.0",
+    "ruleRegistry": [
+      {
+        "ruleId": "pmo.contract.stale-evidence.v1",
+        "version": "1.0.0"
+      },
+      {
+        "ruleId": "pmo.receipt.stale-flight-plan.v1",
+        "version": "1.0.0"
+      }
+    ],
+    "schemaVersion": "1.0.0"
+  },
+  "expectedHash": "sha256:e09a293b2e26336a28c45edbbb7da59c2b5edcd3dce5bd740284e569b67a20dc"
+}

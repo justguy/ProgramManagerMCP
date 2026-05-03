@@ -1,0 +1,257 @@
+{
+  "schemaVersion": "1.0.0",
+  "adapterManifests": [
+    {
+      "adapterId": "hoplon-local",
+      "adapterVersion": "1.0.0",
+      "authScopes": [
+        "portfolio:default:read",
+        "project:hoplon:read"
+      ],
+      "capabilityDomains": [
+        "code_context",
+        "contract_context",
+        "snapshot_context"
+      ],
+      "displayName": "Hoplon Local Adapter",
+      "evidenceTypes": [
+        "contract_snapshot",
+        "hoplon_snapshot_ref"
+      ],
+      "healthModel": {
+        "circuitOpenAfterFailures": 4,
+        "circuitOpenSeconds": 1800,
+        "statuses": [
+          "circuit_open",
+          "degraded",
+          "healthy",
+          "unavailable"
+        ]
+      },
+      "maxStaleCursorSeconds": 86400,
+      "methods": {
+        "assessImpact": true,
+        "describeCapabilities": true,
+        "getHealth": true,
+        "getObservationSchema": true,
+        "getSourceCursor": true,
+        "produceEvidenceRefs": true,
+        "readState": true,
+        "reconcileState": false
+      },
+      "phase1aEnabled": true,
+      "redactionPolicyRefs": [
+        "policy://redaction/pointer-only-v1"
+      ],
+      "sideEffectPosture": "mutation_capable_not_exposed",
+      "supportedProjects": [
+        "project://hoplon"
+      ]
+    },
+    {
+      "adapterId": "tracker-local",
+      "adapterVersion": "1.0.0",
+      "authScopes": [
+        "portfolio:default:read",
+        "tracker:program-manager-mcp:read"
+      ],
+      "capabilityDomains": [
+        "tracker_board",
+        "task_dependency",
+        "task_status"
+      ],
+      "displayName": "LLM Tracker Local Adapter",
+      "evidenceTypes": [
+        "tracker_snapshot",
+        "tracker_task_ref"
+      ],
+      "healthModel": {
+        "circuitOpenAfterFailures": 4,
+        "circuitOpenSeconds": 1800,
+        "statuses": [
+          "circuit_open",
+          "degraded",
+          "healthy",
+          "unavailable"
+        ]
+      },
+      "maxStaleCursorSeconds": 300,
+      "methods": {
+        "assessImpact": true,
+        "describeCapabilities": true,
+        "getHealth": true,
+        "getObservationSchema": true,
+        "getSourceCursor": true,
+        "produceEvidenceRefs": true,
+        "readState": true,
+        "reconcileState": false
+      },
+      "phase1aEnabled": true,
+      "redactionPolicyRefs": [
+        "policy://redaction/pointer-only-v1"
+      ],
+      "sideEffectPosture": "read_only",
+      "supportedProjects": [
+        "project://program-manager-mcp"
+      ]
+    }
+  ],
+  "impactExamples": [
+    {
+      "adapterId": "hoplon-local",
+      "request": {
+        "changeKind": "contract_update",
+        "changeRef": "change://program-manager-mcp/c0-hoplon-authz-contract-update",
+        "contextAnchor": {
+          "asOf": "2026-05-03T12:00:00Z",
+          "branchName": "main",
+          "gitCommit": "abc123def456",
+          "portfolioId": "portfolio://default",
+          "programId": "program://agentic-os",
+          "projectId": "project://hoplon",
+          "repoId": "repo://Hoplon"
+        },
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "requestId": "impact-request-hoplon-c0",
+        "targetRefs": [
+          "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        ],
+        "traversalBudgetRef": "budget://phase-1a/default"
+      },
+      "result": {
+        "adapterId": "hoplon-local",
+        "affectedRefs": [
+          {
+            "kind": "contract",
+            "reason": "target_contract_changed",
+            "ref": "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          {
+            "kind": "project",
+            "reason": "consumes_contract",
+            "ref": "project://ask-mr-gambler"
+          },
+          {
+            "kind": "project",
+            "reason": "consumes_contract",
+            "ref": "project://phalanx"
+          }
+        ],
+        "artifactRefs": [
+          "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "evidenceRefs": [
+          "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "findings": [
+          {
+            "evidenceRefs": [
+              "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ],
+            "findingId": "finding-cross-project-hoplon-authz",
+            "severity": "high",
+            "type": "cross_project_dependency"
+          }
+        ],
+        "redactionSummary": {
+          "omittedKinds": [
+            "code_context_body"
+          ],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": true
+        },
+        "requestId": "impact-request-hoplon-c0",
+        "sourceCursor": "snapshot:s-2026-05-03",
+        "status": "warning"
+      }
+    },
+    {
+      "adapterId": "tracker-local",
+      "request": {
+        "changeKind": "evidence_freshness_check",
+        "changeRef": "change://program-manager-mcp/c0-hoplon-authz-contract-update",
+        "contextAnchor": {
+          "asOf": "2026-05-03T12:00:00Z",
+          "portfolioId": "portfolio://default",
+          "programId": "program://agentic-os",
+          "projectId": "project://program-manager-mcp",
+          "trackerRev": 12,
+          "trackerSlug": "program-manager-mcp"
+        },
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "requestId": "impact-request-tracker-c0",
+        "targetRefs": [
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "traversalBudgetRef": "budget://phase-1a/default"
+      },
+      "result": {
+        "adapterId": "tracker-local",
+        "affectedRefs": [
+          {
+            "kind": "tracker_task",
+            "reason": "stale_evidence_candidate",
+            "ref": "tracker://program-manager-mcp/PMO-001"
+          }
+        ],
+        "artifactRefs": [],
+        "evidenceRefs": [
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "findings": [
+          {
+            "evidenceRefs": [
+              "tracker://program-manager-mcp/PMO-001"
+            ],
+            "findingId": "finding-stale-tracker-evidence",
+            "severity": "high",
+            "type": "stale_evidence"
+          }
+        ],
+        "redactionSummary": {
+          "omittedKinds": [
+            "task_comment_body"
+          ],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": true
+        },
+        "requestId": "impact-request-tracker-c0",
+        "sourceCursor": "rev:12",
+        "status": "warning"
+      }
+    }
+  ],
+  "approvalAuthorityExamples": [
+    {
+      "allowedContractRefs": [
+        "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "actorId": "actor://human/operator-001",
+      "authorityRef": "authority://portfolio/default/tier1-operator",
+      "breakGlassAllowed": true,
+      "breakGlassEvidenceRefs": [
+        "policy://evidence/operator-attestation-required"
+      ],
+      "expiresAt": "2026-06-03T00:00:00Z",
+      "maxCriticality": "tier_1",
+      "portfolioGrants": [
+        "portfolio://default"
+      ],
+      "programGrants": [
+        "program://agentic-os"
+      ],
+      "requiredEvidencePolicyRefs": [
+        "policy://active-adapters/hoplon-authz-tier1"
+      ],
+      "reviewBy": "2026-05-10T00:00:00Z",
+      "role": "human_operator",
+      "validFrom": "2026-05-03T00:00:00Z"
+    }
+  ]
+}

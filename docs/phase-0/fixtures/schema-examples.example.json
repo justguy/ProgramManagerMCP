@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "1.0.0",
+  "validationContract": {
+    "schemaAuthoring": "zod",
+    "externalValidation": "json_schema_ajv",
+    "pointerOnly": true,
+    "deterministicOrdering": true,
+    "prohibitedInlineKinds": [
+      "credentials",
+      "logs",
+      "product_rows",
+      "provider_transcripts",
+      "scratchpads",
+      "screenshots",
+      "secrets",
+      "session_data",
+      "traces"
+    ]
+  },
+  "examples": {
+    "artifactRef": {
+      "artifactId": "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifactType": "alignment_report_envelope",
+      "branchName": "main",
+      "classification": "internal",
+      "contentHash": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "createdAt": "2026-05-03T12:03:00Z",
+      "gitCommit": "abc123def456",
+      "portfolioId": "portfolio://default",
+      "producer": "program-manager",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "redactionStatus": "redacted",
+      "repoId": "repo://ProgramManagerMCP",
+      "retentionPolicyRef": "policy://retention/pmo-artifact-metadata-v1",
+      "storageUri": "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "validFrom": "2026-05-03T12:00:00Z"
+    },
+    "contextAnchor": {
+      "asOf": "2026-05-03T12:00:00Z",
+      "branchName": "main",
+      "gitCommit": "abc123def456",
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "repoId": "repo://ProgramManagerMCP",
+      "trackerRev": 12,
+      "trackerSlug": "program-manager-mcp"
+    },
+    "decisionRecord": {
+      "actorId": "actor://human/operator-001",
+      "appliesToRefs": [
+        "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "authorityRef": "authority://portfolio/default/tier1-operator",
+      "decisionId": "decision://agentic-os/hoplon-authz-tier1-approval",
+      "decisionType": "approval_gate",
+      "evidenceRefs": [
+        "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "recordedAt": "2026-05-03T12:04:00Z",
+      "status": "active",
+      "validFrom": "2026-05-03T12:00:00Z"
+    },
+    "dependencyRelationshipProps": {
+      "approvalRequired": true,
+      "contractRef": "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "criticality": "tier_1",
+      "dependencyId": "dep-approval-hoplon-authz",
+      "dependencyType": "REQUIRES_APPROVAL",
+      "evidenceRefs": [
+        "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "integrationPointId": "integration://hoplon/authz-contract",
+      "policyRefs": [
+        "policy://active-adapters/hoplon-authz-tier1"
+      ],
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectId": "project://hoplon",
+      "receiptRequirements": [
+        "receipt-policy://tier1-approval-evidence"
+      ],
+      "recordedAt": "2026-05-03T12:02:00Z",
+      "sourceAdapterId": "hoplon-local",
+      "sourceCursor": "snapshot:s-2026-05-03",
+      "status": "active",
+      "validFrom": "2026-05-03T00:00:00Z",
+      "verificationRequired": true
+    },
+    "evidencePolicy": {
+      "allowedVerificationMethods": [
+        "adapter_observed_state",
+        "content_digest",
+        "operator_attestation"
+      ],
+      "appliesToCriticality": [
+        "tier_0",
+        "tier_1"
+      ],
+      "artifactTypes": [
+        "alignment_report_envelope",
+        "contract_snapshot"
+      ],
+      "branchSpecific": true,
+      "commitSpecific": true,
+      "digestRequired": true,
+      "maxAgeSeconds": 86400,
+      "policyId": "policy://active-adapters/hoplon-authz-tier1",
+      "reviewerAuthorityRefs": [
+        "authority://portfolio/default/tier1-operator"
+      ],
+      "signatureRequired": false
+    },
+    "evidenceRef": {
+      "artifactRef": "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "classification": "internal",
+      "contentHash": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "evidenceRef": "evidence://program-manager-mcp/alignment-report/2026-05-03",
+      "evidenceType": "alignment_report_envelope",
+      "portfolioId": "portfolio://default",
+      "redactionStatus": "redacted",
+      "verificationMethod": "content_digest"
+    },
+    "portfolio": {
+      "displayName": "Default Portfolio",
+      "portfolioId": "portfolio://default",
+      "tenantId": "tenant://local-dev"
+    },
+    "program": {
+      "displayName": "Agentic OS",
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os"
+    },
+    "project": {
+      "displayName": "Program Manager MCP",
+      "portfolioId": "portfolio://default",
+      "programIds": [
+        "program://agentic-os"
+      ],
+      "projectId": "project://program-manager-mcp",
+      "repoRefs": [
+        "repo://ProgramManagerMCP"
+      ]
+    },
+    "syncCursor": {
+      "adapterId": "tracker-local",
+      "cursor": "rev:12",
+      "observedAt": "2026-05-03T12:05:00Z",
+      "portfolioId": "portfolio://default",
+      "sourceRevisionHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "status": "current"
+    }
+  }
+}

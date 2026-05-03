@@ -1,0 +1,75 @@
+{
+  "canonicalization": "RFC8785-JCS",
+  "hashAlgorithm": "sha256",
+  "input": {
+    "actions": [
+      {
+        "actionId": "action-01-open-hoplon-review",
+        "kind": "request_review",
+        "targetRef": "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      {
+        "actionId": "action-02-refresh-tracker-evidence",
+        "kind": "refresh_evidence",
+        "targetRef": "tracker://program-manager-mcp/PMO-001"
+      }
+    ],
+    "approvalRequirements": [
+      {
+        "authorityRef": "authority://portfolio/default/tier1-operator",
+        "maxCriticality": "tier_1",
+        "requiredEvidencePolicyRefs": [
+          "policy://active-adapters/hoplon-authz-tier1"
+        ]
+      }
+    ],
+    "contextAnchor": {
+      "asOf": "2026-05-03T12:00:00Z",
+      "branchName": "main",
+      "gitCommit": "abc123def456",
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "repoId": "repo://ProgramManagerMCP",
+      "trackerRev": 10,
+      "trackerSlug": "program-manager-mcp"
+    },
+    "expectedReceipts": [
+      {
+        "evidencePolicyRefs": [
+          "policy://active-adapters/hoplon-authz-tier1"
+        ],
+        "receiptRequirementId": "receipt-01-hoplon-review"
+      },
+      {
+        "evidencePolicyRefs": [
+          "policy://evidence/tracker-snapshot-fast-expiry"
+        ],
+        "receiptRequirementId": "receipt-02-tracker-refresh"
+      }
+    ],
+    "flightPlanId": "flightplan://agentic-os/fp-2026-05-03-001",
+    "portfolioId": "portfolio://default",
+    "programId": "program://agentic-os",
+    "riskFindings": [
+      {
+        "findingId": "finding-stale-evidence",
+        "severity": "high",
+        "type": "stale_evidence"
+      }
+    ],
+    "stateVersionHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "toolSchemaVersion": "1.0.0",
+    "plannerRuleVersions": [
+      {
+        "ruleId": "pmo.contract.stale-evidence.v1",
+        "version": "1.0.0"
+      },
+      {
+        "ruleId": "pmo.flight-plan.required-approval.v1",
+        "version": "1.0.0"
+      }
+    ]
+  },
+  "expectedHash": "sha256:efc65c611dc8f3ed1e303046608b3814fb05893e994d85e94f0bd702f7717667"
+}
