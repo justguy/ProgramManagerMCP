@@ -6,7 +6,8 @@ import {
   getProgramAuditTrailResultSchema,
   listProgramCapabilitiesResultSchema,
   planProgramActionResultSchema,
-  queryProgramContextResultSchema
+  queryProgramContextResultSchema,
+  submitAgenticOsReceiptResultSchema
 } from "../../../../shared/schemas/program-manager.ts";
 import {
   AdapterRegistry,
@@ -144,4 +145,48 @@ test("authz denies unauthorized actor scope for project-bearing context reads", 
   assert.deepEqual(planProgramActionResultSchema.parse(planResult), planResult);
   assert.equal(planResult.status, "blocked");
   assert.match(planResult.warnings[0].summary, /explicit assigned project scope/);
+});
+
+test("authz denies Agentic OS receipt submission for mismatched execution actor", async () => {
+  const gateway = buildGateway();
+  const actor = buildActor({
+    actorId: "actor://agents/executor-a",
+    actorRole: "execution_agent",
+    projectGrants: ["project://program-manager-mcp"]
+  });
+
+  const result = await gateway.callTool(
+    "submit_agentic_os_receipt",
+    {
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      agenticOsRunRef: "run://agentic-os/mismatch",
+      executionAgentRef: "actor://agents/executor-b",
+      governance: {
+        trustRootRef: "trust-root://control-plane/oidc-jwt",
+        retentionPolicyRef: "policy://retention/pmo-phase-4-default"
+      },
+      flightPlanHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      flightPlanId: "flightplan://program-action/mismatch",
+      flightPlanStateVersionHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      idempotencyKey: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      observedAt: "2026-05-03T12:09:00Z",
+      proposedActionId: "action://program-action/mismatch",
+      receiptRequirementId: "receipt://program-action/mismatch",
+      receiptType: "tracker_update_receipt",
+      evidenceRefs: ["evidence://receipt/required"],
+      observedStateRefs: ["tracker://program-manager-mcp/PMO-502"],
+      receiptDigest: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      summary: "Wrong execution actor should be blocked before receipt validation.",
+      verificationMethod: "adapter_observed_state",
+      traceId: "trace://agentic-os-mismatch",
+      correlationId: "corr://agentic-os-mismatch"
+    },
+    actor
+  );
+
+  assert.deepEqual(submitAgenticOsReceiptResultSchema.parse(result), result);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.warnings[0].warningId, "agentic-os-execution-agent-mismatch");
+  assert.equal(result.deterministicCore.validation.passiveBoundaryPreserved, true);
 });

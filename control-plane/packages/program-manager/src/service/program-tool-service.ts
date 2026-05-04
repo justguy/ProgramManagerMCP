@@ -6,6 +6,8 @@ import {
   generateProgramUpdateCoreSchema,
   generateProgramUpdateRequestSchema,
   generateProgramUpdateResultSchema,
+  getAgenticOsContextPacketRequestSchema,
+  getAgenticOsContextPacketResultSchema,
   getProgramAuditTrailRequestSchema,
   getProgramAuditTrailResultSchema,
   getProgramDocumentationRequestSchema,
@@ -19,7 +21,9 @@ import {
   recordProgramReceiptRequestSchema,
   recordProgramReceiptResultSchema,
   reconcileProgramStateRequestSchema,
-  reconcileProgramStateResultSchema
+  reconcileProgramStateResultSchema,
+  submitAgenticOsReceiptRequestSchema,
+  submitAgenticOsReceiptResultSchema
 } from "../../../../../shared/schemas/program-manager.ts";
 import type {
   AdapterCursor,
@@ -43,6 +47,7 @@ import type {
 } from "../types/domain.js";
 import {
   assertReadAuthorized,
+  buildAuthzEvidenceRefs,
   inferScopedProjectIds,
   ProgramToolAuthzError,
   type ProgramToolActor
@@ -65,7 +70,9 @@ type ToolName =
   | "analyze_program_intelligence"
   | "plan_program_action"
   | "record_program_receipt"
-  | "reconcile_program_state";
+  | "reconcile_program_state"
+  | "get_agentic_os_context_packet"
+  | "submit_agentic_os_receipt";
 
 type ToolWarning = {
   warningId: string;
@@ -247,7 +254,9 @@ const TOOL_NEXT_RECOMMENDATION: Record<ToolName, ToolName> = {
   analyze_program_intelligence: "query_program_context",
   plan_program_action: "get_program_audit_trail",
   record_program_receipt: "get_program_audit_trail",
-  reconcile_program_state: "plan_program_action"
+  reconcile_program_state: "plan_program_action",
+  get_agentic_os_context_packet: "record_program_receipt",
+  submit_agentic_os_receipt: "reconcile_program_state"
 };
 
 const STATUS_RANK = new Map([
@@ -1788,6 +1797,151 @@ export class ProgramToolService {
     });
   }
 
+  async getAgenticOsContextPacket(requestInput: unknown, actor: ProgramToolActor) {
+    const request = getAgenticOsContextPacketRequestSchema.parse(requestInput);
+    const queryRequest = {
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(request.projectIds ? { projectIds: request.projectIds } : {}),
+      ...(request.contextAnchor ? { contextAnchor: request.contextAnchor } : {}),
+      queryKind: request.queryKind ?? "program_summary",
+      targetRefs: request.targetRefs,
+      includeFutureNotApplicable: request.includeFutureNotApplicable,
+      includeSuperseded: request.includeSuperseded,
+      limit: request.limit,
+      traceId: request.traceId,
+      correlationId: request.correlationId
+    };
+    const contextResult = await this.queryProgramContext(queryRequest, actor);
+
+    if (!contextResult.deterministicCore) {
+      return getAgenticOsContextPacketResultSchema.parse({
+        schemaVersion: "1",
+        status: "blocked",
+        toolName: "get_agentic_os_context_packet",
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(contextResult.projectIds ? { projectIds: contextResult.projectIds } : {}),
+        evidenceRefs: contextResult.evidenceRefs,
+        artifactRefs: contextResult.artifactRefs,
+        redactionSummary: contextResult.redactionSummary,
+        warnings: contextResult.warnings,
+        nextRecommendedTool: "get_program_documentation",
+        traceId: request.traceId,
+        correlationId: request.correlationId
+      });
+    }
+
+    const planResult = request.proposedChange
+      ? await this.planProgramAction(
+          {
+            portfolioId: request.portfolioId,
+            ...(request.programId ? { programId: request.programId } : {}),
+            ...(request.projectIds ? { projectIds: request.projectIds } : {}),
+            ...(request.contextAnchor ? { contextAnchor: request.contextAnchor } : {}),
+            proposedChange: request.proposedChange,
+            traversalBudgetRef: request.traversalBudgetRef,
+            traceId: request.traceId,
+            correlationId: request.correlationId
+          },
+          actor
+        )
+      : undefined;
+    const cpGraphRefs = sortUniqueRefs([
+      request.portfolioId,
+      ...(request.programId ? [request.programId] : []),
+      ...request.targetRefs,
+      ...contextResult.deterministicCore.matchedRefs.map((match) => match.ref),
+      ...Object.values(contextResult.deterministicCore.contextPanes ?? {}).flatMap((items) =>
+        items.flatMap((item) => ("ref" in item ? [item.ref] : item.targetRefs))
+      ),
+      ...(planResult?.deterministicCore?.affectedRefs.map((item) => item.ref) ?? []),
+      ...(planResult?.deterministicCore?.proposedExternalActions.map((item) => item.targetRef) ?? []),
+      ...(planResult?.deterministicCore?.expectedReceipts.flatMap((receipt) => receipt.scopeRefs) ?? [])
+    ]);
+    const deterministicCore = {
+      contextPacketRef: `context-packet://agentic-os/${sanitizedPointerSegment(
+        stateVersionHashFromInput({
+          workContextRef: request.workContextRef,
+          contextStateVersionHash: contextResult.stateVersionHash,
+          flightPlanHash: planResult?.deterministicCore?.flightPlanHash,
+          governance: request.governance,
+          cpGraphRefs
+        })
+      )}`,
+      workContextRef: request.workContextRef,
+      ...(request.agenticOsRunRef ? { agenticOsRunRef: request.agenticOsRunRef } : {}),
+      contextCore: contextResult.deterministicCore,
+      ...(planResult?.deterministicCore ? { flightPlanCore: planResult.deterministicCore } : {}),
+      cpGraphRefs,
+      governance: {
+        ...request.governance,
+        ...(request.governance.piiHandlingPolicyRefs
+          ? { piiHandlingPolicyRefs: sortUniqueRefs(request.governance.piiHandlingPolicyRefs) }
+          : {})
+      },
+      receiptSubmission: {
+        resultToolName: "record_program_receipt" as const,
+        submissionBoundary: "execution_agent_submits_receipt_pmo_records_ledger" as const,
+        requiredTraceId: request.traceId,
+        requiredCorrelationId: request.correlationId,
+        requiredVerifierMethods: sortUnique([
+          "adapter_observed_state",
+          "content_digest",
+          "operator_attestation"
+        ]) as Array<"adapter_observed_state" | "content_digest" | "operator_attestation">
+      },
+      executionBoundary: "pmo_passive_analyst_execution_agent_performs_side_effects" as const
+    };
+    const evidenceRefs = sortUniqueRefs([
+      ...contextResult.evidenceRefs,
+      ...(planResult?.evidenceRefs ?? []),
+      `evidence://agentic-os/context-packet/${sanitizedPointerSegment(request.workContextRef)}`,
+      `evidence://trust-root/${sanitizedPointerSegment(request.governance.trustRootRef)}`,
+      `evidence://retention-policy/${sanitizedPointerSegment(request.governance.retentionPolicyRef)}`
+    ]);
+    const artifactRefs = sortUniqueRefs([
+      ...contextResult.artifactRefs,
+      ...(planResult?.artifactRefs ?? [])
+    ]);
+    const warnings = [
+      ...contextResult.warnings,
+      ...(planResult?.warnings ?? [])
+    ].sort(compareWarnings);
+
+    return getAgenticOsContextPacketResultSchema.parse({
+      schemaVersion: "1",
+      status: statusFromValues([contextResult.status, planResult?.status ?? "ok"]),
+      toolName: "get_agentic_os_context_packet",
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(contextResult.projectIds ? { projectIds: contextResult.projectIds } : {}),
+      deterministicCore,
+      evidenceRefs,
+      artifactRefs,
+      redactionSummary: mergeRedactionSummaries(
+        contextResult.redactionSummary,
+        planResult?.redactionSummary,
+        buildRedactionSummary({
+          policyRefs: [
+            "policy://redaction/pointer-only-v1",
+            request.governance.retentionPolicyRef,
+            ...(request.governance.piiHandlingPolicyRefs ?? [])
+          ]
+        })
+      ),
+      warnings,
+      nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.get_agentic_os_context_packet,
+      traceId: request.traceId,
+      correlationId: request.correlationId,
+      stateVersionHash: stateVersionHashFromInput({
+        deterministicCore,
+        evidenceRefs,
+        artifactRefs
+      })
+    });
+  }
+
   async recordProgramReceipt(requestInput: unknown, actor: ProgramToolActor) {
     const request = recordProgramReceiptRequestSchema.parse(requestInput);
     const scope = {
@@ -2097,6 +2251,124 @@ export class ProgramToolService {
         },
         evidenceRefs,
         artifactRefs
+      })
+    });
+  }
+
+  async submitAgenticOsReceipt(requestInput: unknown, actor: ProgramToolActor) {
+    const request = submitAgenticOsReceiptRequestSchema.parse(requestInput);
+    const {
+      agenticOsRunRef,
+      executionAgentRef,
+      governance,
+      ...receiptRequest
+    } = request;
+
+    if (executionAgentRef !== actor.actorId) {
+      return submitAgenticOsReceiptResultSchema.parse({
+        schemaVersion: "1",
+        status: "blocked",
+        toolName: "submit_agentic_os_receipt",
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(request.projectIds ? { projectIds: request.projectIds } : {}),
+        deterministicCore: {
+          agenticOsRunRef,
+          executionAgentRef,
+          receiptSubmissionToolName: "record_program_receipt",
+          validation: {
+            passiveBoundaryPreserved: true,
+            status: "blocked"
+          }
+        },
+        evidenceRefs: buildAuthzEvidenceRefs(actor),
+        artifactRefs: [],
+        redactionSummary: buildRedactionSummary({
+          policyRefs: [
+            "policy://authz/server-verified-actor-v1",
+            governance.trustRootRef,
+            governance.retentionPolicyRef,
+            ...(governance.piiHandlingPolicyRefs ?? [])
+          ]
+        }),
+        warnings: [
+          makeWarning(
+            "agentic-os-execution-agent-mismatch",
+            "high",
+            "Agentic OS receipt executionAgentRef must match the authenticated actor.",
+            buildAuthzEvidenceRefs(actor)
+          )
+        ],
+        nextRecommendedTool: "get_agentic_os_context_packet",
+        traceId: request.traceId,
+        correlationId: request.correlationId,
+        stateVersionHash: stateVersionHashFromInput({
+          agenticOsRunRef,
+          executionAgentRef,
+          actorId: actor.actorId,
+          status: "blocked"
+        })
+      });
+    }
+
+    const receiptResult = await this.recordProgramReceipt(receiptRequest, actor);
+    const receiptValidationStatus =
+      receiptResult.deterministicCore?.validation.status ?? "blocked";
+    const validationStatus =
+      receiptValidationStatus === "accepted"
+        ? "accepted"
+        : receiptValidationStatus === "duplicate"
+          ? "duplicate"
+          : receiptValidationStatus === "rejected"
+            ? "rejected"
+            : "blocked";
+    const deterministicCore = {
+      agenticOsRunRef,
+      executionAgentRef,
+      receiptSubmissionToolName: "record_program_receipt" as const,
+      ...(receiptResult.deterministicCore
+        ? { receiptCore: receiptResult.deterministicCore }
+        : {}),
+      validation: {
+        passiveBoundaryPreserved: true as const,
+        status: validationStatus
+      }
+    };
+
+    return submitAgenticOsReceiptResultSchema.parse({
+      schemaVersion: "1",
+      status: receiptResult.status,
+      toolName: "submit_agentic_os_receipt",
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(receiptResult.projectIds ? { projectIds: receiptResult.projectIds } : {}),
+      deterministicCore,
+      evidenceRefs: sortUniqueRefs([
+        ...receiptResult.evidenceRefs,
+        `evidence://agentic-os/receipt/${sanitizedPointerSegment(agenticOsRunRef)}`,
+        `evidence://trust-root/${sanitizedPointerSegment(governance.trustRootRef)}`,
+        `evidence://retention-policy/${sanitizedPointerSegment(governance.retentionPolicyRef)}`
+      ]),
+      artifactRefs: receiptResult.artifactRefs,
+      redactionSummary: mergeRedactionSummaries(
+        receiptResult.redactionSummary,
+        buildRedactionSummary({
+          policyRefs: [
+            "policy://redaction/pointer-only-v1",
+            governance.trustRootRef,
+            governance.retentionPolicyRef,
+            ...(governance.piiHandlingPolicyRefs ?? [])
+          ]
+        })
+      ),
+      warnings: receiptResult.warnings,
+      nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.submit_agentic_os_receipt,
+      traceId: request.traceId,
+      correlationId: request.correlationId,
+      stateVersionHash: stateVersionHashFromInput({
+        deterministicCore,
+        evidenceRefs: receiptResult.evidenceRefs,
+        artifactRefs: receiptResult.artifactRefs
       })
     });
   }

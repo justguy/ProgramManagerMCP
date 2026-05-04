@@ -466,7 +466,7 @@ export const listProgramCapabilitiesCoreSchema = z
             capabilityId: pointerRefSchema,
             domains: z.array(z.string().min(1)),
             evidencePolicyRefs: sortedStringArraySchema("capability evidencePolicyRefs"),
-            phase: z.enum(["1A", "1B", "1C", "2", "3"]),
+            phase: z.enum(["1A", "1B", "1C", "2", "3", "4"]),
             sideEffectPosture: z.enum([
               "read_only",
               "pmo_internal_write",
@@ -1072,6 +1072,76 @@ export const planProgramActionResultSchema = programToolResultEnvelopeSchema(
   z.object({ summary: z.string().min(1) }).strict()
 );
 
+const agenticOsGovernanceSchema = z
+  .object({
+    piiHandlingPolicyRefs: sortedStringArraySchema("agenticOs piiHandlingPolicyRefs").optional(),
+    retentionPolicyRef: pointerRefSchema,
+    trustRootRef: pointerRefSchema
+  })
+  .strict();
+
+const agenticOsReceiptSubmissionSchema = z
+  .object({
+    requiredCorrelationId: z.string().min(1),
+    requiredTraceId: z.string().min(1),
+    requiredVerifierMethods: z.array(
+      z.enum(["adapter_observed_state", "content_digest", "operator_attestation"])
+    ),
+    resultToolName: z.literal("record_program_receipt"),
+    submissionBoundary: z.literal("execution_agent_submits_receipt_pmo_records_ledger")
+  })
+  .strict();
+
+export const getAgenticOsContextPacketRequestSchema = programToolRequestContextSchema
+  .extend({
+    agenticOsRunRef: pointerRefSchema.optional(),
+    governance: agenticOsGovernanceSchema,
+    includeFutureNotApplicable: z.boolean().optional(),
+    includeSuperseded: z.boolean().optional(),
+    limit: z.number().int().positive().optional(),
+    proposedChange: flightPlanProposedChangeSchema.optional(),
+    queryKind: z
+      .enum([
+        "applicable_decisions",
+        "dependency_status",
+        "evidence_status",
+        "contract_context",
+        "program_summary"
+      ])
+      .optional(),
+    targetRefs: sortedStringArraySchema("agenticOs targetRefs"),
+    traversalBudgetRef: pointerRefSchema.optional(),
+    workContextRef: pointerRefSchema
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.proposedChange && !value.traversalBudgetRef) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "traversalBudgetRef is required when proposedChange is supplied"
+      });
+    }
+  });
+
+export const getAgenticOsContextPacketCoreSchema = z
+  .object({
+    agenticOsRunRef: pointerRefSchema.optional(),
+    contextCore: queryProgramContextCoreSchema,
+    contextPacketRef: pointerRefSchema,
+    cpGraphRefs: sortedStringArraySchema("agenticOs cpGraphRefs"),
+    executionBoundary: z.literal("pmo_passive_analyst_execution_agent_performs_side_effects"),
+    flightPlanCore: planProgramActionCoreSchema.optional(),
+    governance: agenticOsGovernanceSchema,
+    receiptSubmission: agenticOsReceiptSubmissionSchema,
+    workContextRef: pointerRefSchema
+  })
+  .strict();
+
+export const getAgenticOsContextPacketResultSchema = programToolResultEnvelopeSchema(
+  getAgenticOsContextPacketCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+);
+
 const receiptSignatureSchema = z
   .object({
     digest: sha256DigestSchema,
@@ -1133,6 +1203,34 @@ export const recordProgramReceiptCoreSchema = z
 
 export const recordProgramReceiptResultSchema = programToolResultEnvelopeSchema(
   recordProgramReceiptCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+);
+
+export const submitAgenticOsReceiptRequestSchema = recordProgramReceiptRequestSchema
+  .extend({
+    agenticOsRunRef: pointerRefSchema,
+    executionAgentRef: pointerRefSchema,
+    governance: agenticOsGovernanceSchema
+  })
+  .strict();
+
+export const submitAgenticOsReceiptCoreSchema = z
+  .object({
+    agenticOsRunRef: pointerRefSchema,
+    executionAgentRef: pointerRefSchema,
+    receiptCore: recordProgramReceiptCoreSchema.optional(),
+    receiptSubmissionToolName: z.literal("record_program_receipt"),
+    validation: z
+      .object({
+        passiveBoundaryPreserved: z.literal(true),
+        status: z.enum(["accepted", "duplicate", "rejected", "blocked"])
+      })
+      .strict()
+  })
+  .strict();
+
+export const submitAgenticOsReceiptResultSchema = programToolResultEnvelopeSchema(
+  submitAgenticOsReceiptCoreSchema,
   z.object({ summary: z.string().min(1) }).strict()
 );
 
@@ -1400,14 +1498,16 @@ export const toolContractsDocumentSchema = z
       z
         .object({
           deterministicCoreIncludes: z.array(z.string().min(1)).min(1),
-          phase: z.enum(["1B", "1C", "2", "3"]),
+          phase: z.enum(["1B", "1C", "2", "3", "4"]),
           toolName: z.enum([
             "generate_program_update",
             "get_program_audit_trail",
             "analyze_program_intelligence",
             "plan_program_action",
             "record_program_receipt",
-            "reconcile_program_state"
+            "reconcile_program_state",
+            "get_agentic_os_context_packet",
+            "submit_agentic_os_receipt"
           ])
         })
         .strict()
@@ -1704,6 +1804,9 @@ export const programManagerSchemaBundleSchema = z
     generateProgramUpdateCore: generateProgramUpdateCoreSchema,
     generateProgramUpdateRequest: generateProgramUpdateRequestSchema,
     generateProgramUpdateResult: generateProgramUpdateResultSchema,
+    getAgenticOsContextPacketCore: getAgenticOsContextPacketCoreSchema,
+    getAgenticOsContextPacketRequest: getAgenticOsContextPacketRequestSchema,
+    getAgenticOsContextPacketResult: getAgenticOsContextPacketResultSchema,
     getProgramAuditTrailCore: getProgramAuditTrailCoreSchema,
     getProgramAuditTrailRequest: getProgramAuditTrailRequestSchema,
     getProgramAuditTrailResult: getProgramAuditTrailResultSchema,
@@ -1736,6 +1839,9 @@ export const programManagerSchemaBundleSchema = z
     receiptReconcileRecord: receiptReconcileRecordSchema,
     redactionSummary: redactionSummarySchema,
     riskSignal: riskSignalSchema,
+    submitAgenticOsReceiptCore: submitAgenticOsReceiptCoreSchema,
+    submitAgenticOsReceiptRequest: submitAgenticOsReceiptRequestSchema,
+    submitAgenticOsReceiptResult: submitAgenticOsReceiptResultSchema,
     syncCursor: syncCursorSchema
   })
   .strict();

@@ -18,7 +18,9 @@
     "pmo:doctor": "node scripts/pmo-doctor.mjs",
     "pmo:replay-smoke": "node scripts/pmo-replay-smoke.mjs",
     "pmo:report-regenerate": "node scripts/pmo-report-regenerate.mjs",
-    "pmo:adapter-conformance": "node scripts/pmo-adapter-conformance.mjs"
+    "pmo:adapter-conformance": "node scripts/pmo-adapter-conformance.mjs",
+    "pmo:phase4-smoke": "node scripts/pmo-phase4-smoke.mjs",
+    "pmo:otel-smoke": "node scripts/pmo-otel-smoke.mjs"
   },
   "dependencies": {
     "neo4j-driver": "^5.28.1",

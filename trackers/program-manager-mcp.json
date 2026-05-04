@@ -54,9 +54,9 @@
         "description": "Single pmo_macro public tool, normalized PMO object model, editable safe macro registry, and deterministic macro implementations for blockers, context, impact simulation, drift, and acceptance proof."
       }
     ],
-    "scratchpad": "Phase 1C complete: analyze_program_intelligence landed, deterministic issue cards are tested, advisory output is hash-excluded, and npm test is green (45 pass, 1 skipped).",
-    "rev": 58,
-    "updatedAt": "2026-05-04T04:00:36.911Z"
+    "scratchpad": "Phase 4 complete: Agentic OS passive context/receipt integration, redaction-safe telemetry smoke, operational smoke, and acceptance proof landed. Verification green: typecheck, npm test, pmo:doctor, report regenerate, replay smoke, otel smoke, and phase4 smoke.",
+    "rev": 62,
+    "updatedAt": "2026-05-04T05:36:05.433Z"
   },
   "tasks": [
     {
@@ -1680,7 +1680,7 @@
       "id": "pmo-601",
       "title": "Agentic OS context packet and receipt submission integration",
       "goal": "Wire Agentic OS workflows to consume PMO context packets and submit receipts back into Program Manager after execution agents perform external work.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-4",
         "priorityId": "p0"
@@ -1710,7 +1710,16 @@
           "receipts"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-505 first."
+      "comment": "Completed Agentic OS context packet and receipt submission integration. Added get_agentic_os_context_packet and submit_agentic_os_receipt as wrappers over PMO context, proposal-only flight plan, and receipt ledger tools. Carries cp-graph refs, governance refs, passive-boundary metadata, and receipt handoff. Verified typecheck, npm test, doctor, replay/report, otel, and phase4 smoke.",
+      "assignee": "codex",
+      "blocker_reason": null,
+      "references": [
+        "shared/schemas/program-manager.ts:1",
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1",
+        "control-plane/packages/program-manager/src/mcp/program-manager-mcp-gateway.ts:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1",
+        "docs/phase-4/acceptance-proof.md:1"
+      ]
     },
     {
       "dependencies": [
@@ -1719,7 +1728,7 @@
       "id": "pmo-602",
       "title": "Trust root, tenant isolation, retention, PII, and redaction hardening",
       "goal": "Harden production-facing security and governance controls for verified identity, portfolio isolation, trust roots, retention policy, PII handling, and redaction enforcement.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-4",
         "priorityId": "p0"
@@ -1751,7 +1760,15 @@
           "retention"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-601 first."
+      "comment": "Completed trust root, isolation, retention, PII, and redaction hardening. Agentic OS schemas require governance refs; envelopes carry trust-root/retention/PII policy refs; execution-agent receipt submission blocks authenticated actor mismatches; existing authz still enforces cross-portfolio/project scope. Verified authz tests, full npm test, typecheck, doctor, and phase4 smoke.",
+      "assignee": "codex",
+      "references": [
+        "shared/schemas/program-manager.ts:1",
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1",
+        "control-plane/packages/program-manager/tests/program-tool-authz.test.js:1",
+        "control-plane/packages/program-manager/tests/program-tool-redaction.test.js:1",
+        "docs/phase-4/acceptance-proof.md:1"
+      ]
     },
     {
       "dependencies": [
@@ -1761,7 +1778,7 @@
       "id": "pmo-603",
       "title": "OpenTelemetry and operational replay/report checks",
       "goal": "Add production observability and operational checks for PMO metrics, traces, logs, replay, report regeneration, and degraded adapter behavior.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-4",
         "priorityId": "p1"
@@ -1792,7 +1809,16 @@
           "reports"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-205 and pmo-505 first."
+      "comment": "Completed OTel and operational replay/report checks. Added redaction-safe telemetry helpers, pmo:otel-smoke, focused telemetry tests, and replay/report/degraded adapter telemetry evidence. Verified pmo:otel-smoke, full npm test, typecheck, doctor, replay smoke, and report regeneration.",
+      "assignee": "codex-spark-worker",
+      "blocker_reason": null,
+      "references": [
+        "control-plane/packages/program-manager/scripts/pmo-otel-telemetry.mjs:1",
+        "control-plane/packages/program-manager/scripts/pmo-otel-smoke.mjs:1",
+        "control-plane/packages/program-manager/tests/pmo-otel-telemetry.test.js:1",
+        "control-plane/packages/program-manager/package.json:1",
+        "docs/phase-4/acceptance-proof.md:1"
+      ]
     },
     {
       "dependencies": [
@@ -1803,7 +1829,7 @@
       "id": "pmo-604",
       "title": "End-to-end Agentic OS operational smoke",
       "goal": "Prove the hardened Program Manager path works end to end across context packets, execution-agent receipts, reconciliation, tenant isolation, degraded adapters, replay, retention, and OTel evidence.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-4",
         "priorityId": "p1"
@@ -1832,7 +1858,13 @@
           "hardening"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-601, pmo-602, and pmo-603 first."
+      "comment": "Completed end-to-end Agentic OS operational smoke. Added pmo:phase4-smoke covering context packet creation, expected receipt seeding for simulated external execution, submit_agentic_os_receipt, reconciliation satisfaction, and telemetry evidence. Phase 4 verification is documented in docs/phase-4/acceptance-proof.md.",
+      "assignee": "codex",
+      "references": [
+        "control-plane/packages/program-manager/scripts/pmo-phase4-smoke.mjs:1",
+        "control-plane/packages/program-manager/package.json:1",
+        "docs/phase-4/acceptance-proof.md:1"
+      ]
     },
     {
       "dependencies": [

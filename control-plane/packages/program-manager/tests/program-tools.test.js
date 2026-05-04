@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   analyzeProgramIntelligenceResultSchema,
   assessProgramImpactResultSchema,
+  getAgenticOsContextPacketResultSchema,
   getProgramDocumentationResultSchema,
   getProgramAuditTrailResultSchema,
   listProgramCapabilitiesResultSchema,
@@ -11,7 +12,8 @@ import {
   planProgramActionResultSchema,
   queryProgramContextResultSchema,
   recordProgramReceiptResultSchema,
-  reconcileProgramStateResultSchema
+  reconcileProgramStateResultSchema,
+  submitAgenticOsReceiptResultSchema
 } from "../../../../shared/schemas/program-manager.ts";
 import { stateVersionHashFromInput } from "../src/hash/state-version-hash.js";
 import {
@@ -209,7 +211,9 @@ test("gateway lists public Phase 1A/1B MCP tools", () => {
       "analyze_program_intelligence",
       "plan_program_action",
       "record_program_receipt",
-      "reconcile_program_state"
+      "reconcile_program_state",
+      "get_agentic_os_context_packet",
+      "submit_agentic_os_receipt"
     ]
   );
 });
@@ -564,6 +568,65 @@ test("plan_program_action suppresses repeated propagation edges", async () => {
   );
 });
 
+test("get_agentic_os_context_packet composes context, graph refs, and proposal-only receipt obligations", async () => {
+  const gateway = buildGateway();
+  const actor = buildActor();
+
+  const result = await gateway.callTool(
+    "get_agentic_os_context_packet",
+    {
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      workContextRef: "work://agentic-os/run-601/context",
+      agenticOsRunRef: "run://agentic-os/phase-4-smoke",
+      governance: {
+        trustRootRef: "trust-root://control-plane/oidc-jwt",
+        retentionPolicyRef: "policy://retention/pmo-phase-4-default",
+        piiHandlingPolicyRefs: ["policy://pii/no-inline-sensitive-data"]
+      },
+      targetRefs: [
+        "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "tracker://program-manager-mcp/PMO-001"
+      ],
+      traversalBudgetRef: "budget://phase-4/agentic-os",
+      proposedChange: {
+        changeType: "agentic_os_execution",
+        summary: "Agentic OS executor refreshes Hoplon authz tracker evidence.",
+        targetRefs: [
+          "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "tracker://program-manager-mcp/PMO-001"
+        ]
+      },
+      traceId: "trace://agentic-os-context",
+      correlationId: "corr://agentic-os-context",
+      contextAnchor: {
+        portfolioId: "portfolio://default",
+        programId: "program://agentic-os",
+        projectId: "project://program-manager-mcp",
+        asOf: "2026-05-03T12:00:00Z"
+      }
+    },
+    actor
+  );
+
+  assert.deepEqual(getAgenticOsContextPacketResultSchema.parse(result), result);
+  assert.equal(result.toolName, "get_agentic_os_context_packet");
+  assert.equal(
+    result.deterministicCore.executionBoundary,
+    "pmo_passive_analyst_execution_agent_performs_side_effects"
+  );
+  assert.equal(result.deterministicCore.receiptSubmission.resultToolName, "record_program_receipt");
+  assert.equal(
+    result.deterministicCore.receiptSubmission.submissionBoundary,
+    "execution_agent_submits_receipt_pmo_records_ledger"
+  );
+  assert.ok(result.deterministicCore.contextPacketRef.startsWith("context-packet://"));
+  assert.ok(result.deterministicCore.cpGraphRefs.includes("project://program-manager-mcp"));
+  assert.ok(result.deterministicCore.flightPlanCore.expectedReceipts.length > 0);
+  assert.ok(result.evidenceRefs.some((ref) => ref.startsWith("evidence://trust-root/")));
+  assert.equal(result.redactionSummary.policyRefs.includes("policy://pii/no-inline-sensitive-data"), true);
+});
+
 test("record_program_receipt accepts valid receipts once and updates only PMO ledger state", async () => {
   const { gateway, repository } = await buildReceiptGateway();
   const actor = buildActor({
@@ -593,6 +656,46 @@ test("record_program_receipt accepts valid receipts once and updates only PMO le
   assert.equal(ledger.observedReceipts.length, 1);
   assert.equal(ledger.actionLedgerEntries.length, 1);
   assert.equal(ledger.reconcileStatuses[0].status, "satisfied");
+});
+
+test("submit_agentic_os_receipt routes execution receipts through PMO ledger only", async () => {
+  const { gateway, repository } = await buildReceiptGateway();
+  const actor = buildActor({
+    actorId: "actor://agents/executor-a",
+    actorRole: "execution_agent",
+    projectGrants: ["project://program-manager-mcp"]
+  });
+
+  const result = await gateway.callTool(
+    "submit_agentic_os_receipt",
+    {
+      ...buildReceiptRequest(),
+      agenticOsRunRef: "run://agentic-os/phase-4-smoke",
+      executionAgentRef: "actor://agents/executor-a",
+      governance: {
+        trustRootRef: "trust-root://control-plane/oidc-jwt",
+        retentionPolicyRef: "policy://retention/pmo-phase-4-default",
+        piiHandlingPolicyRefs: ["policy://pii/no-inline-sensitive-data"]
+      }
+    },
+    actor
+  );
+
+  assert.deepEqual(submitAgenticOsReceiptResultSchema.parse(result), result);
+  assert.equal(result.status, "ok");
+  assert.equal(result.toolName, "submit_agentic_os_receipt");
+  assert.equal(result.deterministicCore.receiptSubmissionToolName, "record_program_receipt");
+  assert.equal(result.deterministicCore.validation.passiveBoundaryPreserved, true);
+  assert.equal(result.deterministicCore.validation.status, "accepted");
+  assert.equal(result.deterministicCore.receiptCore.validation.status, "accepted");
+  assert.ok(result.evidenceRefs.some((ref) => ref.startsWith("evidence://agentic-os/receipt/")));
+
+  const ledger = await repository.listReceiptLedger({
+    scope: { portfolioId: "portfolio://default" },
+    receiptRequirementIds: ["receipt://program-action/record-receipt"]
+  });
+  assert.equal(ledger.observedReceipts.length, 1);
+  assert.equal(ledger.actionLedgerEntries.length, 1);
 });
 
 test("record_program_receipt rejects forged, incomplete, stale, and unauthorized receipts", async () => {

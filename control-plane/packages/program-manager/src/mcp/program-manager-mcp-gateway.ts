@@ -2,13 +2,15 @@ import {
   analyzeProgramIntelligenceRequestSchema,
   assessProgramImpactRequestSchema,
   generateProgramUpdateRequestSchema,
+  getAgenticOsContextPacketRequestSchema,
   getProgramAuditTrailRequestSchema,
   getProgramDocumentationRequestSchema,
   listProgramCapabilitiesRequestSchema,
   planProgramActionRequestSchema,
   queryProgramContextRequestSchema,
   recordProgramReceiptRequestSchema,
-  reconcileProgramStateRequestSchema
+  reconcileProgramStateRequestSchema,
+  submitAgenticOsReceiptRequestSchema
 } from "../../../../../shared/schemas/program-manager.ts";
 import type { ProgramToolActor } from "../authz/program-tool-authz.ts";
 import { ProgramToolService } from "../service/program-tool-service.ts";
@@ -66,6 +68,18 @@ export const PROGRAM_MANAGER_MCP_TOOLS = Object.freeze([
     description:
       "Compare expected receipts, observed receipts, and adapter state to surface PMO reconciliation findings.",
     requestSchema: reconcileProgramStateRequestSchema
+  },
+  {
+    name: "get_agentic_os_context_packet",
+    description:
+      "Return a bounded Agentic OS work context packet that composes PMO context, cp-graph refs, and optional proposal-only flight-plan receipt obligations.",
+    requestSchema: getAgenticOsContextPacketRequestSchema
+  },
+  {
+    name: "submit_agentic_os_receipt",
+    description:
+      "Submit an Agentic OS execution-agent receipt through the PMO receipt ledger while preserving the passive analyst boundary.",
+    requestSchema: submitAgenticOsReceiptRequestSchema
   }
 ] as const);
 
@@ -105,6 +119,10 @@ export class ProgramManagerMcpGateway {
         return this.#service.recordProgramReceipt(request, actor);
       case "reconcile_program_state":
         return this.#service.reconcileProgramState(request, actor);
+      case "get_agentic_os_context_packet":
+        return this.#service.getAgenticOsContextPacket(request, actor);
+      case "submit_agentic_os_receipt":
+        return this.#service.submitAgenticOsReceipt(request, actor);
       default:
         throw new Error(`Unsupported PMO MCP tool: ${toolName}`);
     }

@@ -359,7 +359,7 @@ class ReadOnlyProgramAdapter implements ProgramAdapter {
 
 export type ProgramCapabilityListing = {
   capabilityId: string;
-  phase: "1A" | "1B" | "1C" | "2" | "3";
+  phase: "1A" | "1B" | "1C" | "2" | "3" | "4";
   status: "available" | "planned" | "disabled" | "degraded";
   domains: string[];
   toolNames: string[];
@@ -786,6 +786,16 @@ export class AdapterRegistry {
         adapterIds: manifests.map((item) => item.adapterId),
         evidencePolicyRefs,
         sideEffectPosture: "pmo_internal_write"
+      },
+      {
+        capabilityId: "capability://program-manager/agentic-os-integration",
+        phase: "4",
+        status: "available",
+        domains: filteredDomains,
+        toolNames: ["get_agentic_os_context_packet", "submit_agentic_os_receipt"],
+        adapterIds: manifests.map((item) => item.adapterId),
+        evidencePolicyRefs,
+        sideEffectPosture: "describes_actions_only"
       }
     ];
 

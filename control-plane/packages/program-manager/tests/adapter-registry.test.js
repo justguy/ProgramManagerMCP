@@ -178,6 +178,9 @@ test("PMO capability listing surfaces adapter manifests", async () => {
   const receiptLedger = capabilities.find(
     (capability) => capability.capabilityId === "capability://program-manager/receipt-ledger"
   );
+  const agenticOs = capabilities.find(
+    (capability) => capability.capabilityId === "capability://program-manager/agentic-os-integration"
+  );
 
   assert.ok(impact);
   assert.equal(impact.sideEffectPosture, "read_only");
@@ -197,9 +200,16 @@ test("PMO capability listing surfaces adapter manifests", async () => {
   assert.equal(receiptLedger.phase, "3");
   assert.equal(receiptLedger.sideEffectPosture, "pmo_internal_write");
   assert.deepEqual(receiptLedger.toolNames, ["record_program_receipt", "reconcile_program_state"]);
+  assert.ok(agenticOs);
+  assert.equal(agenticOs.phase, "4");
+  assert.equal(agenticOs.sideEffectPosture, "describes_actions_only");
+  assert.deepEqual(agenticOs.toolNames, [
+    "get_agentic_os_context_packet",
+    "submit_agentic_os_receipt"
+  ]);
 
   const capabilitiesForTrackerDomain = await registry.listCapabilities("tracker_board");
-  assert.equal(capabilitiesForTrackerDomain.length, 3);
+  assert.equal(capabilitiesForTrackerDomain.length, 4);
   assert.ok(
     capabilitiesForTrackerDomain.every((capability) =>
       capability.domains.includes("tracker_board")
