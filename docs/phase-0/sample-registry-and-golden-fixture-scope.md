@@ -55,7 +55,7 @@ The seed registry includes these projects:
 
 | Project ref | Name | Initial source refs |
 |---|---|---|
-| `project://ask-mr-gambler` | Ask MR Gambler | `repo://AskMrGambler`, `tracker://ask-mr-gambler-agentic-os` |
+| `project://program-manager-mcp` | Program Manager MCP | `repo://ProgramManagerMCP`, `tracker://program-manager-mcp` |
 | `project://guardrail` | Guardrail | `repo://Guardian`, `tracker://guardrail-roadmap` |
 | `project://hoplon` | Hoplon | `repo://Hoplon`, `tracker://hoplon` |
 | `project://phalanx` | Project Phalanx | `repo://Phalanx`, `tracker://project-phalanx` |
@@ -69,11 +69,11 @@ The seed integration points are:
 
 | Integration point | Producer | Consumers | Purpose |
 |---|---|---|---|
-| `integration://hoplon/authz-gateway` | `project://hoplon` | `project://ask-mr-gambler`, `project://phalanx` | Hoplon authorization contracts consumed by agentic program flows. |
-| `integration://tracker/program-state` | `project://program-manager-mcp` | `project://ask-mr-gambler`, `project://guardrail`, `project://hoplon`, `project://phalanx`, `project://semantix` | Tracker task, blocker, and status observations consumed as PMO evidence. |
-| `integration://semantix/readiness-spec-flow` | `project://semantix` | `project://ask-mr-gambler`, `project://phalanx` | Spec readiness and alignment state consumed by planning. |
-| `integration://guardrail/runtime-controls` | `project://guardrail` | `project://ask-mr-gambler`, `project://phalanx` | Runtime, provider, and policy constraints consumed by orchestration. |
-| `integration://phalanx/orchestration` | `project://phalanx` | `project://ask-mr-gambler` | Orchestration state consumed by Agentic OS program workflows. |
+| `integration://hoplon/authz-gateway` | `project://hoplon` | `project://program-manager-mcp`, `project://phalanx` | Hoplon authorization contracts consumed by agentic program flows. |
+| `integration://tracker/program-state` | `project://program-manager-mcp` | `project://program-manager-mcp`, `project://guardrail`, `project://hoplon`, `project://phalanx`, `project://semantix` | Tracker task, blocker, and status observations consumed as PMO evidence. |
+| `integration://semantix/readiness-spec-flow` | `project://semantix` | `project://program-manager-mcp`, `project://phalanx` | Spec readiness and alignment state consumed by planning. |
+| `integration://guardrail/runtime-controls` | `project://guardrail` | `project://program-manager-mcp`, `project://phalanx` | Runtime, provider, and policy constraints consumed by orchestration. |
+| `integration://phalanx/orchestration` | `project://phalanx` | `project://program-manager-mcp` | Orchestration state consumed by Agentic OS program workflows. |
 
 ## Fixture Scope
 
@@ -92,7 +92,7 @@ Every later test should reference this fixture backbone instead of inventing iso
 
 `F0` must include at least:
 
-- one cross-project dependency from Hoplon authz to AMG or Phalanx
+- one cross-project dependency from Hoplon authz to Phalanx
 - one stale tracker evidence condition
 - one missing evidence condition for a runtime-control policy or readiness artifact
 
@@ -100,7 +100,7 @@ Every later test should reference this fixture backbone instead of inventing iso
 
 The implementation must resolve these before treating the seed as production configuration:
 
-- Which exact project IDs does Hoplon register for AMG, Hoplon, Phalanx, Semantix, and Guardrail?
+- Which exact project IDs does Hoplon register for Hoplon, Hoplon, Phalanx, Semantix, and Guardrail?
 - Which tracker slugs are authoritative for each project?
 - Should the first tracker adapter read local JSON, the tracker API, the tracker CLI, or an MCP client?
 - What is the runtime trust root for verified actor identity?

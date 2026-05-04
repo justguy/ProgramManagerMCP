@@ -50,8 +50,8 @@
       }
     ],
     "scratchpad": "Program Manager MCP board is ready: 7 phase swimlanes, 37 tasks, CT-validated dependency graph, pmo-001 is the only currently executable task.",
-    "rev": 16,
-    "updatedAt": "2026-05-03T22:25:24.010Z"
+    "rev": 31,
+    "updatedAt": "2026-05-04T00:50:30.088Z"
   },
   "tasks": [
     {
@@ -250,7 +250,7 @@
       ],
       "id": "pmo-005",
       "title": "Sample registry and golden fixture scope",
-      "goal": "Define the sample program registry and fixture universe for AMG, Hoplon, Phalanx, Semantix, and Guardrail so all later tests share one backbone.",
+      "goal": "Define the sample program registry and fixture universe for Hoplon, Phalanx, Semantix, Guardrail, and Program Manager MCP so all later tests share one backbone.",
       "status": "complete",
       "placement": {
         "swimlaneId": "phase-0",
@@ -281,7 +281,7 @@
           "open-questions"
         ]
       },
-      "comment": "Completed sample registry and golden fixture scope. Added parseable seed registry, extended fixture anchors P0/R0/I0, and added stale plus missing evidence cases to the golden backbone.",
+      "comment": "Updated fixture wording to remove the prohibited legacy consumer references; fixture universe is Hoplon, Phalanx, Semantix, Guardrail, and Program Manager MCP.",
       "assignee": "codex",
       "blocker_reason": null,
       "references": [
@@ -297,15 +297,15 @@
       ],
       "id": "pmo-101",
       "title": "Package skeleton and repository interface",
-      "goal": "Create the @amg/cp-program-manager implementation package with clean TypeScript boundaries and a repository interface that hides raw graph details from service logic.",
-      "status": "not_started",
+      "goal": "Create the cp-program-manager implementation package with clean TypeScript boundaries and a repository interface that hides raw graph details from service logic.",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1a",
         "priorityId": "p0"
       },
       "effort": "m",
       "expected_changes": [
-        "Package scaffold for @amg/cp-program-manager under the control-plane workspace.",
+        "Package scaffold for cp-program-manager under the control-plane workspace.",
         "ProgramManagerRepository interface covering programs, projects, context anchors, graph relationships, evidence refs, decisions, artifacts, events, and sync cursors.",
         "InMemoryProgramManagerRepository skeleton for narrow unit tests.",
         "Package exports and TypeScript project references aligned with existing control-plane conventions."
@@ -329,7 +329,8 @@
           "typescript"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-004 first."
+      "comment": "Completed Phase 1A package skeleton/repository boundary. Added cp-program-manager scaffold, repository interface, in-memory fixture repository, package exports, and boundary tests. Verified npm test, schema generation, and tsc --noEmit via local Hoplon toolchain.",
+      "assignee": "codex"
     },
     {
       "dependencies": [
@@ -338,7 +339,7 @@
       "id": "pmo-102",
       "title": "Shared schemas and JSON Schema export",
       "goal": "Implement Program Manager Zod schemas and generated JSON Schema outputs that match Phase 0 examples and future adapter/test contracts.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1a",
         "priorityId": "p0"
@@ -368,7 +369,8 @@
           "json-schema"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-002 first."
+      "comment": "Completed shared Zod schema layer and deterministic JSON Schema export. Phase 0 examples, golden fixture, tool contracts, and adapter fixtures parse; generated schema snapshots are stable and pointer-only envelope checks pass.",
+      "assignee": "codex"
     },
     {
       "dependencies": [
@@ -378,7 +380,7 @@
       "id": "pmo-103",
       "title": "Golden fixture backbone",
       "goal": "Build the reusable golden fixture backbone G0/C0/A0/F0/H0 so repository, graph, impact, report, and intelligence tests share one deterministic source of truth.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1a",
         "priorityId": "p0"
@@ -390,7 +392,7 @@
         "Baseline assertion helpers for exact affected refs and findings."
       ],
       "definition_of_done": [
-        "Fixture includes AMG, Hoplon, Phalanx, Semantix, Guardrail, contracts, integration points, decisions, evidence refs, and tracker refs.",
+        "Fixture includes Hoplon, Phalanx, Semantix, Guardrail, Program Manager MCP, contracts, integration points, decisions, evidence refs, and tracker refs.",
         "A0 includes exact affected projects/contracts/integration points/tasks/policies/evidence refs.",
         "F0 includes at least one cross-project dependency and one stale/missing evidence condition.",
         "Fixture load order is deterministic and reusable by later phase tests."
@@ -408,7 +410,9 @@
           "determinism"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-005 and pmo-102 first."
+      "comment": "Completed golden fixture backbone with prohibited legacy consumer references removed. Fixture covers Hoplon, Phalanx, Semantix, Guardrail, and Program Manager MCP; A0/F0 exact refs and deterministic loader tests pass.",
+      "assignee": "codex-spark",
+      "blocker_reason": null
     },
     {
       "dependencies": [
@@ -418,7 +422,7 @@
       "id": "pmo-104",
       "title": "Neo4j migrations and graph repository",
       "goal": "Implement graph constraints, indexes, migrations, and ProgramManagerGraphRepository with deterministic traversal ordering and integration-test coverage.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1a",
         "priorityId": "p0"
@@ -447,9 +451,21 @@
           "neo4j",
           "repository",
           "migrations"
-        ]
+        ],
+        "liveNeo4jSmoke": "Added package-owned npm run smoke:neo4j runner that starts disposable neo4j:5.26-community via Docker when PMO_NEO4J_URI is not supplied, waits for Bolt connectivity, runs the live Neo4j repository test, and cleans up the container.",
+        "liveNeo4jCoverage": "Live Neo4j test now applies migrations, seeds the golden repository fixture, verifies ordered program/project/dependency reads, and verifies deterministic impact findings through ProgramManagerGraphRepository backed by Neo4j.",
+        "neo4jDriverFixes": "Added neo4j-driver dependency, normalized omitted/undefined Cypher parameters to null, and changed typed PmRef upserts to merge the generic PmRef node before adding typed labels so generic uniqueness constraints permit typed label enrichment."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-101 and pmo-102 first."
+      "comment": "Completed Neo4j migration and graph repository layer. Added constraints/index migrations, graph store seam, repository implementation with deterministic ordering, non-live graph tests, and env-gated live Neo4j hook. Verified tests and TypeScript compile.",
+      "assignee": "codex",
+      "blocker_reason": null,
+      "comments": [
+        {
+          "at": "2026-05-03T00:00:00.000-07:00",
+          "by": "codex",
+          "text": "Neo4j live validation upgraded: npm run smoke:neo4j starts disposable Docker Neo4j or uses PMO_NEO4J_URI, applies migrations, seeds the golden fixture, validates ordered graph reads and impact findings, and exits cleanly. Fixed live-only parameter normalization and PmRef typed-label upsert issues exposed by the smoke run."
+        }
+      ]
     },
     {
       "dependencies": [
@@ -459,7 +475,7 @@
       "id": "pmo-105",
       "title": "Seed graph and hash stability proof",
       "goal": "Load the golden fixture into the graph repository and prove deterministic impact inputs, traversal order, and stateVersionHash stability.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1a",
         "priorityId": "p1"
@@ -489,7 +505,9 @@
           "stateVersionHash"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-103 and pmo-104 first."
+      "comment": "Completed seed graph and hash stability proof. Added deterministic state hash helpers, traversal budget defaults, fixture seed coverage for graph repository, and tests proving repeated H0 hash stability and deterministic traversal behavior.",
+      "assignee": "codex-spark",
+      "blocker_reason": null
     },
     {
       "dependencies": [
@@ -500,7 +518,7 @@
       "id": "pmo-106",
       "title": "Phase 1A MCP tools, authz, redaction, and boundary tests",
       "goal": "Expose list_program_capabilities, get_program_documentation, query_program_context, and assess_program_impact through the MCP gateway with standard envelopes and no downstream mutation.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1a",
         "priorityId": "p1"
@@ -532,7 +550,9 @@
           "no-mutation"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-101, pmo-102, and pmo-104 first."
+      "comment": "Completed Phase 1A MCP gateway tools, authz, redaction, and no-mutation boundary tests. All four public tools return parseable envelopes; authz/redaction/boundary tests pass; full package tests and TypeScript compile pass.",
+      "assignee": "codex",
+      "blocker_reason": null
     },
     {
       "dependencies": [
@@ -543,7 +563,7 @@
       "id": "pmo-107",
       "title": "Read-only adapter registry with LLM Tracker and Hoplon stubs",
       "goal": "Add a PMO adapter registry and read-only LLM Tracker/Hoplon adapter stubs that provide manifests, bounded reads, impact hooks, health, cursor, and evidence behavior.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1a",
         "priorityId": "p1"
@@ -574,7 +594,9 @@
           "hoplon"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-003, pmo-101, and pmo-102 first."
+      "comment": "Completed read-only adapter registry with LLM Tracker and Hoplon stubs. Manifests, bounded reads, impact hooks, cursor/health/evidence behavior, and no-mutation conformance tests pass.",
+      "assignee": "codex-spark",
+      "blocker_reason": null
     },
     {
       "dependencies": [
@@ -585,7 +607,7 @@
       "id": "pmo-108",
       "title": "Phase 1A acceptance proof",
       "goal": "Close Phase 1A by proving the read-only graph-backed PMO MVP meets repository, graph, fixture, impact, authz, redaction, adapter, and boundary criteria.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1a",
         "priorityId": "p1"
@@ -613,9 +635,22 @@
           "acceptance",
           "mvp",
           "evidence"
-        ]
+        ],
+        "acceptanceProof": "docs/phase-1a/acceptance-proof.md records Phase 1A acceptance scope, completed task IDs pmo-101 through pmo-108, Hoplon registration, verification commands, and residual live-Neo4j skip.",
+        "verification": "Passed: npm test in control-plane/packages/program-manager (36 tests, 35 pass, 1 skipped live Neo4j hook); npm run generate:schemas; TypeScript noEmit via Hoplon local tsc; repository/shared tracker scan for prohibited legacy references returned zero matches.",
+        "packageName": "Implementation package normalized to cp-program-manager to avoid an invalid scoped package name after legacy-name scrubbing."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-105, pmo-106, and pmo-107 first."
+      "comment": "Starting final Phase 1A acceptance proof after all implementation dependencies completed.",
+      "assignee": "codex",
+      "blocker_reason": null,
+      "completedAt": "2026-05-03T00:00:00.000-07:00",
+      "comments": [
+        {
+          "at": "2026-05-03T00:00:00.000-07:00",
+          "by": "codex",
+          "text": "Completed Phase 1A acceptance: added docs/phase-1a/acceptance-proof.md, registered/verified Hoplon project visibility, reran package tests, schema generation, typecheck, and prohibited-reference scan. Live Neo4j integration remains intentionally skipped unless PMO_NEO4J_URI is set."
+        }
+      ]
     },
     {
       "dependencies": [

@@ -17,17 +17,17 @@
   ],
   "projects": [
     {
-      "displayName": "Ask MR Gambler",
+      "displayName": "Program Manager MCP",
       "portfolioId": "portfolio://default",
       "programIds": [
         "program://agentic-os"
       ],
-      "projectId": "project://ask-mr-gambler",
+      "projectId": "project://program-manager-mcp",
       "repoRefs": [
-        "repo://AskMrGambler"
+        "repo://ProgramManagerMCP"
       ],
       "sourceRefs": [
-        "tracker://ask-mr-gambler-agentic-os"
+        "tracker://program-manager-mcp"
       ]
     },
     {
@@ -92,7 +92,7 @@
       "portfolioId": "portfolio://default",
       "programId": "program://agentic-os",
       "projectIds": [
-        "project://ask-mr-gambler",
+        "project://program-manager-mcp",
         "project://phalanx"
       ],
       "verticalId": "vertical://agentic-os/runtime-orchestration"
@@ -111,7 +111,7 @@
   "integrationPoints": [
     {
       "consumerProjectIds": [
-        "project://ask-mr-gambler",
+        "project://program-manager-mcp",
         "project://phalanx"
       ],
       "integrationPointId": "integration://guardrail/runtime-controls",
@@ -121,7 +121,7 @@
     },
     {
       "consumerProjectIds": [
-        "project://ask-mr-gambler",
+        "project://program-manager-mcp",
         "project://phalanx"
       ],
       "integrationPointId": "integration://hoplon/authz-gateway",
@@ -131,7 +131,7 @@
     },
     {
       "consumerProjectIds": [
-        "project://ask-mr-gambler"
+        "project://program-manager-mcp"
       ],
       "integrationPointId": "integration://phalanx/orchestration",
       "portfolioId": "portfolio://default",
@@ -140,7 +140,7 @@
     },
     {
       "consumerProjectIds": [
-        "project://ask-mr-gambler",
+        "project://program-manager-mcp",
         "project://phalanx"
       ],
       "integrationPointId": "integration://semantix/readiness-spec-flow",
@@ -150,7 +150,7 @@
     },
     {
       "consumerProjectIds": [
-        "project://ask-mr-gambler",
+        "project://program-manager-mcp",
         "project://guardrail",
         "project://hoplon",
         "project://phalanx",
@@ -310,7 +310,7 @@
   "openQuestions": [
     {
       "decisionRef": "decision://program-manager/actual-hoplon-project-ids",
-      "question": "Which exact project IDs does Hoplon register for AMG, Hoplon, Phalanx, Semantix, and Guardrail?"
+      "question": "Which exact project IDs does Hoplon register for Hoplon, Hoplon, Phalanx, Semantix, and Guardrail?"
     },
     {
       "decisionRef": "decision://program-manager/tracker-adapter-source",

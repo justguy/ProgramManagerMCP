@@ -60,7 +60,7 @@ Every phase should extend one shared fixture backbone instead of creating isolat
 
 | Fixture | Meaning |
 |---|---|
-| `G0` | Seed graph with AMG, Hoplon, Phalanx, Semantix, Guardrail, contracts, integration points, decisions, evidence refs, and tracker refs. |
+| `G0` | Seed graph with Hoplon, Phalanx, Semantix, Guardrail, Program Manager MCP, contracts, integration points, decisions, evidence refs, and tracker refs. |
 | `C0` | Proposed change, such as a Hoplon authz contract update or stale evidence condition. |
 | `A0` | Expected affected refs: projects, contracts, integration points, tracker tasks, policies, and evidence refs. |
 | `F0` | Expected findings: at least one cross-project dependency and one stale/missing evidence condition. |

@@ -1,5 +1,5 @@
 {
-  "fixtureSetId": "program-manager-golden-fixtures-v0",
+  "fixtureSetId": "program-manager-golden-fixtures-v1",
   "schemaVersion": "1.0.0",
   "G0": {
     "description": "Seed graph with Hoplon, Phalanx, Semantix, Guardrail, Program Manager MCP, contracts, integration points, decisions, evidence refs, and tracker refs.",
@@ -41,6 +41,12 @@
         ]
       },
       {
+        "projectId": "project://program-manager-mcp",
+        "repoRefs": [
+          "repo://ProgramManagerMCP"
+        ]
+      },
+      {
         "projectId": "project://semantix",
         "repoRefs": [
           "repo://Semantix"
@@ -49,43 +55,77 @@
     ],
     "contracts": [
       {
-        "contractRef": "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "contractRef": "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "producerProjectId": "project://guardrail"
       },
       {
         "contractRef": "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "producerProjectId": "project://hoplon"
+      },
+      {
+        "contractRef": "contract://semantix/readiness-spec@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "producerProjectId": "project://semantix"
       }
     ],
     "integrationPoints": [
       {
-        "integrationPointId": "integration://hoplon/authz-contract",
         "consumerProjectIds": [
           "project://phalanx",
           "project://program-manager-mcp"
         ],
-        "producerProjectId": "project://hoplon"
-      },
-      {
         "integrationPointId": "integration://guardrail/runtime-controls",
-        "consumerProjectIds": [
-          "project://phalanx",
-          "project://program-manager-mcp"
-        ],
         "producerProjectId": "project://guardrail"
       },
       {
-        "integrationPointId": "integration://tracker/local-json",
+        "consumerProjectIds": [
+          "project://phalanx",
+          "project://program-manager-mcp"
+        ],
+        "integrationPointId": "integration://hoplon/authz-gateway",
+        "producerProjectId": "project://hoplon"
+      },
+      {
         "consumerProjectIds": [
           "project://program-manager-mcp"
         ],
+        "integrationPointId": "integration://phalanx/orchestration",
+        "producerProjectId": "project://phalanx"
+      },
+      {
+        "consumerProjectIds": [
+          "project://phalanx",
+          "project://program-manager-mcp"
+        ],
+        "integrationPointId": "integration://semantix/readiness-spec-flow",
+        "producerProjectId": "project://semantix"
+      },
+      {
+        "consumerProjectIds": [
+          "project://guardrail",
+          "project://hoplon",
+          "project://phalanx",
+          "project://program-manager-mcp",
+          "project://semantix"
+        ],
+        "integrationPointId": "integration://tracker/program-state",
         "producerProjectId": "project://program-manager-mcp"
       }
     ],
     "dependencyRelationships": [
       {
         "criticality": "tier_1",
-        "dependencyId": "dep-approval-hoplon-authz",
+        "dependencyId": "dep-guardrail-runtime-controls",
+        "dependencyType": "REQUIRES_EVIDENCE",
+        "fromRef": "project://program-manager-mcp",
+        "policyRefs": [
+          "policy://evidence/guardrail-runtime-current"
+        ],
+        "status": "blocked",
+        "toRef": "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      {
+        "criticality": "tier_1",
+        "dependencyId": "dep-hoplon-authz",
         "dependencyType": "REQUIRES_APPROVAL",
         "fromRef": "project://phalanx",
         "policyRefs": [
@@ -93,6 +133,17 @@
         ],
         "status": "active",
         "toRef": "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      {
+        "criticality": "tier_2",
+        "dependencyId": "dep-semantix-readiness",
+        "dependencyType": "REQUIRES_STATE",
+        "fromRef": "project://phalanx",
+        "policyRefs": [
+          "policy://evidence/semantix-readiness-current"
+        ],
+        "status": "satisfied",
+        "toRef": "contract://semantix/readiness-spec@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
       },
       {
         "criticality": "tier_2",
@@ -104,17 +155,6 @@
         ],
         "status": "stale",
         "toRef": "tracker://program-manager-mcp/PMO-001"
-      },
-      {
-        "criticality": "tier_1",
-        "dependencyId": "dep-guardrail-runtime-controls",
-        "dependencyType": "REQUIRES_EVIDENCE",
-        "fromRef": "project://program-manager-mcp",
-        "policyRefs": [
-          "policy://evidence/guardrail-runtime-current"
-        ],
-        "status": "blocked",
-        "toRef": "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       }
     ],
     "decisionRefs": [
@@ -122,13 +162,14 @@
     ],
     "evidenceRefs": [
       "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence://guardrail/runtime-controls/missing-current-snapshot",
       "tracker://program-manager-mcp/PMO-001"
     ]
   },
   "C0": {
     "changeId": "change://program-manager-mcp/c0-hoplon-authz-contract-update",
     "changeKind": "contract_update",
-    "description": "Hoplon authz contract update with one stale tracker evidence condition.",
+    "description": "Hoplon authz contract update with stale tracker evidence condition.",
     "targetRefs": [
       "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "tracker://program-manager-mcp/PMO-001"
@@ -146,7 +187,7 @@
       },
       {
         "kind": "integration_point",
-        "ref": "integration://hoplon/authz-contract"
+        "ref": "integration://hoplon/authz-gateway"
       },
       {
         "kind": "policy",
@@ -154,7 +195,7 @@
       },
       {
         "kind": "policy",
-        "ref": "policy://evidence/guardrail-runtime-current"
+        "ref": "policy://evidence/tracker-snapshot-fast-expiry"
       },
       {
         "kind": "project",
@@ -174,6 +215,14 @@
     "findings": [
       {
         "evidenceRefs": [
+          "evidence://guardrail/runtime-controls/missing-current-snapshot"
+        ],
+        "findingId": "finding-missing-guardrail-runtime-evidence",
+        "severity": "critical",
+        "type": "missing_evidence"
+      },
+      {
+        "evidenceRefs": [
           "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         ],
         "findingId": "finding-cross-project-hoplon-authz",
@@ -187,14 +236,6 @@
         "findingId": "finding-stale-tracker-evidence",
         "severity": "high",
         "type": "stale_evidence"
-      },
-      {
-        "evidenceRefs": [
-          "evidence://guardrail/runtime-controls/missing-current-snapshot"
-        ],
-        "findingId": "finding-missing-guardrail-runtime-evidence",
-        "severity": "critical",
-        "type": "missing_evidence"
       }
     ]
   },

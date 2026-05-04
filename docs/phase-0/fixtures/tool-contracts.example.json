@@ -87,12 +87,12 @@
             {
               "kind": "project",
               "reason": "consumes_contract",
-              "ref": "project://ask-mr-gambler"
+              "ref": "project://phalanx"
             },
             {
               "kind": "project",
               "reason": "consumes_contract",
-              "ref": "project://phalanx"
+              "ref": "project://program-manager-mcp"
             }
           ],
           "changeRef": "change://program-manager-mcp/c0-hoplon-authz-contract-update",
@@ -145,9 +145,9 @@
         "portfolioId": "portfolio://default",
         "programId": "program://agentic-os",
         "projectIds": [
-          "project://ask-mr-gambler",
           "project://hoplon",
-          "project://phalanx"
+          "project://phalanx",
+          "project://program-manager-mcp"
         ],
         "redactionSummary": {
           "omittedKinds": [

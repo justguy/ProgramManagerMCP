@@ -130,7 +130,7 @@
           {
             "kind": "project",
             "reason": "consumes_contract",
-            "ref": "project://ask-mr-gambler"
+            "ref": "project://program-manager-mcp"
           },
           {
             "kind": "project",

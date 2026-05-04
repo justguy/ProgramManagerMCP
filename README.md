@@ -2,12 +2,12 @@
 
 Program Manager MCP is the planning home for **Program Manager**, a stateful PMO memory, dependency intelligence, and audit ledger service for coordinated agentic software programs.
 
-The operator-facing and agent-facing capability label is **PMO**. The MCP server id is `program-manager`.
+The operator-facing and agent-facing capability label is **PMO**. The MCP server id is `cp-program-manager`.
 
 The current authoritative planning documents are:
 
-- [Integrated implementation blueprint](program-manager-mcp-integrated-blueprint-2026-05-03.md)
-- [Original agent handoff](program-manager-mcp-agent-handoff-2026-05-03.md)
+- [Integrated implementation blueprint](cp-program-manager-mcp-integrated-blueprint-2026-05-03.md)
+- [Original agent handoff](cp-program-manager-mcp-agent-handoff-2026-05-03.md)
 - [Phase 0 schema examples and fixture contracts](docs/phase-0/schema-examples-and-fixture-contracts.md)
 - [Phase 0 adapter, authz, approval, and security contracts](docs/phase-0/adapter-authz-approval-security-contracts.md)
 - [Phase 0 public PMO tool contracts and result envelope](docs/phase-0/public-pmo-tool-contracts-and-result-envelope.md)
@@ -17,9 +17,9 @@ The integrated blueprint supersedes the original handoff wherever the two differ
 
 ## Current Status
 
-This repository currently contains planning documents only. The implementation target is a separate `@amg/cp-program-manager` package exposed through `@amg/mcp-gateway`.
+This repository currently contains planning documents only. The implementation target is a separate `cp-program-manager` package exposed through `mcp-gateway`.
 
-The immediate build target is **Phase 1A**: read-only graph-backed PMO memory, deterministic impact analysis, portfolio-scoped authz, redaction, standard tool envelopes, adapter stubs, and a golden fixture.
+The immediate build target is **Phase 1A**: read-only cp-graph-backed PMO memory, deterministic impact analysis, portfolio-scoped authz, redaction, standard tool envelopes, adapter stubs, and a golden fixture.
 
 ## Purpose
 
@@ -53,9 +53,9 @@ Focused systems remain standalone. Program Manager does not replace them and doe
 
 Unless a later ADR changes them, the default implementation decisions are:
 
-- Package: `@amg/cp-program-manager`
-- MCP exposure: through `@amg/mcp-gateway`
-- Database: Neo4j as the primary graph query and projection store
+- Package: `cp-program-manager`
+- MCP exposure: through `@mcp-gateway`
+- Database: Neo4j as the primary cp-graph query and projection store
 - First adapters: local file/API adapters, not MCP-to-MCP calls
 - Reports: reproducible markdown plus a JSON evidence envelope
 - External execution: outside PMO, coordinated through flight plans and receipts
@@ -74,9 +74,9 @@ Program Manager must preserve the passive PMO boundary:
 
 ## Database Direction
 
-Program Manager uses **Neo4j** as the primary PMO graph query and projection store.
+Program Manager uses **Neo4j** as the primary PMO cp-graph query and projection store.
 
-This is not intended to be a simple in-memory graph or a hand-rolled graph database. Neo4j is required for durable dependency traversal, blast-radius analysis, indexed graph lookup, constraints, and graph-backed PMO projections.
+This is not intended to be a simple in-memory cp-graph or a hand-rolled cp-graph database. Neo4j is required for durable dependency traversal, blast-radius analysis, indexed cp-graph lookup, constraints, and cp-graph-backed PMO projections.
 
 The implementation should use:
 
@@ -87,7 +87,7 @@ The implementation should use:
 - stable IDs on relationships, especially `dependencyId`
 - an append-only event model as the rebuild basis
 
-Interim persistence may keep PMO event nodes and graph projection updates in one Neo4j transaction. A later architecture can move to a separate durable event store plus idempotent Neo4j projection reducer.
+Interim persistence may keep PMO event nodes and cp-graph projection updates in one Neo4j transaction. A later architecture can move to a separate durable event store plus idempotent Neo4j projection reducer.
 
 ## Simplified MCP Surface
 
@@ -132,7 +132,7 @@ The intended flow is:
 ```text
 Standalone capability
   -> PMO adapter manifest and methods
-  -> Program Manager repository and Neo4j graph
+  -> Program Manager repository and Neo4j cp-graph
   -> simplified PMO MCP tools for agents
 ```
 
@@ -140,27 +140,27 @@ Standalone capability
 
 The integrated blueprint recommends this stack:
 
-- MCP TypeScript SDK for the `program-manager` MCP facade
+- MCP TypeScript SDK for the `cp-program-manager` MCP facade
 - Zod for TypeScript-first DTOs
 - AJV standalone validators for generated JSON Schema validation
 - RFC 8785 JSON Canonicalization Scheme for deterministic hashing
-- Neo4j-Migrations for graph constraints, indexes, and migrations
+- Neo4j-Migrations for cp-graph constraints, indexes, and migrations
 - Testcontainers Neo4j for integration tests
 - Neo4j constraints and indexes for stable PMO IDs and efficient traversal
 - CloudEvents-inspired PMO event envelopes
 - AsyncAPI for event and adapter stream documentation
 - OpenTelemetry JS for traces, metrics, and logs
 - TypeScript project references for package boundaries
-- Vitest for unit, fixture, adapter, and graph tests
-- PMO Doctor CLI for schema, registry, graph, hash, redaction, fixture, and report smoke checks
+- Vitest for unit, fixture, adapter, and cp-graph tests
+- PMO Doctor CLI for schema, registry, cp-graph, hash, redaction, fixture, and report smoke checks
 
 ## Repo Layout
 
 Recommended implementation layout:
 
 ```text
-shared/schemas/program-manager.ts
-control-plane/packages/program-manager/
+shared/schemas/cp-program-manager.ts
+control-plane/packages/cp-program-manager/
   src/
     service/
     repository/
@@ -173,16 +173,16 @@ control-plane/packages/program-manager/
   migrations/neo4j/
   fixtures/
   docs/
-control-plane/packages/mcp-gateway/
-  src/program-manager-tools.ts
-control-plane/tests/unit/program-manager/
-control-plane/tests/integration/program-manager-neo4j/
+control-plane/mcp-gateway/
+  src/cp-program-manager-tools.ts
+control-plane/tests/unit/cp-program-manager/
+control-plane/tests/integration/cp-program-manager-neo4j/
 control-plane/manifests/programs/*.json
 artifacts/reports/alignment/
 artifacts/reports/implementation/
 ```
 
-The implementation package should publish as `@amg/cp-program-manager`. The MCP gateway should expose only the simplified PMO tool surface, not the internal repository, adapter, or graph APIs.
+The implementation package should publish as `cp-program-manager`. The MCP mcp-gateway should expose only the simplified PMO tool surface, not the internal repository, adapter, or cp-graph APIs.
 
 ## Core Memory Model
 
@@ -230,7 +230,7 @@ The integrated blueprint recommends this order:
 12. Flight plans and receipts.
 13. Reconciliation and operational telemetry.
 
-The immediate implementation target is **Phase 1A**: a read-only graph-backed PMO package with deterministic impact analysis, a seed registry, tool envelopes, portfolio-scoped authz, redaction, and a golden fixture.
+The immediate implementation target is **Phase 1A**: a read-only cp-graph-backed PMO package with deterministic impact analysis, a seed registry, tool envelopes, portfolio-scoped authz, redaction, and a golden fixture.
 
 ## First Implementation Slice
 
@@ -240,7 +240,7 @@ The first Phase 1A slice should include:
 - golden fixture backbone
 - `ProgramManagerRepository` interface
 - Neo4j migrations, constraints, and indexes
-- seed graph for initial programs, projects, contracts, dependencies, evidence refs, decisions, and cursors
+- seed cp-graph for initial programs, projects, contracts, dependencies, evidence refs, decisions, and cursors
 - `list_program_capabilities`
 - `get_program_documentation`
 - `query_program_context`
@@ -269,18 +269,27 @@ Phase 1A is complete when PMO can:
 The blueprint calls for focused checks by phase, including:
 
 ```bash
-TPF_LLM_TOOL=codex tpf pnpm --filter program-manager run test:fixtures
-TPF_LLM_TOOL=codex tpf pnpm --filter program-manager run test:neo4j
-TPF_LLM_TOOL=codex tpf pnpm --filter program-manager run pmo:doctor
-TPF_LLM_TOOL=codex tpf pnpm --filter program-manager run pmo:replay-smoke
-TPF_LLM_TOOL=codex tpf pnpm --filter program-manager run pmo:report-regenerate
-TPF_LLM_TOOL=codex tpf pnpm --filter program-manager run pmo:adapter-conformance
+TPF_LLM_TOOL=codex tpf pnpm --filter cp-program-manager run test:fixtures
+TPF_LLM_TOOL=codex tpf pnpm --filter cp-program-manager run test:neo4j
+TPF_LLM_TOOL=codex tpf pnpm --filter cp-program-manager run pmo:doctor
+TPF_LLM_TOOL=codex tpf pnpm --filter cp-program-manager run pmo:replay-smoke
+TPF_LLM_TOOL=codex tpf pnpm --filter cp-program-manager run pmo:report-regenerate
+TPF_LLM_TOOL=codex tpf pnpm --filter cp-program-manager run pmo:adapter-conformance
 ```
 
 These commands are targets for the future implementation package. This repository currently contains planning documents only.
 
+The current Phase 1A package also includes a local Neo4j smoke runner:
+
+```bash
+cd control-plane/packages/program-manager
+TPF_LLM_TOOL=codex tpf npm run smoke:neo4j
+```
+
+By default this starts a disposable `neo4j:5.26-community` Docker container, waits for Bolt connectivity, runs the Neo4j migration/live repository test, and removes the container. To use an existing database instead, set `PMO_NEO4J_URI`, `PMO_NEO4J_USERNAME`, and `PMO_NEO4J_PASSWORD`, then run `npm run test:neo4j`.
+
 ## Contribution Rules
 
-Any implementation change affecting schemas, adapters, graph shape, authz, evidence, receipts, tool envelopes, deterministic hashes, or report outputs must update the integrated blueprint and the relevant fixtures in the same change.
+Any implementation change affecting schemas, adapters, cp-graph shape, authz, evidence, receipts, tool envelopes, deterministic hashes, or report outputs must update the integrated blueprint and the relevant fixtures in the same change.
 
 Changes that add a new pluggable tool must also add or update its adapter manifest, conformance expectations, evidence behavior, health behavior, cursor behavior, and no-mutation guarantees.

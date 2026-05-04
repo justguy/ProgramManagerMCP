@@ -1,0 +1,7 @@
+{
+  "$ref": "#/definitions/schema-examples",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "schema-examples": {}
+  }
+}

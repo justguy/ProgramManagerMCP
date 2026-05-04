@@ -1,0 +1,646 @@
+import type {
+  ArtifactRef,
+  ContextAnchor,
+  DecisionRecord,
+  EvidenceRef,
+  GraphRelationship,
+  ProgramEvent,
+  ProgramRef,
+  ProjectRef,
+  SyncCursor
+} from "../types/domain.js";
+import type {
+  DecisionQuery,
+  ImpactAssessmentQuery,
+  ImpactAssessmentResult,
+  ProgramContextQuery,
+  ProgramManagerRepository,
+  RepositoryScope
+} from "./program-manager-repository.js";
+import {
+  compareArtifactRefs,
+  compareContracts,
+  compareDecisions,
+  compareEvents,
+  compareEvidenceRefs,
+  compareIntegrationPoints,
+  compareMemberships,
+  comparePrograms,
+  compareProjects,
+  compareRelationships,
+  compareSyncCursors,
+  InMemoryProgramManagerGraphStore,
+  normalizeRecordedAt,
+  type ContractRecord,
+  type DecisionRecordEnvelope,
+  type IntegrationPointRecord,
+  type ProgramManagerGraphSeed,
+  type ProgramManagerGraphStore,
+  type ProgramMembership,
+  type SyncCursorRecord
+} from "./program-manager-graph-store.js";
+
+type ContextMatch = {
+  ref: string;
+  kind: string;
+  status: string;
+  reason: string;
+  validFrom?: string;
+  validTo?: string;
+  recordedAt: string;
+  evidenceRefs: string[];
+};
+
+function compareStrings(left: string, right: string): number {
+  return left.localeCompare(right);
+}
+
+function sortStrings(values: string[]): string[] {
+  return [...values].sort(compareStrings);
+}
+
+function uniqueSortedStrings(values: Iterable<string>): string[] {
+  return [...new Set(values)].sort(compareStrings);
+}
+
+function defaultScopeAnchor(scope: RepositoryScope): ContextAnchor {
+  return {
+    portfolioId: scope.portfolioId,
+    programId: scope.programId,
+    projectId: scope.projectIds?.length === 1 ? scope.projectIds[0] : undefined
+  };
+}
+
+function inferKind(ref: string): string {
+  const prefix = ref.split("://", 1)[0];
+  return prefix || "reference";
+}
+
+function compareContextMatches(left: ContextMatch, right: ContextMatch): number {
+  return (
+    compareStrings(left.recordedAt, right.recordedAt) ||
+    compareStrings(left.kind, right.kind) ||
+    compareStrings(left.ref, right.ref) ||
+    compareStrings(left.reason, right.reason)
+  );
+}
+
+function compareAffectedRefs(
+  left: ImpactAssessmentResult["affectedRefs"][number],
+  right: ImpactAssessmentResult["affectedRefs"][number]
+): number {
+  return (
+    compareStrings(left.kind, right.kind) ||
+    compareStrings(left.ref, right.ref) ||
+    compareStrings(left.reason, right.reason)
+  );
+}
+
+function compareFindings(
+  left: ImpactAssessmentResult["findings"][number],
+  right: ImpactAssessmentResult["findings"][number]
+): number {
+  return (
+    compareStrings(left.severity, right.severity) ||
+    compareStrings(left.type, right.type) ||
+    compareStrings(left.findingId, right.findingId)
+  );
+}
+
+function compareApprovals(
+  left: ImpactAssessmentResult["requiredApprovals"][number],
+  right: ImpactAssessmentResult["requiredApprovals"][number]
+): number {
+  return (
+    compareStrings(left.authorityRef, right.authorityRef) ||
+    compareStrings(left.reason, right.reason)
+  );
+}
+
+function compareEvidenceObligations(
+  left: ImpactAssessmentResult["evidenceObligations"][number],
+  right: ImpactAssessmentResult["evidenceObligations"][number]
+): number {
+  return (
+    compareStrings(left.targetRef, right.targetRef) ||
+    compareStrings(left.policyRef, right.policyRef) ||
+    compareStrings(left.status, right.status)
+  );
+}
+
+function mapDecisionRecord(decision: DecisionRecordEnvelope): DecisionRecord {
+  return {
+    decisionId: decision.decisionId,
+    portfolioId: decision.portfolioId,
+    programId: decision.programId,
+    projectId: decision.projectId,
+    summary: decision.summary,
+    status: decision.status,
+    recordedAt: decision.recordedAt,
+    validFrom: decision.validFrom,
+    validTo: decision.validTo,
+    evidenceRefs: sortStrings(decision.evidenceRefs)
+  };
+}
+
+export class ProgramManagerGraphRepository implements ProgramManagerRepository {
+  private readonly store: ProgramManagerGraphStore;
+
+  constructor(store: ProgramManagerGraphStore = new InMemoryProgramManagerGraphStore()) {
+    this.store = store;
+  }
+
+  static createInMemory(): ProgramManagerGraphRepository {
+    return new ProgramManagerGraphRepository(new InMemoryProgramManagerGraphStore());
+  }
+
+  async seed(seed: ProgramManagerGraphSeed): Promise<void> {
+    for (const program of [...(seed.programs ?? [])].sort(comparePrograms)) {
+      await this.putProgram(program);
+    }
+    for (const project of [...(seed.projects ?? [])].sort(compareProjects)) {
+      await this.putProject(project);
+    }
+    for (const membership of [...(seed.memberships ?? [])].sort(compareMemberships)) {
+      await this.putMembership(membership);
+    }
+    for (const integrationPoint of [...(seed.integrationPoints ?? [])].sort(compareIntegrationPoints)) {
+      await this.putIntegrationPoint(integrationPoint);
+    }
+    for (const contract of [...(seed.contracts ?? [])].sort(compareContracts)) {
+      await this.putContract(contract);
+    }
+    for (const relationship of [...(seed.relationships ?? [])].sort(compareRelationships)) {
+      await this.putRelationship(relationship);
+    }
+    for (const evidenceRef of [...(seed.evidenceRefs ?? [])].sort(compareEvidenceRefs)) {
+      await this.putEvidenceRef(evidenceRef);
+    }
+    for (const artifactRef of [...(seed.artifactRefs ?? [])].sort(compareArtifactRefs)) {
+      await this.putArtifactRef(artifactRef);
+    }
+    for (const decision of [...(seed.decisions ?? [])].sort(compareDecisions)) {
+      await this.putDecision(decision);
+    }
+    for (const event of [...(seed.events ?? [])].sort(compareEvents)) {
+      await this.putEvent(event);
+    }
+    for (const cursor of [...(seed.syncCursors ?? [])].sort(compareSyncCursors)) {
+      await this.putSyncCursor(cursor);
+    }
+  }
+
+  async putProgram(program: ProgramRef): Promise<void> {
+    await this.store.upsertProgram(program);
+  }
+
+  async putProject(project: ProjectRef): Promise<void> {
+    await this.store.upsertProject(project);
+  }
+
+  async putMembership(membership: ProgramMembership): Promise<void> {
+    await this.store.upsertMembership({
+      ...membership,
+      recordedAt: normalizeRecordedAt(membership.recordedAt),
+      evidenceRefs: uniqueSortedStrings(membership.evidenceRefs ?? [])
+    });
+  }
+
+  async putIntegrationPoint(integrationPoint: IntegrationPointRecord): Promise<void> {
+    await this.store.upsertIntegrationPoint({
+      ...integrationPoint,
+      consumerProjectIds: uniqueSortedStrings(integrationPoint.consumerProjectIds),
+      recordedAt: normalizeRecordedAt(integrationPoint.recordedAt),
+      evidenceRefs: uniqueSortedStrings(integrationPoint.evidenceRefs ?? [])
+    });
+  }
+
+  async putContract(contract: ContractRecord): Promise<void> {
+    await this.store.upsertContract({
+      ...contract,
+      recordedAt: normalizeRecordedAt(contract.recordedAt),
+      evidenceRefs: uniqueSortedStrings(contract.evidenceRefs ?? [])
+    });
+  }
+
+  async putRelationship(relationship: GraphRelationship): Promise<void> {
+    await this.store.upsertRelationship({
+      ...relationship,
+      evidenceRefs: uniqueSortedStrings(relationship.evidenceRefs)
+    });
+  }
+
+  async putEvidenceRef(evidenceRef: EvidenceRef): Promise<void> {
+    await this.store.upsertEvidenceRef(evidenceRef);
+  }
+
+  async putArtifactRef(artifactRef: ArtifactRef): Promise<void> {
+    await this.store.upsertArtifactRef(artifactRef);
+  }
+
+  async putDecision(decision: DecisionRecordEnvelope): Promise<void> {
+    await this.store.upsertDecision({
+      ...decision,
+      appliesToRefs: uniqueSortedStrings(decision.appliesToRefs ?? []),
+      evidenceRefs: uniqueSortedStrings(decision.evidenceRefs)
+    });
+  }
+
+  async putEvent(event: ProgramEvent): Promise<void> {
+    await this.store.appendEvent({
+      ...event,
+      evidenceRefs: uniqueSortedStrings(event.evidenceRefs),
+      artifactRefs: uniqueSortedStrings(event.artifactRefs)
+    });
+  }
+
+  async putSyncCursor(cursor: SyncCursorRecord): Promise<void> {
+    await this.store.upsertSyncCursor(cursor);
+  }
+
+  async listPrograms(scope: RepositoryScope): Promise<ProgramRef[]> {
+    return (await this.store.listPrograms(scope)).sort(comparePrograms);
+  }
+
+  async listProjects(scope: RepositoryScope): Promise<ProjectRef[]> {
+    return (await this.store.listProjects(scope)).sort(compareProjects);
+  }
+
+  async listMemberships(scope: RepositoryScope): Promise<ProgramMembership[]> {
+    return (await this.store.listMemberships(scope)).sort(compareMemberships);
+  }
+
+  async listIntegrationPoints(scope: RepositoryScope): Promise<IntegrationPointRecord[]> {
+    return (await this.store.listIntegrationPoints(scope)).sort(compareIntegrationPoints);
+  }
+
+  async listContracts(scope: RepositoryScope): Promise<ContractRecord[]> {
+    return (await this.store.listContracts(scope)).sort(compareContracts);
+  }
+
+  async getProgramContext(query: ProgramContextQuery): Promise<{
+    contextAnchor?: ContextAnchor;
+    matchedRefs: ContextMatch[];
+    omittedRefCount: number;
+  }> {
+    const targetRefs = uniqueSortedStrings(query.targetRefs);
+    const targetRefSet = new Set(targetRefs);
+    const [programs, projects, integrationPoints, contracts, relationships, evidenceRefs, artifactRefs, decisions] =
+      await Promise.all([
+        this.listPrograms(query.scope),
+        this.listProjects(query.scope),
+        this.listIntegrationPoints(query.scope),
+        this.listContracts(query.scope),
+        this.listRelationships(query.scope),
+        this.listEvidenceRefs(query.scope),
+        this.listArtifactRefs(query.scope),
+        this.store.listDecisions({
+          scope: query.scope,
+          contextAnchor: query.contextAnchor,
+          targetRefs: query.targetRefs
+        })
+      ]);
+
+    const matches: ContextMatch[] = [];
+    const seen = new Set<string>();
+
+    const addMatch = (match: ContextMatch): void => {
+      const key = `${match.kind}::${match.ref}::${match.reason}`;
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      matches.push({
+        ...match,
+        evidenceRefs: uniqueSortedStrings(match.evidenceRefs)
+      });
+    };
+
+    for (const program of programs) {
+      if (!targetRefSet.has(program.programId)) {
+        continue;
+      }
+      addMatch({
+        ref: program.programId,
+        kind: "program",
+        status: "active",
+        reason: "direct program match",
+        recordedAt: normalizeRecordedAt(undefined),
+        evidenceRefs: []
+      });
+    }
+
+    for (const project of projects) {
+      if (!targetRefSet.has(project.projectId)) {
+        continue;
+      }
+      addMatch({
+        ref: project.projectId,
+        kind: "project",
+        status: "active",
+        reason: "direct project match",
+        recordedAt: normalizeRecordedAt(undefined),
+        evidenceRefs: []
+      });
+    }
+
+    for (const integrationPoint of integrationPoints) {
+      if (!targetRefSet.has(integrationPoint.integrationPointId)) {
+        continue;
+      }
+      addMatch({
+        ref: integrationPoint.integrationPointId,
+        kind: "integration_point",
+        status: "active",
+        reason: "direct integration point match",
+        recordedAt: normalizeRecordedAt(integrationPoint.recordedAt),
+        evidenceRefs: integrationPoint.evidenceRefs ?? []
+      });
+    }
+
+    for (const contract of contracts) {
+      if (!targetRefSet.has(contract.contractRef)) {
+        continue;
+      }
+      addMatch({
+        ref: contract.contractRef,
+        kind: "contract",
+        status: "active",
+        reason: "direct contract match",
+        recordedAt: normalizeRecordedAt(contract.recordedAt),
+        evidenceRefs: contract.evidenceRefs ?? []
+      });
+    }
+
+    for (const relationship of relationships) {
+      if (!targetRefSet.has(relationship.fromRef) && !targetRefSet.has(relationship.toRef)) {
+        continue;
+      }
+      const oppositeRef = targetRefSet.has(relationship.fromRef) ? relationship.toRef : relationship.fromRef;
+      addMatch({
+        ref: oppositeRef,
+        kind: inferKind(oppositeRef),
+        status: relationship.status,
+        reason: `dependency ${relationship.dependencyId}`,
+        validFrom: relationship.validFrom,
+        validTo: relationship.validTo,
+        recordedAt: relationship.recordedAt,
+        evidenceRefs: relationship.evidenceRefs
+      });
+    }
+
+    const decisionMatches = decisions.filter((decision) => {
+      if (decision.status === "superseded" && !query.includeSuperseded) {
+        return false;
+      }
+      if (decision.status === "future_not_applicable" && !query.includeFutureNotApplicable) {
+        return false;
+      }
+      if (targetRefSet.has(decision.decisionId)) {
+        return true;
+      }
+      return (decision.appliesToRefs ?? []).some((ref) => targetRefSet.has(ref));
+    });
+
+    for (const decision of decisionMatches) {
+      addMatch({
+        ref: decision.decisionId,
+        kind: "decision",
+        status: decision.status,
+        reason: targetRefSet.has(decision.decisionId)
+          ? "direct decision match"
+          : "decision applies to target ref",
+        validFrom: decision.validFrom,
+        validTo: decision.validTo,
+        recordedAt: decision.recordedAt,
+        evidenceRefs: decision.evidenceRefs
+      });
+    }
+
+    const evidenceRefSet = new Set<string>();
+    for (const decision of decisionMatches) {
+      for (const evidenceRef of decision.evidenceRefs) {
+        evidenceRefSet.add(evidenceRef);
+      }
+    }
+    for (const relationship of relationships) {
+      if (!targetRefSet.has(relationship.fromRef) && !targetRefSet.has(relationship.toRef)) {
+        continue;
+      }
+      for (const evidenceRef of relationship.evidenceRefs) {
+        evidenceRefSet.add(evidenceRef);
+      }
+    }
+    for (const ref of targetRefs) {
+      evidenceRefSet.add(ref);
+    }
+
+    const matchedEvidenceRefs = evidenceRefs.filter((evidenceRef) => evidenceRefSet.has(evidenceRef.evidenceRef));
+    for (const evidenceRef of matchedEvidenceRefs) {
+      addMatch({
+        ref: evidenceRef.evidenceRef,
+        kind: "evidence",
+        status: "active",
+        reason: targetRefSet.has(evidenceRef.evidenceRef)
+          ? "direct evidence match"
+          : "evidence linked to target context",
+        recordedAt: evidenceRef.recordedAt,
+        evidenceRefs: [evidenceRef.evidenceRef]
+      });
+    }
+
+    const matchedArtifactRefs = artifactRefs.filter(
+      (artifactRef) =>
+        targetRefSet.has(artifactRef.artifactRef) ||
+        matchedEvidenceRefs.some((evidenceRef) => evidenceRef.artifactRef === artifactRef.artifactRef)
+    );
+    for (const artifactRef of matchedArtifactRefs) {
+      addMatch({
+        ref: artifactRef.artifactRef,
+        kind: "artifact",
+        status: artifactRef.redactionStatus,
+        reason: targetRefSet.has(artifactRef.artifactRef)
+          ? "direct artifact match"
+          : "artifact linked to matched evidence",
+        recordedAt: artifactRef.createdAt,
+        evidenceRefs: matchedEvidenceRefs
+          .filter((evidenceRef) => evidenceRef.artifactRef === artifactRef.artifactRef)
+          .map((evidenceRef) => evidenceRef.evidenceRef)
+      });
+    }
+
+    matches.sort(compareContextMatches);
+    const limit = query.limit ?? matches.length;
+    return {
+      contextAnchor: query.contextAnchor ?? defaultScopeAnchor(query.scope),
+      matchedRefs: matches.slice(0, limit),
+      omittedRefCount: Math.max(0, matches.length - limit)
+    };
+  }
+
+  async assessImpact(query: ImpactAssessmentQuery): Promise<ImpactAssessmentResult> {
+    const [relationships, decisions, programs, projects, integrationPoints, contracts] = await Promise.all([
+      this.listRelationships(query.scope),
+      this.store.listDecisions({ scope: query.scope }),
+      this.listPrograms(query.scope),
+      this.listProjects(query.scope),
+      this.listIntegrationPoints(query.scope),
+      this.listContracts(query.scope)
+    ]);
+
+    const refKinds = new Map<string, string>();
+    for (const program of programs) {
+      refKinds.set(program.programId, "program");
+    }
+    for (const project of projects) {
+      refKinds.set(project.projectId, "project");
+    }
+    for (const integrationPoint of integrationPoints) {
+      refKinds.set(integrationPoint.integrationPointId, "integration_point");
+    }
+    for (const contract of contracts) {
+      refKinds.set(contract.contractRef, "contract");
+    }
+    for (const decision of decisions) {
+      refKinds.set(decision.decisionId, "decision");
+    }
+
+    const adjacency = new Map<string, GraphRelationship[]>();
+    for (const relationship of relationships) {
+      const entries = adjacency.get(relationship.fromRef) ?? [];
+      entries.push(relationship);
+      adjacency.set(relationship.fromRef, entries);
+    }
+    for (const entries of adjacency.values()) {
+      entries.sort(compareRelationships);
+    }
+
+    const affectedRefs = new Map<string, ImpactAssessmentResult["affectedRefs"][number]>();
+    const findings = new Map<string, ImpactAssessmentResult["findings"][number]>();
+    const approvals = new Map<string, ImpactAssessmentResult["requiredApprovals"][number]>();
+    const obligations = new Map<string, ImpactAssessmentResult["evidenceObligations"][number]>();
+    const targetRefSet = new Set(query.targetRefs);
+    const visited = new Set<string>([query.changeRef]);
+    const queue = [query.changeRef];
+
+    while (queue.length > 0) {
+      const currentRef = queue.shift();
+      if (!currentRef) {
+        continue;
+      }
+      for (const relationship of adjacency.get(currentRef) ?? []) {
+        if (query.contextAnchor?.asOf && relationship.validFrom > query.contextAnchor.asOf) {
+          continue;
+        }
+        if (query.contextAnchor?.asOf && relationship.validTo && relationship.validTo < query.contextAnchor.asOf) {
+          continue;
+        }
+        const nextRef = relationship.toRef;
+        if (!visited.has(nextRef)) {
+          visited.add(nextRef);
+          queue.push(nextRef);
+        }
+        if (!targetRefSet.size || targetRefSet.has(nextRef)) {
+          affectedRefs.set(
+            nextRef,
+            {
+              kind: refKinds.get(nextRef) ?? inferKind(nextRef),
+              ref: nextRef,
+              reason: `${relationship.dependencyType}:${relationship.dependencyId}`
+            }
+          );
+        }
+        if (relationship.status !== "active" && !findings.has(relationship.dependencyId)) {
+          findings.set(relationship.dependencyId, {
+            findingId: relationship.dependencyId,
+            severity:
+              relationship.status === "blocked"
+                ? "critical"
+                : relationship.status === "stale"
+                  ? "high"
+                  : relationship.status === "pending"
+                    ? "medium"
+                    : "low",
+            type: relationship.dependencyType,
+            summary: `${relationship.dependencyType} is ${relationship.status}`,
+            evidenceRefs: uniqueSortedStrings(relationship.evidenceRefs)
+          });
+        }
+        if (relationship.dependencyType.includes("APPROVAL")) {
+          const authorityRef = relationship.contractRef ?? relationship.toRef;
+          approvals.set(authorityRef, {
+            authorityRef,
+            reason: `${relationship.dependencyType}:${relationship.dependencyId}`,
+            evidencePolicyRefs: []
+          });
+        }
+        if (relationship.dependencyType.includes("EVIDENCE")) {
+          const policyRef = relationship.contractRef ?? relationship.dependencyId;
+          obligations.set(`${policyRef}::${nextRef}`, {
+            policyRef,
+            targetRef: nextRef,
+            status:
+              relationship.status === "active" || relationship.status === "satisfied"
+                ? "satisfied"
+                : relationship.status === "stale"
+                  ? "stale"
+                  : "missing"
+          });
+        }
+      }
+    }
+
+    for (const decision of decisions) {
+      const appliesToTarget = (decision.appliesToRefs ?? []).some((ref) => targetRefSet.has(ref));
+      if (!appliesToTarget || decision.status === "applicable") {
+        continue;
+      }
+      findings.set(`decision:${decision.decisionId}`, {
+        findingId: `decision:${decision.decisionId}`,
+        severity: decision.status === "superseded" ? "medium" : "low",
+        type: "decision_status",
+        summary: `${decision.decisionId} is ${decision.status}`,
+        evidenceRefs: uniqueSortedStrings(decision.evidenceRefs)
+      });
+    }
+
+    return {
+      affectedRefs: [...affectedRefs.values()].sort(compareAffectedRefs),
+      findings: [...findings.values()].sort(compareFindings),
+      requiredApprovals: [...approvals.values()].sort(compareApprovals),
+      evidenceObligations: [...obligations.values()].sort(compareEvidenceObligations)
+    };
+  }
+
+  async listRelationships(scope: RepositoryScope): Promise<GraphRelationship[]> {
+    return (await this.store.listRelationships(scope)).sort(compareRelationships);
+  }
+
+  async listEvidenceRefs(scope: RepositoryScope, refs?: string[]): Promise<EvidenceRef[]> {
+    return (await this.store.listEvidenceRefs(scope, refs)).sort(compareEvidenceRefs);
+  }
+
+  async listArtifactRefs(scope: RepositoryScope, refs?: string[]): Promise<ArtifactRef[]> {
+    return (await this.store.listArtifactRefs(scope, refs)).sort(compareArtifactRefs);
+  }
+
+  async listDecisions(query: DecisionQuery): Promise<DecisionRecord[]> {
+    return (await this.store.listDecisions(query)).sort(compareDecisions).map(mapDecisionRecord);
+  }
+
+  async listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]> {
+    const events = (await this.store.listEvents(scope)).sort(compareEvents);
+    return typeof limit === "number" ? events.slice(0, limit) : events;
+  }
+
+  async getSyncCursors(scope: RepositoryScope): Promise<SyncCursor[]> {
+    return (await this.store.listSyncCursors(scope))
+      .sort(compareSyncCursors)
+      .map((cursor) => ({
+        adapterId: cursor.adapterId,
+        portfolioId: cursor.portfolioId,
+        cursor: cursor.cursor,
+        recordedAt: cursor.recordedAt
+      }));
+  }
+}
