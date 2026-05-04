@@ -4,6 +4,7 @@ import {
   goldenFixtureBackboneSchema
 } from "../../../../shared/schemas/program-manager.ts";
 import {
+  calculateLearningConfidence,
   getBackboneRepositoryFixture,
   getGoldenFixture,
   getOrderedGoldenFixture
@@ -68,6 +69,18 @@ test("loads golden fixture deterministically ordered", () => {
     }),
     "F0 finding order must be deterministic"
   );
+  assert.deepEqual(
+    ordered.I0.intelligenceRecords.map((item) => item.recordId),
+    [...fixture.I0.intelligenceRecords]
+      .sort(
+        (left, right) =>
+          left.recordedAt.localeCompare(right.recordedAt) ||
+          left.recordType.localeCompare(right.recordType) ||
+          left.recordId.localeCompare(right.recordId)
+      )
+      .map((item) => item.recordId),
+    "I0 intelligence records must be deterministic"
+  );
 });
 
 test("G0 includes required Hoplon/Phalanx/Semantix/Guardrail/Program Manager MCP assets and contracts", () => {
@@ -92,6 +105,17 @@ test("G0 includes required Hoplon/Phalanx/Semantix/Guardrail/Program Manager MCP
   );
   assert.ok(fixture.G0.decisionRefs.length >= 1, "G0 has decision refs");
   assert.ok(fixture.G0.evidenceRefs.length >= 2, "G0 has evidence refs and tracker refs");
+  assert.deepEqual(
+    fixture.I0.intelligenceRecords.map((record) => record.recordType).sort(),
+    ["attempt", "discarded_decision", "failure_pattern", "learning", "risk_signal"],
+    "I0 includes all Phase 1C read-only intelligence record classes"
+  );
+  assert.ok(
+    fixture.I0.intelligenceRecords.every(
+      (record) => record.evidenceRefs.length > 0 || record.reviewStatus === "needs_review"
+    ),
+    "intelligence records are evidence-backed or explicitly marked needs_review"
+  );
 });
 
 test("A0 and C0 are exact and complete for the expected impact surface", () => {
@@ -107,9 +131,9 @@ test("A0 and C0 are exact and complete for the expected impact surface", () => {
     [
       "contract:contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "evidence:tracker://program-manager-mcp/PMO-001",
-      "integration_point:integration://hoplon/authz-gateway",
+      "integration_point:integration://hoplon/authz-contract",
       "policy:policy://active-adapters/hoplon-authz-tier1",
-      "policy:policy://evidence/tracker-snapshot-fast-expiry",
+      "policy:policy://evidence/guardrail-runtime-current",
       "project:project://phalanx",
       "project:project://program-manager-mcp",
       "tracker_task:tracker://program-manager-mcp/PMO-001"
@@ -159,6 +183,7 @@ test("repository seed built from backbone is deterministic and reusable", async 
   const projects = await repo.listProjects(scope);
   const relationships = await repo.listRelationships(scope);
   const evidenceRefs = await repo.listEvidenceRefs(scope);
+  const intelligenceRecords = await repo.listIntelligenceRecords({ scope });
   const impact = await repo.assessImpact({
     scope,
     changeRef: backbone.C0.changeId,
@@ -184,7 +209,32 @@ test("repository seed built from backbone is deterministic and reusable", async 
   assert.equal(programs.length, backbone.G0.programs.length, "all programs loaded");
   assert.ok(projects.some((project) => project.projectId === "project://program-manager-mcp"), "Program Manager MCP project in repository");
   assert.ok(projects.some((project) => project.projectId === "project://program-manager-mcp"), "Program Manager MCP project in repository");
-  assert.equal(evidenceRefs.length, backbone.G0.evidenceRefs.length, "all evidence refs loaded");
+  assert.ok(evidenceRefs.length >= backbone.G0.evidenceRefs.length, "all evidence refs loaded");
+  assert.deepEqual(
+    intelligenceRecords.map((record) => record.recordType),
+    ["attempt", "discarded_decision", "failure_pattern", "learning", "risk_signal"],
+    "intelligence records are queryable through repository seed"
+  );
+  assert.deepEqual(
+    (await repo.listIntelligenceRecords({
+      scope,
+      recordTypes: ["learning"],
+      targetRefs: ["tracker://program-manager-mcp/PMO-001"],
+      conditionTags: ["risk:stale_evidence"]
+    })).map((record) => record.recordId),
+    ["intelligence://program-manager-mcp/learning/stale-tracker-cursor"],
+    "learning record query supports target refs and condition tags"
+  );
+  assert.deepEqual(
+    calculateLearningConfidence({
+      reviewStatus: "needs_review",
+      evidenceRefs: [],
+      sourceRefs: [],
+      confidence: { score: 0.9, rationale: "unreviewed" }
+    }),
+    { mode: "needs_review", score: 0.5, rationale: "unreviewed" },
+    "needs_review confidence is capped"
+  );
   assert.equal(impact.findings.length, backbone.F0.findings.length, "impact findings mirror F0");
   assert.equal(impact.requiredApprovals.length, 1, "impact includes deterministic required approvals");
 });

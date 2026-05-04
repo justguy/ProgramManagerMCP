@@ -5,6 +5,7 @@ import type {
   EvidenceRef,
   GraphRelationship,
   ProgramEvent,
+  ProgramIntelligenceRecord,
   ProgramRef,
   ProjectRef,
   SyncCursor
@@ -14,6 +15,7 @@ import type {
   ImpactAssessmentQuery,
   ImpactAssessmentResult,
   ProgramContextQuery,
+  ProgramIntelligenceQuery,
   ProgramManagerRepository,
   RepositoryScope
 } from "./program-manager-repository.js";
@@ -25,6 +27,7 @@ type FixtureData = {
   evidenceRefs?: EvidenceRef[];
   artifactRefs?: ArtifactRef[];
   decisions?: DecisionRecord[];
+  intelligenceRecords?: ProgramIntelligenceRecord[];
   events?: ProgramEvent[];
   syncCursors?: SyncCursor[];
   contextMatches?: Array<{
@@ -48,6 +51,7 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
   private evidenceRefs: EvidenceRef[] = [];
   private artifactRefs: ArtifactRef[] = [];
   private decisions: DecisionRecord[] = [];
+  private intelligenceRecords: ProgramIntelligenceRecord[] = [];
   private events: ProgramEvent[] = [];
   private syncCursors: SyncCursor[] = [];
   private contextMatches: NonNullable<FixtureData["contextMatches"]> = [];
@@ -72,6 +76,7 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
     this.evidenceRefs = fixture.evidenceRefs ?? this.evidenceRefs;
     this.artifactRefs = fixture.artifactRefs ?? this.artifactRefs;
     this.decisions = fixture.decisions ?? this.decisions;
+    this.intelligenceRecords = fixture.intelligenceRecords ?? this.intelligenceRecords;
     this.events = fixture.events ?? this.events;
     this.syncCursors = fixture.syncCursors ?? this.syncCursors;
     this.contextMatches = fixture.contextMatches ?? this.contextMatches;
@@ -153,6 +158,49 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
       }
       return true;
     });
+  }
+
+  async listIntelligenceRecords(
+    query: ProgramIntelligenceQuery
+  ): Promise<ProgramIntelligenceRecord[]> {
+    const targetRefSet = query.targetRefs?.length ? new Set(query.targetRefs) : undefined;
+    const conditionTagSet = query.conditionTags?.length ? new Set(query.conditionTags) : undefined;
+    const filtered = this.intelligenceRecords.filter((record) => {
+      if (!this.inScope(record.portfolioId, record.programId, query.scope)) {
+        return false;
+      }
+      if (query.scope.projectIds?.length && record.projectId && !query.scope.projectIds.includes(record.projectId)) {
+        return false;
+      }
+      if (query.recordTypes && !query.recordTypes.includes(record.recordType)) {
+        return false;
+      }
+      if (query.reviewStatuses && !query.reviewStatuses.includes(record.reviewStatus)) {
+        return false;
+      }
+      if (targetRefSet) {
+        const refs = [
+          record.recordId,
+          ...record.appliesToRefs,
+          ...record.sourceRefs,
+          ...record.evidenceRefs
+        ];
+        if (!refs.some((ref) => targetRefSet.has(ref))) {
+          return false;
+        }
+      }
+      if (conditionTagSet && !record.conditionTags.some((tag) => conditionTagSet.has(tag))) {
+        return false;
+      }
+      return true;
+    });
+    const sorted = filtered.sort(
+      (left, right) =>
+        left.recordedAt.localeCompare(right.recordedAt) ||
+        left.recordType.localeCompare(right.recordType) ||
+        left.recordId.localeCompare(right.recordId)
+    );
+    return typeof query.limit === "number" ? sorted.slice(0, query.limit) : sorted;
   }
 
   async listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]> {

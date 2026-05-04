@@ -5,6 +5,7 @@ import type {
   EvidenceRef,
   GraphRelationship,
   ProgramEvent,
+  ProgramIntelligenceRecord,
   ProgramRef,
   ProjectRef,
   SyncCursor
@@ -14,6 +15,7 @@ import type {
   ImpactAssessmentQuery,
   ImpactAssessmentResult,
   ProgramContextQuery,
+  ProgramIntelligenceQuery,
   ProgramManagerRepository,
   RepositoryScope
 } from "./program-manager-repository.js";
@@ -24,6 +26,7 @@ import {
   compareEvents,
   compareEvidenceRefs,
   compareIntegrationPoints,
+  compareIntelligenceRecords,
   compareMemberships,
   comparePrograms,
   compareProjects,
@@ -182,6 +185,9 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
     for (const decision of [...(seed.decisions ?? [])].sort(compareDecisions)) {
       await this.putDecision(decision);
     }
+    for (const record of [...(seed.intelligenceRecords ?? [])].sort(compareIntelligenceRecords)) {
+      await this.putIntelligenceRecord(record);
+    }
     for (const event of [...(seed.events ?? [])].sort(compareEvents)) {
       await this.putEvent(event);
     }
@@ -244,6 +250,19 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
       appliesToRefs: uniqueSortedStrings(decision.appliesToRefs ?? []),
       evidenceRefs: uniqueSortedStrings(decision.evidenceRefs)
     });
+  }
+
+  async putIntelligenceRecord(record: ProgramIntelligenceRecord): Promise<void> {
+    await this.store.upsertIntelligenceRecord({
+      ...record,
+      appliesToRefs: uniqueSortedStrings(record.appliesToRefs),
+      conditionTags: uniqueSortedStrings(record.conditionTags),
+      evidenceRefs: uniqueSortedStrings(record.evidenceRefs),
+      sourceRefs: uniqueSortedStrings(record.sourceRefs),
+      ...(record.recordType === "failure_pattern"
+        ? { occurrenceRefs: uniqueSortedStrings(record.occurrenceRefs) }
+        : {})
+    } as ProgramIntelligenceRecord);
   }
 
   async putEvent(event: ProgramEvent): Promise<void> {
@@ -626,6 +645,13 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
 
   async listDecisions(query: DecisionQuery): Promise<DecisionRecord[]> {
     return (await this.store.listDecisions(query)).sort(compareDecisions).map(mapDecisionRecord);
+  }
+
+  async listIntelligenceRecords(
+    query: ProgramIntelligenceQuery
+  ): Promise<ProgramIntelligenceRecord[]> {
+    const records = (await this.store.listIntelligenceRecords(query)).sort(compareIntelligenceRecords);
+    return typeof query.limit === "number" ? records.slice(0, query.limit) : records;
   }
 
   async listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]> {

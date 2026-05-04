@@ -44,6 +44,34 @@ function sortedFindings(values) {
   );
 }
 
+function sortedIntelligenceRecords(values = []) {
+  return [...values].sort(
+    (left, right) =>
+      left.recordedAt.localeCompare(right.recordedAt) ||
+      left.recordType.localeCompare(right.recordType) ||
+      left.recordId.localeCompare(right.recordId)
+  );
+}
+
+export function calculateLearningConfidence(record) {
+  const evidenceCount = record.evidenceRefs?.length ?? 0;
+  const sourceCount = record.sourceRefs?.length ?? 0;
+  if (record.reviewStatus === "needs_review" || evidenceCount === 0) {
+    return {
+      mode: "needs_review",
+      score: Math.min(record.confidence?.score ?? 0.5, 0.5),
+      rationale: record.confidence?.rationale ?? "Learning record lacks enough supporting evidence."
+    };
+  }
+
+  const score = Math.min(1, 0.5 + evidenceCount * 0.2 + sourceCount * 0.1);
+  return {
+    mode: "supported",
+    score,
+    rationale: record.confidence?.rationale ?? "Learning record has evidence and source references."
+  };
+}
+
 export function getOrderedGoldenFixture() {
   const fixture = readFixture();
   return {
@@ -69,6 +97,11 @@ export function getOrderedGoldenFixture() {
     F0: {
       ...fixture.F0,
       findings: sortedFindings(fixture.F0.findings)
+    },
+    I0: {
+      ...fixture.I0,
+      findings: sortedFindings(fixture.I0.findings),
+      intelligenceRecords: sortedIntelligenceRecords(fixture.I0.intelligenceRecords)
     }
   };
 }
@@ -151,7 +184,15 @@ export function getBackboneRepositoryFixture() {
     }))
     .sort((left, right) => left.artifactRef.localeCompare(right.artifactRef));
 
-  const evidenceRefs = fixture.G0.evidenceRefs
+  const evidenceRefs = [
+    ...new Set(
+      fixture.G0.evidenceRefs.concat(
+        sortedIntelligenceRecords(fixture.I0.intelligenceRecords)
+          .flatMap((record) => record.evidenceRefs)
+          .filter((ref) => ref.startsWith("evidence://"))
+      )
+    )
+  ]
     .map((ref) => ({
       evidenceRef: ref,
       portfolioId,
@@ -219,6 +260,19 @@ export function getBackboneRepositoryFixture() {
     evidenceRefs,
     artifactRefs: artifacts,
     decisions,
+    intelligenceRecords: sortedIntelligenceRecords(fixture.I0.intelligenceRecords).map((record) => ({
+      ...record,
+      appliesToRefs: sortLexicographically(record.appliesToRefs),
+      conditionTags: sortLexicographically(record.conditionTags),
+      evidenceRefs: sortLexicographically(record.evidenceRefs),
+      sourceRefs: sortLexicographically(record.sourceRefs),
+      ...(record.recordType === "learning"
+        ? { confidence: calculateLearningConfidence(record) }
+        : {}),
+      ...(record.recordType === "failure_pattern"
+        ? { occurrenceRefs: sortLexicographically(record.occurrenceRefs) }
+        : {})
+    })),
     events: [],
     syncCursors: [
       {

@@ -206,6 +206,52 @@ test("ProgramManagerGraphRepository persists and reads graph entities with deter
         appliesToRefs: ["contract://hoplon/authz@sha256:cccc"]
       }
     ],
+    intelligenceRecords: [
+      {
+        appliesToRefs: ["contract://hoplon/authz@sha256:cccc"],
+        conditionTags: ["action:implicit_approval", "integration:hoplon", "risk:approval_scope"],
+        decisionRef: "decision://control-plane/discarded/implicit-authz-waiver",
+        evidenceRefs: ["evidence://hoplon/authz/current"],
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        projectId: "project://phalanx",
+        rationale: "Implicit authz waiver was rejected because the approval is superseded.",
+        recordedAt: "2026-05-03T12:06:30Z",
+        recordId: "intelligence://control-plane/discarded-decision/implicit-authz-waiver",
+        recordType: "discarded_decision",
+        reviewStatus: "supported",
+        sourceAdapterId: "fixture-loader",
+        sourceCursor: "snapshot:v1",
+        sourceRefs: ["decision://control-plane/authz-waiver"],
+        summary: "Do not use superseded authz waiver as current approval evidence.",
+        title: "Discard implicit authz waiver",
+        validFrom: "2026-05-03T12:00:00Z"
+      },
+      {
+        appliesToRefs: ["evidence://guardrail/runtime/current"],
+        conditionTags: ["action:require_cursor_check", "integration:guardrail", "risk:stale_evidence"],
+        confidence: {
+          mode: "supported",
+          rationale: "Guardrail runtime evidence was stale in the seeded graph.",
+          score: 0.8
+        },
+        evidenceRefs: ["evidence://guardrail/runtime/current"],
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        projectId: "project://phalanx",
+        recordedAt: "2026-05-03T12:06:45Z",
+        recordId: "intelligence://control-plane/learning/guardrail-stale-runtime",
+        recordType: "learning",
+        reusableLesson: "Require fresh Guardrail cursor evidence before clearing runtime controls.",
+        reviewStatus: "supported",
+        sourceAdapterId: "guardrail-local",
+        sourceCursor: "cursor://guardrail/runtime",
+        sourceRefs: ["evidence://guardrail/runtime/current"],
+        summary: "Guardrail runtime evidence must be current before it satisfies execution readiness.",
+        title: "Check Guardrail runtime cursor",
+        validFrom: "2026-05-03T12:00:00Z"
+      }
+    ],
     events: [
       {
         eventId: "event://control-plane/graph-seed",
@@ -305,6 +351,22 @@ test("ProgramManagerGraphRepository persists and reads graph entities with deter
   assert.deepEqual(
     (await repository.listDecisions({ scope })).map((decision) => decision.decisionId),
     ["decision://control-plane/authz-waiver"]
+  );
+  assert.deepEqual(
+    (await repository.listIntelligenceRecords({ scope })).map((record) => record.recordId),
+    [
+      "intelligence://control-plane/discarded-decision/implicit-authz-waiver",
+      "intelligence://control-plane/learning/guardrail-stale-runtime"
+    ]
+  );
+  assert.deepEqual(
+    (await repository.listIntelligenceRecords({
+      scope,
+      recordTypes: ["learning"],
+      targetRefs: ["evidence://guardrail/runtime/current"],
+      conditionTags: ["risk:stale_evidence"]
+    })).map((record) => record.recordId),
+    ["intelligence://control-plane/learning/guardrail-stale-runtime"]
   );
   assert.deepEqual(
     (await repository.listEvents(scope)).map((event) => event.eventId),

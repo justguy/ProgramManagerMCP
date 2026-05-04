@@ -113,3 +113,76 @@ export type SyncCursor = {
   cursor: string;
   recordedAt: string;
 };
+
+export type IntelligenceRecordType =
+  | "learning"
+  | "attempt"
+  | "discarded_decision"
+  | "failure_pattern"
+  | "risk_signal";
+
+export type IntelligenceReviewStatus = "supported" | "needs_review";
+
+export type LearningConfidence = {
+  mode: "supported" | "needs_review";
+  score: number;
+  rationale: string;
+};
+
+export type IntelligenceRecordBase = {
+  recordId: string;
+  recordType: IntelligenceRecordType;
+  portfolioId: string;
+  programId?: string;
+  projectId?: string;
+  title: string;
+  summary: string;
+  recordedAt: string;
+  validFrom: string;
+  validTo?: string;
+  evidenceRefs: string[];
+  sourceRefs: string[];
+  sourceAdapterId: string;
+  sourceCursor: string;
+  conditionTags: string[];
+  appliesToRefs: string[];
+  reviewStatus: IntelligenceReviewStatus;
+};
+
+export type LearningRecord = IntelligenceRecordBase & {
+  recordType: "learning";
+  reusableLesson: string;
+  confidence: LearningConfidence;
+};
+
+export type AttemptRecord = IntelligenceRecordBase & {
+  recordType: "attempt";
+  outcome: "failed" | "partial" | "abandoned";
+  attemptedAction: string;
+};
+
+export type DiscardedDecision = IntelligenceRecordBase & {
+  recordType: "discarded_decision";
+  decisionRef: string;
+  rationale: string;
+  supersededBy?: string;
+};
+
+export type FailurePattern = IntelligenceRecordBase & {
+  recordType: "failure_pattern";
+  patternKey: string;
+  occurrenceRefs: string[];
+};
+
+export type RiskSignal = IntelligenceRecordBase & {
+  recordType: "risk_signal";
+  severity: "low" | "medium" | "high" | "critical";
+  riskType: string;
+};
+
+export type ProgramIntelligenceRecord =
+  | LearningRecord
+  | AttemptRecord
+  | DiscardedDecision
+  | FailurePattern
+  | RiskSignal;

@@ -59,20 +59,20 @@
     ],
     "integrationPoints": [
       {
-        "integrationPointId": "integration://hoplon/authz-contract",
-        "consumerProjectIds": [
-          "project://phalanx",
-          "project://program-manager-mcp"
-        ],
-        "producerProjectId": "project://hoplon"
-      },
-      {
         "integrationPointId": "integration://guardrail/runtime-controls",
         "consumerProjectIds": [
           "project://phalanx",
           "project://program-manager-mcp"
         ],
         "producerProjectId": "project://guardrail"
+      },
+      {
+        "integrationPointId": "integration://hoplon/authz-contract",
+        "consumerProjectIds": [
+          "project://phalanx",
+          "project://program-manager-mcp"
+        ],
+        "producerProjectId": "project://hoplon"
       },
       {
         "integrationPointId": "integration://tracker/local-json",
@@ -228,6 +228,162 @@
         "findingId": "intel-missing-guardrail-runtime-evidence",
         "severity": "critical",
         "type": "missing_evidence"
+      }
+    ],
+    "intelligenceRecords": [
+      {
+        "appliesToRefs": [
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "attemptedAction": "Treat tracker snapshot as current without adapter cursor validation.",
+        "conditionTags": [
+          "action:evidence_reuse",
+          "integration:tracker",
+          "risk:stale_evidence"
+        ],
+        "evidenceRefs": [
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "outcome": "failed",
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-03T12:10:00Z",
+        "recordId": "intelligence://program-manager-mcp/attempt/stale-tracker-evidence",
+        "recordType": "attempt",
+        "reviewStatus": "supported",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "rev:12",
+        "sourceRefs": [
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "summary": "A stale tracker snapshot cannot satisfy current evidence obligations.",
+        "title": "Stale tracker evidence attempt",
+        "validFrom": "2026-05-03T00:00:00Z"
+      },
+      {
+        "appliesToRefs": [
+          "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        ],
+        "conditionTags": [
+          "action:implicit_approval",
+          "integration:hoplon",
+          "risk:approval_scope"
+        ],
+        "decisionRef": "decision://agentic-os/discarded/implicit-hoplon-escalation",
+        "evidenceRefs": [
+          "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "rationale": "Implicit escalation approval was rejected because Hoplon grants must be evidence-backed and scope-bound.",
+        "recordedAt": "2026-05-03T12:11:00Z",
+        "recordId": "intelligence://program-manager-mcp/discarded-decision/implicit-hoplon-escalation",
+        "recordType": "discarded_decision",
+        "reviewStatus": "supported",
+        "sourceAdapterId": "fixture-loader",
+        "sourceCursor": "snapshot:v1",
+        "sourceRefs": [
+          "decision://agentic-os/hoplon-authz-tier1-approval"
+        ],
+        "summary": "Do not reuse implicit Hoplon escalation approval without matching scoped authority evidence.",
+        "title": "Discard implicit Hoplon escalation",
+        "validFrom": "2026-05-03T00:00:00Z"
+      },
+      {
+        "appliesToRefs": [
+          "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        ],
+        "conditionTags": [
+          "integration:guardrail",
+          "risk:missing_evidence"
+        ],
+        "evidenceRefs": [
+          "evidence://guardrail/runtime-controls/missing-current-snapshot"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-03T12:12:00Z",
+        "recordId": "intelligence://program-manager-mcp/failure-pattern/guardrail-missing-runtime",
+        "recordType": "failure_pattern",
+        "reviewStatus": "supported",
+        "sourceAdapterId": "guardrail-local",
+        "sourceCursor": "cursor://guardrail/runtime-controls/missing",
+        "sourceRefs": [
+          "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        ],
+        "summary": "Guardrail runtime controls repeatedly lack current evidence snapshots.",
+        "title": "Guardrail runtime evidence gap",
+        "validFrom": "2026-05-03T00:00:00Z",
+        "occurrenceRefs": [
+          "evidence://guardrail/runtime-controls/missing-current-snapshot"
+        ],
+        "patternKey": "guardrail-runtime-missing-current-snapshot"
+      },
+      {
+        "appliesToRefs": [
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "conditionTags": [
+          "action:require_cursor_check",
+          "integration:tracker",
+          "risk:stale_evidence"
+        ],
+        "confidence": {
+          "mode": "supported",
+          "rationale": "The fixture has stale tracker evidence and a tracker cursor ref.",
+          "score": 0.8
+        },
+        "evidenceRefs": [
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-03T12:13:00Z",
+        "recordId": "intelligence://program-manager-mcp/learning/stale-tracker-cursor",
+        "recordType": "learning",
+        "reusableLesson": "Require adapter cursor freshness before treating tracker evidence as current.",
+        "reviewStatus": "supported",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "rev:12",
+        "sourceRefs": [
+          "tracker://program-manager-mcp/PMO-001"
+        ],
+        "summary": "Tracker evidence is reusable only when cursor freshness is in scope.",
+        "title": "Check tracker cursor freshness",
+        "validFrom": "2026-05-03T00:00:00Z"
+      },
+      {
+        "appliesToRefs": [
+          "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        ],
+        "conditionTags": [
+          "integration:guardrail",
+          "risk:missing_evidence"
+        ],
+        "evidenceRefs": [
+          "evidence://guardrail/runtime-controls/missing-current-snapshot"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-03T12:14:00Z",
+        "recordId": "intelligence://program-manager-mcp/risk/guardrail-runtime-gap",
+        "recordType": "risk_signal",
+        "reviewStatus": "supported",
+        "riskType": "missing_evidence",
+        "severity": "critical",
+        "sourceAdapterId": "guardrail-local",
+        "sourceCursor": "cursor://guardrail/runtime-controls/missing",
+        "sourceRefs": [
+          "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        ],
+        "summary": "Missing Guardrail runtime evidence is a critical risk for execution readiness.",
+        "title": "Guardrail runtime evidence risk",
+        "validFrom": "2026-05-03T00:00:00Z"
       }
     ]
   }

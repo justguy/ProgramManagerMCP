@@ -47,11 +47,16 @@
         "id": "phase-4",
         "label": "Phase 4: Agentic OS Integration and Operational Hardening",
         "description": "Agentic OS consumption, receipt submission integration, trust root, tenant hardening, retention/PII policy, OTel, replay, and operational smoke."
+      },
+      {
+        "id": "phase-5",
+        "label": "Phase 5: Macro Omni-Tool Surface",
+        "description": "Single pmo_macro public tool, normalized PMO object model, editable safe macro registry, and deterministic macro implementations for blockers, context, impact simulation, drift, and acceptance proof."
       }
     ],
-    "scratchpad": "Program Manager MCP board is ready: 7 phase swimlanes, 37 tasks, CT-validated dependency graph, pmo-001 is the only currently executable task.",
-    "rev": 43,
-    "updatedAt": "2026-05-04T01:21:12.214Z"
+    "scratchpad": "Added Phase 5 Macro Omni-Tool swimlane with pmo-701 through pmo-709, gated behind pmo-604 so existing roadmap work completes first. Prompt references are absolute for shared-workspace brief rendering.",
+    "rev": 46,
+    "updatedAt": "2026-05-04T01:45:41.643Z"
   },
   "tasks": [
     {
@@ -999,7 +1004,7 @@
       "id": "pmo-301",
       "title": "Learning, attempt, discarded decision, failure pattern, and risk records",
       "goal": "Add read-only intelligence record types so Program Manager can preserve reusable lessons, failed attempts, rejected options, and risk signals as typed memory.",
-      "status": "not_started",
+      "status": "in_progress",
       "placement": {
         "swimlaneId": "phase-1c",
         "priorityId": "p0"
@@ -1030,7 +1035,9 @@
           "risk"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-206 first."
+      "comment": "Starting Phase 1C pmo-301 implementation: typed read-only intelligence records, evidence-backed fixtures, repository query support, and confidence calculation.",
+      "assignee": "codex",
+      "blocker_reason": null
     },
     {
       "dependencies": [
@@ -1708,6 +1715,417 @@
         ]
       },
       "comment": "Dependency-only sequencing blocker: complete pmo-601, pmo-602, and pmo-603 first."
+    },
+    {
+      "dependencies": [
+        "pmo-604"
+      ],
+      "id": "pmo-701",
+      "title": "Macro object model and envelope contract alignment",
+      "goal": "Normalize the pmo_macro object model and deterministic envelope contracts against the implementation prompt and the existing PMO schemas before adding runtime behavior.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-5",
+        "priorityId": "p0"
+      },
+      "assignee": null,
+      "blocker_reason": null,
+      "effort": "m",
+      "expected_changes": [
+        "Zod schemas and generated JSON Schema coverage for Portfolio, Program, Project, Task, Blocker, Contract, DependencyEdge, Runbook, FlightPlan, ExpectedReceipt, ObservedReceipt, Finding, RiskSignal, EvidenceRef, ArtifactRef, macro registry entries, macro invocation requests, and result envelopes.",
+        "Canonical hash input rules for pmo_macro deterministic core, stateVersionHash, evidence refs, artifact refs, redaction summaries, trace ids, correlation ids, and advisoryPane exclusion.",
+        "Fixture examples for valid and invalid normalized objects with explicit portfolio/program/project/repo/branch/tracker/time/source/evidence scoping."
+      ],
+      "definition_of_done": [
+        "All persisted PMO objects that can affect planning require portfolio scope and scoped fact fields where applicable.",
+        "Schema tests prove pointer-only evidence/artifact refs and reject raw logs, secrets, full diffs, transcripts, screenshots, and provider payloads.",
+        "Hash input fixtures are deterministic and exclude advisoryPane/model-assisted text."
+      ],
+      "constraints": [
+        "Preserve PMO as a stateful analyst, planner, ledger, and reconciler, not a downstream executor.",
+        "Do not break existing Phase 0 through Phase 4 public contracts."
+      ],
+      "references": [
+        "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md:1"
+      ],
+      "context": {
+        "phase": "5",
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md",
+        "tags": [
+          "macro-omnitool",
+          "schemas",
+          "determinism"
+        ],
+        "execution_assumption": "Existing Program Manager MCP roadmap through pmo-604 is complete before this lane starts."
+      },
+      "comment": "Phase 5 starts only after pmo-604; first task locks the normalized object and envelope contract for pmo_macro."
+    },
+    {
+      "dependencies": [
+        "pmo-701"
+      ],
+      "id": "pmo-702",
+      "title": "Macro fixture universe and golden scenarios",
+      "goal": "Build deterministic seed fixtures and expected outputs for blocker alleviation, catch-me-up context, impact simulation, and drift/reality-check macros.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-5",
+        "priorityId": "p0"
+      },
+      "assignee": null,
+      "blocker_reason": null,
+      "effort": "m",
+      "expected_changes": [
+        "Seed graph fixture data for the normalized object model across at least Hoplon, Phalanx, Semantix, Guardrail, and Program Manager MCP.",
+        "Golden macro request and response fixtures for blocker analysis, localized context, cross-domain simulation, and drift detection.",
+        "Expected stateVersionHash, evidenceRefs, artifactRefs, warnings, redaction summaries, and degraded adapter examples."
+      ],
+      "definition_of_done": [
+        "Fixtures are parseable through the new schemas and load into the repository test harness deterministically.",
+        "Golden outputs use stable ordering and exact assertions for deterministic response cores.",
+        "Fixture evidence remains pointer-only and unevidenced/advisory records are explicitly marked."
+      ],
+      "constraints": [
+        "Do not use LLM Tracker as PMO durable memory; tracker refs are source pointers only.",
+        "Do not inline long reports or logs in fixtures."
+      ],
+      "references": [
+        "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md:1"
+      ],
+      "context": {
+        "phase": "5",
+        "tags": [
+          "fixtures",
+          "golden-tests",
+          "macro-examples"
+        ],
+        "macro_examples": [
+          "blocker-alleviation",
+          "catch-me-up",
+          "impact-simulation",
+          "drift-detection"
+        ],
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+      },
+      "comment": "Creates the reusable macro proof data before repository and dispatcher work."
+    },
+    {
+      "dependencies": [
+        "pmo-702"
+      ],
+      "id": "pmo-703",
+      "title": "Portfolio-scoped repository and Neo4j macro support",
+      "goal": "Extend the graph repository and migrations so pmo_macro reads and PMO-owned configuration mutations are portfolio-safe, ordered, and deterministic.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-5",
+        "priorityId": "p0"
+      },
+      "assignee": null,
+      "blocker_reason": null,
+      "effort": "l",
+      "expected_changes": [
+        "Neo4j labels, relationship types, constraints, and indexes for normalized macro objects and macro registry records.",
+        "Repository methods for bounded traversal, current fact selection, dependency impact reads, blocker/runbook lookup, drift comparison inputs, and macro registry persistence.",
+        "Migration idempotency and stable-order query tests for every deterministic macro input path."
+      ],
+      "definition_of_done": [
+        "Repository calls require portfolio scope or explicit cross-portfolio authority and deny cross-portfolio reads by default.",
+        "Macro logic consumes repository abstractions rather than embedding raw Cypher in dispatcher/runtime code.",
+        "Repeated reads over the same fixture produce the same ordered deterministic core."
+      ],
+      "constraints": [
+        "PMO-owned writes are limited to PMO repository, projections, event log, artifact registry, macro registry, findings, reports, receipts, and reconciliation state.",
+        "Simulation reads may not persist hypothetical program truth."
+      ],
+      "references": [
+        "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md:1"
+      ],
+      "context": {
+        "phase": "5",
+        "tags": [
+          "neo4j",
+          "repository",
+          "portfolio-isolation"
+        ],
+        "risk": "Nondeterministic read ordering would invalidate stateVersionHash assertions.",
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+      },
+      "comment": "Gives the macro layer a deterministic, portfolio-isolated graph substrate."
+    },
+    {
+      "dependencies": [
+        "pmo-703"
+      ],
+      "id": "pmo-704",
+      "title": "Editable safe macro registry",
+      "goal": "Implement the built-in macro registry and authorized edit path while preventing edits from granting downstream execution authority or unsafe side-effect classes.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-5",
+        "priorityId": "p0"
+      },
+      "assignee": null,
+      "blocker_reason": null,
+      "effort": "m",
+      "expected_changes": [
+        "Built-in registry entries for help, discovery, documentation, validation, context, impact simulation, blocker analysis, unblock plan proposals, drift detection, registry export, and object-type docs.",
+        "Role/scope checks for registry edits plus audit events for accepted and rejected edits.",
+        "Locked-field validation for sideEffectClass, downstream authority, deterministic hash policy, required evidence behavior, and portfolio isolation rules."
+      ],
+      "definition_of_done": [
+        "Authorized edits can change safe descriptive/configuration fields and are stored only as PMO internal configuration mutations.",
+        "Unauthorized or unsafe edits are rejected with deterministic errors and audit evidence refs.",
+        "Tests prove registry edits cannot expose direct downstream mutations or hidden execution authority."
+      ],
+      "constraints": [
+        "Macro editing must not grant GitHub, LLM Tracker, Hoplon, Semantix, Guardrail, Phalanx, Serena, or other downstream mutation authority.",
+        "Client-supplied actor ids are not authoritative for edit authorization."
+      ],
+      "references": [
+        "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md:1"
+      ],
+      "context": {
+        "phase": "5",
+        "tags": [
+          "macro-registry",
+          "authorization",
+          "audit"
+        ],
+        "security_boundary": "Internal PMO config mutation only; no downstream mutation authority.",
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+      },
+      "comment": "Adds the editable macro catalog without weakening the non-executor boundary."
+    },
+    {
+      "dependencies": [
+        "pmo-704"
+      ],
+      "id": "pmo-705",
+      "title": "Single public pmo_macro dispatcher",
+      "goal": "Expose exactly one public PMO MCP tool named pmo_macro with help, discovery, validation, invocation, object-type documentation, export, and authorized registry editing.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-5",
+        "priorityId": "p0"
+      },
+      "assignee": null,
+      "blocker_reason": null,
+      "effort": "l",
+      "expected_changes": [
+        "MCP dispatcher for pmo_macro actions such as help, list, describe, validate, invoke, edit_registry, export_registry, list_object_types, and describe_object_type.",
+        "Standard result envelope wiring for trace ids, correlation ids, evidence refs, artifact refs, warnings, redaction summaries, state hashes, and advisory panes.",
+        "Public tool inventory tests proving PMO does not expose dozens of separate MCP tools."
+      ],
+      "definition_of_done": [
+        "Only pmo_macro is exposed as the public PMO macro surface while existing compatibility contracts are either internal, wrapped, or intentionally documented.",
+        "Every invocation is schema-validated before execution and returns a deterministic envelope or deterministic validation error.",
+        "Unauthorized registry edits and invalid macro invocations are rejected without downstream side effects."
+      ],
+      "constraints": [
+        "Do not turn pmo_macro into an arbitrary downstream tool proxy.",
+        "Pure help/documentation operations may omit stateVersionHash; planning, impact, simulation, intelligence, or reconciliation results may not."
+      ],
+      "references": [
+        "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md:1"
+      ],
+      "context": {
+        "phase": "5",
+        "tags": [
+          "mcp",
+          "dispatcher",
+          "single-tool-surface"
+        ],
+        "public_tool": "pmo_macro",
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+      },
+      "comment": "Builds the omni-tool facade after registry safety is in place."
+    },
+    {
+      "dependencies": [
+        "pmo-705"
+      ],
+      "id": "pmo-706",
+      "title": "Catch-me-up context and impact simulation macros",
+      "goal": "Implement bounded context provisioning and cross-domain war-gaming macros that summarize relevant PMO graph state without dumping raw database contents or mutating truth.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-5",
+        "priorityId": "p0"
+      },
+      "assignee": null,
+      "blocker_reason": null,
+      "effort": "l",
+      "expected_changes": [
+        "Macro implementations for localized/catch-me-up context packets with bounded traversal, relationship context, evidence pointers, and redaction summaries.",
+        "Impact simulation macro that evaluates hypothetical changes across tasks, contracts, integration points, blockers, risks, runbooks, and evidence obligations without persisting hypothetical state.",
+        "Golden tests for bounded traversal, stable ordering, redaction, advisoryPane exclusion, and stateVersionHash behavior."
+      ],
+      "definition_of_done": [
+        "Context packets are bounded, pointer-only, portfolio-scoped, and include enough relationship context for an execution agent to act within its own authority.",
+        "Simulation outputs are explicitly labeled non-persistent and produce proposed impacts, risks, approvals, and evidence obligations only.",
+        "Hash regression tests pass for repeated runs and relevant state changes."
+      ],
+      "constraints": [
+        "Do not inline raw logs, screenshots, transcripts, provider payloads, scratchpads, or full diffs.",
+        "Simulation must not update canonical PMO program truth."
+      ],
+      "references": [
+        "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md:1"
+      ],
+      "context": {
+        "phase": "5",
+        "tags": [
+          "context",
+          "impact-simulation",
+          "war-gaming"
+        ],
+        "macros": [
+          "pmo.get_localized_context",
+          "pmo.simulate_change",
+          "pmo.assess_impact"
+        ],
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+      },
+      "comment": "Covers the catch-me-up and war-gaming macro family behind the dispatcher."
+    },
+    {
+      "dependencies": [
+        "pmo-706"
+      ],
+      "id": "pmo-707",
+      "title": "Blocker analysis and proposed unblock plans",
+      "goal": "Implement blocker alleviation macros that classify blockers, map them to runbooks, and propose external work through ProposedAction, FlightPlan, and ExpectedReceipt records.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-5",
+        "priorityId": "p0"
+      },
+      "assignee": null,
+      "blocker_reason": null,
+      "effort": "l",
+      "expected_changes": [
+        "Macro implementations for blocker analysis and proposed unblock plans over normalized blockers, tasks, contracts, dependencies, runbooks, decisions, and evidence refs.",
+        "ProposedAction, FlightPlan, and ExpectedReceipt outputs that name the external executor authority without PMO performing the work.",
+        "Tests for blocker typing, runbook linkage, approval/evidence obligations, expected receipt generation, and no downstream mutation calls."
+      ],
+      "definition_of_done": [
+        "At least four representative blocker scenarios produce deterministic typed recommendations and expected receipts.",
+        "Outputs distinguish proposed external actions from actions already performed and never claim PMO executed downstream work.",
+        "No-mutation boundary tests cover LLM Tracker, Hoplon, GitHub, Guardrail, Semantix, Phalanx, Serena, and adapter stubs."
+      ],
+      "constraints": [
+        "PMO may plan, propose, ledger, reconcile, and report; execution agents perform external mutations using their own tools.",
+        "Approval authority must be explicit and evidence-referenced."
+      ],
+      "references": [
+        "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md:1"
+      ],
+      "context": {
+        "phase": "5",
+        "tags": [
+          "blockers",
+          "flight-plans",
+          "expected-receipts"
+        ],
+        "macros": [
+          "pmo.analyze_blockers",
+          "pmo.propose_unblock_plan"
+        ],
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+      },
+      "comment": "Turns blocker intelligence into executable-by-others plans while preserving PMO's boundary."
+    },
+    {
+      "dependencies": [
+        "pmo-707"
+      ],
+      "id": "pmo-708",
+      "title": "Drift detection and reconciliation finding macros",
+      "goal": "Implement reality-check macros that compare expected PMO state, observed adapter state, receipts, and evidence to produce drift and reconciliation findings.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-5",
+        "priorityId": "p1"
+      },
+      "assignee": null,
+      "blocker_reason": null,
+      "effort": "m",
+      "expected_changes": [
+        "Drift detection macro over expected receipts, observed receipts, adapter snapshots, source cursors, valid/recorded times, and evidence refs.",
+        "Finding and RiskSignal outputs for missing, stale, conflicting, unevidenced, adapter-unavailable, and desynchronized states.",
+        "Degraded adapter behavior and missing-evidence warnings in deterministic envelopes."
+      ],
+      "definition_of_done": [
+        "Drift reports include expected refs, observed refs, source adapter/cursor context, reconciliation status, and proposed remediation actions.",
+        "Adapter unavailable or partial evidence states degrade explicitly instead of fabricating certainty.",
+        "Golden tests prove drift findings are deterministic and portfolio-isolated."
+      ],
+      "constraints": [
+        "Drift detection may raise findings and proposals but must not directly repair downstream systems.",
+        "Every material finding must carry evidence refs or explicitly state evidence is missing."
+      ],
+      "references": [
+        "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md:1"
+      ],
+      "context": {
+        "phase": "5",
+        "tags": [
+          "drift",
+          "reconciliation",
+          "findings"
+        ],
+        "macros": [
+          "pmo.detect_drift",
+          "pmo.reconcile_reality"
+        ],
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+      },
+      "comment": "Adds the reality-check macro family after planning outputs exist."
+    },
+    {
+      "dependencies": [
+        "pmo-708"
+      ],
+      "id": "pmo-709",
+      "title": "Macro omni-tool acceptance and determinism gate",
+      "goal": "Close the macro omni-tool lane with a compliance proof for determinism, portfolio isolation, redaction, evidence pointers, advisoryPane hashing, registry safety, and the no-downstream-mutation boundary.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "phase-5",
+        "priorityId": "p1"
+      },
+      "assignee": null,
+      "blocker_reason": null,
+      "effort": "m",
+      "expected_changes": [
+        "Acceptance proof document or generated report for the pmo_macro lane with verification commands and residual risks.",
+        "PMO Doctor or equivalent checks for macro registry, schema generation, fixture parity, deterministic hashes, redaction, portfolio isolation, adapter degradation, and tool inventory.",
+        "Golden output updates and test evidence for all Phase 5 macro examples."
+      ],
+      "definition_of_done": [
+        "Same input, state anchor, registry version, and macro version produce the same deterministic core and stateVersionHash.",
+        "Changing advisoryPane/model-assisted text does not alter deterministic hashes, while changing relevant state does.",
+        "Acceptance proof confirms only pmo_macro is public for the macro surface and no downstream mutation-capable calls occur through PMO."
+      ],
+      "constraints": [
+        "Do not mark Phase 5 complete while direct receipt ingestion or full flight-plan execution lifecycle remains accidentally half-shipped as macro behavior.",
+        "Residual deferred items must be explicitly documented as later-phase work rather than hidden in the acceptance proof."
+      ],
+      "references": [
+        "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md:1"
+      ],
+      "context": {
+        "phase": "5",
+        "tags": [
+          "acceptance",
+          "determinism",
+          "compliance"
+        ],
+        "gate": "Phase 5 complete only after schema, fixture, dispatcher, macro, no-mutation, and portfolio-isolation proof.",
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+      },
+      "comment": "Final gate proves the macro omni-tool is deterministic, isolated, pointer-only, and non-mutating downstream."
     }
   ]
 }

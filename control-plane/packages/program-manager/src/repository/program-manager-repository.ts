@@ -4,7 +4,10 @@ import type {
   DecisionRecord,
   EvidenceRef,
   GraphRelationship,
+  IntelligenceRecordType,
+  IntelligenceReviewStatus,
   ProgramEvent,
+  ProgramIntelligenceRecord,
   ProgramRef,
   ProjectRef,
   SyncCursor
@@ -62,6 +65,16 @@ export type ImpactAssessmentResult = {
   }>;
 };
 
+export type ProgramIntelligenceQuery = {
+  scope: RepositoryScope;
+  contextAnchor?: ContextAnchor;
+  recordTypes?: IntelligenceRecordType[];
+  reviewStatuses?: IntelligenceReviewStatus[];
+  targetRefs?: string[];
+  conditionTags?: string[];
+  limit?: number;
+};
+
 export interface ProgramManagerRepository {
   listPrograms(scope: RepositoryScope): Promise<ProgramRef[]>;
   listProjects(scope: RepositoryScope): Promise<ProjectRef[]>;
@@ -84,6 +97,7 @@ export interface ProgramManagerRepository {
   listEvidenceRefs(scope: RepositoryScope, refs?: string[]): Promise<EvidenceRef[]>;
   listArtifactRefs(scope: RepositoryScope, refs?: string[]): Promise<ArtifactRef[]>;
   listDecisions(query: DecisionQuery): Promise<DecisionRecord[]>;
+  listIntelligenceRecords(query: ProgramIntelligenceQuery): Promise<ProgramIntelligenceRecord[]>;
   listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]>;
   getSyncCursors(scope: RepositoryScope): Promise<SyncCursor[]>;
 }

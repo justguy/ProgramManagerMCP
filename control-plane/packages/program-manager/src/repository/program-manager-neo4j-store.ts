@@ -3,10 +3,15 @@ import type {
   EvidenceRef,
   GraphRelationship,
   ProgramEvent,
+  ProgramIntelligenceRecord,
   ProgramRef,
   ProjectRef
 } from "../types/domain.js";
-import type { DecisionQuery, RepositoryScope } from "./program-manager-repository.js";
+import type {
+  DecisionQuery,
+  ProgramIntelligenceQuery,
+  RepositoryScope
+} from "./program-manager-repository.js";
 import {
   normalizeRecordedAt,
   type ContractRecord,
@@ -353,6 +358,38 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
     );
   }
 
+  async upsertIntelligenceRecord(record: ProgramIntelligenceRecord): Promise<void> {
+    await runWrite(
+      this.driver,
+      `
+        MERGE (record:PmRef {portfolioId: $portfolioId, ref: $recordId})
+        SET record:PmIntelligenceRecord,
+            record.recordId = $recordId,
+            record.recordType = $recordType,
+            record.programId = $programId,
+            record.projectId = $projectId,
+            record.title = $title,
+            record.summary = $summary,
+            record.recordedAt = $recordedAt,
+            record.validFrom = $validFrom,
+            record.validTo = $validTo,
+            record.evidenceRefs = $evidenceRefs,
+            record.sourceRefs = $sourceRefs,
+            record.sourceAdapterId = $sourceAdapterId,
+            record.sourceCursor = $sourceCursor,
+            record.conditionTags = $conditionTags,
+            record.appliesToRefs = $appliesToRefs,
+            record.reviewStatus = $reviewStatus,
+            record.payload = $payload,
+            record.kind = 'intelligence_record'
+      `,
+      {
+        ...record,
+        payload: JSON.stringify(record)
+      }
+    );
+  }
+
   async appendEvent(event: ProgramEvent): Promise<void> {
     await runWrite(
       this.driver,
@@ -624,6 +661,43 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
       },
       (record) => mapRecord<DecisionRecordEnvelope>(record, "decision")
     );
+  }
+
+  async listIntelligenceRecords(
+    query: ProgramIntelligenceQuery
+  ): Promise<ProgramIntelligenceRecord[]> {
+    const records = await runRead(
+      this.driver,
+      `
+        MATCH (record:PmIntelligenceRecord)
+        WHERE record.portfolioId = $portfolioId
+          AND ($programId IS NULL OR record.programId = $programId)
+          AND ($projectIds IS NULL OR size($projectIds) = 0 OR record.projectId IN $projectIds)
+          AND ($recordTypes IS NULL OR size($recordTypes) = 0 OR record.recordType IN $recordTypes)
+          AND ($reviewStatuses IS NULL OR size($reviewStatuses) = 0 OR record.reviewStatus IN $reviewStatuses)
+          AND (
+            $targetRefs IS NULL OR size($targetRefs) = 0 OR record.recordId IN $targetRefs OR
+            any(ref IN coalesce(record.appliesToRefs, []) WHERE ref IN $targetRefs) OR
+            any(ref IN coalesce(record.sourceRefs, []) WHERE ref IN $targetRefs) OR
+            any(ref IN coalesce(record.evidenceRefs, []) WHERE ref IN $targetRefs)
+          )
+          AND (
+            $conditionTags IS NULL OR size($conditionTags) = 0 OR
+            any(tag IN coalesce(record.conditionTags, []) WHERE tag IN $conditionTags)
+          )
+        RETURN record.payload AS payload
+        ORDER BY record.recordedAt, record.recordType, record.recordId
+      `,
+      {
+        ...toScopeParams(query.scope),
+        recordTypes: query.recordTypes ?? [],
+        reviewStatuses: query.reviewStatuses ?? [],
+        targetRefs: query.targetRefs ?? [],
+        conditionTags: query.conditionTags ?? []
+      },
+      (record) => JSON.parse(mapRecord<string>(record, "payload")) as ProgramIntelligenceRecord
+    );
+    return typeof query.limit === "number" ? records.slice(0, query.limit) : records;
   }
 
   async listEvents(scope: RepositoryScope): Promise<ProgramEvent[]> {

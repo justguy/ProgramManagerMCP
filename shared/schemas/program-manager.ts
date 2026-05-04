@@ -173,6 +173,116 @@ export const decisionRecordSchema = z
   })
   .strict();
 
+const intelligenceRecordBaseSchema = z
+  .object({
+    appliesToRefs: sortedStringArraySchema("intelligenceRecord appliesToRefs"),
+    conditionTags: z.array(z.string().min(1)).superRefine((values, ctx) => {
+      try {
+        enforceSorted(values, (left, right) => left.localeCompare(right), "conditionTags must be sorted");
+      } catch (error) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: error instanceof Error ? error.message : "conditionTags must be sorted"
+        });
+      }
+    }),
+    evidenceRefs: sortedStringArraySchema("intelligenceRecord evidenceRefs"),
+    portfolioId: pointerRefSchema,
+    programId: pointerRefSchema.optional(),
+    projectId: pointerRefSchema.optional(),
+    recordedAt: isoDateTimeSchema,
+    recordId: pointerRefSchema,
+    reviewStatus: z.enum(["supported", "needs_review"]),
+    sourceAdapterId: z.string().min(1),
+    sourceCursor: z.string().min(1),
+    sourceRefs: sortedStringArraySchema("intelligenceRecord sourceRefs"),
+    summary: z.string().min(1),
+    title: z.string().min(1),
+    validFrom: isoDateTimeSchema,
+    validTo: isoDateTimeSchema.optional()
+  })
+  .strict();
+
+const learningConfidenceSchema = z
+  .object({
+    mode: z.enum(["supported", "needs_review"]),
+    rationale: z.string().min(1),
+    score: z.number().min(0).max(1)
+  })
+  .strict();
+
+export const learningRecordSchema = intelligenceRecordBaseSchema
+  .extend({
+    confidence: learningConfidenceSchema,
+    recordType: z.literal("learning"),
+    reusableLesson: z.string().min(1)
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.reviewStatus === "needs_review" && value.confidence.score > 0.5) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "needs_review learning records must have confidence <= 0.5"
+      });
+    }
+    if (value.reviewStatus === "supported" && value.evidenceRefs.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "supported learning records require evidenceRefs"
+      });
+    }
+  });
+
+export const attemptRecordSchema = intelligenceRecordBaseSchema
+  .extend({
+    attemptedAction: z.string().min(1),
+    outcome: z.enum(["failed", "partial", "abandoned"]),
+    recordType: z.literal("attempt")
+  })
+  .strict();
+
+export const discardedDecisionSchema = intelligenceRecordBaseSchema
+  .extend({
+    decisionRef: pointerRefSchema,
+    rationale: z.string().min(1),
+    recordType: z.literal("discarded_decision"),
+    supersededBy: pointerRefSchema.optional()
+  })
+  .strict();
+
+export const failurePatternSchema = intelligenceRecordBaseSchema
+  .extend({
+    occurrenceRefs: sortedStringArraySchema("failurePattern occurrenceRefs"),
+    patternKey: z.string().min(1),
+    recordType: z.literal("failure_pattern")
+  })
+  .strict();
+
+export const riskSignalSchema = intelligenceRecordBaseSchema
+  .extend({
+    recordType: z.literal("risk_signal"),
+    riskType: z.string().min(1),
+    severity: z.enum(["low", "medium", "high", "critical"])
+  })
+  .strict();
+
+export const programIntelligenceRecordSchema = z
+  .discriminatedUnion("recordType", [
+    learningRecordSchema,
+    attemptRecordSchema,
+    discardedDecisionSchema,
+    failurePatternSchema,
+    riskSignalSchema
+  ])
+  .superRefine((value, ctx) => {
+    if (value.evidenceRefs.length === 0 && value.reviewStatus !== "needs_review") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "intelligence records require evidenceRefs unless marked needs_review"
+      });
+    }
+  });
+
 export const syncCursorSchema = z
   .object({
     adapterId: z.string().min(1),
@@ -755,6 +865,7 @@ export const schemaExamplesDocumentSchema = z
         dependencyRelationshipProps: dependencyRelationshipPropsSchema,
         evidencePolicy: evidencePolicySchema,
         evidenceRef: evidenceRefSchema,
+        programIntelligenceRecord: programIntelligenceRecordSchema.optional(),
         portfolio: portfolioSchema,
         program: programSchema,
         project: projectSchema,
@@ -848,7 +959,30 @@ export const goldenFixtureBackboneSchema = z
     I0: z
       .object({
         description: z.string().min(1),
-        findings: z.array(findingSchema)
+        findings: z.array(findingSchema),
+        intelligenceRecords: z
+          .array(programIntelligenceRecordSchema)
+          .superRefine((values, ctx) => {
+            try {
+              enforceSorted(
+                values,
+                (left, right) =>
+                  left.recordedAt.localeCompare(right.recordedAt) ||
+                  left.recordType.localeCompare(right.recordType) ||
+                  left.recordId.localeCompare(right.recordId),
+                "I0.intelligenceRecords must be sorted by recordedAt, recordType, and recordId"
+              );
+            } catch (error) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "I0.intelligenceRecords must be sorted deterministically"
+              });
+            }
+          })
+          .optional()
       })
       .strict(),
     P0: z
@@ -985,10 +1119,13 @@ export const programManagerSchemaBundleSchema = z
     assessProgramImpactRequest: assessProgramImpactRequestSchema,
     assessProgramImpactResult: assessProgramImpactResultSchema,
     decisionRecord: decisionRecordSchema,
+    discardedDecision: discardedDecisionSchema,
     dependencyRelationship: dependencyRelationshipSchema,
     dependencyRelationshipProps: dependencyRelationshipPropsSchema,
     evidencePolicy: evidencePolicySchema,
     evidenceRef: evidenceRefSchema,
+    attemptRecord: attemptRecordSchema,
+    failurePattern: failurePatternSchema,
     generateProgramUpdateCore: generateProgramUpdateCoreSchema,
     generateProgramUpdateRequest: generateProgramUpdateRequestSchema,
     generateProgramUpdateResult: generateProgramUpdateResultSchema,
@@ -1001,7 +1138,9 @@ export const programManagerSchemaBundleSchema = z
     listProgramCapabilitiesCore: listProgramCapabilitiesCoreSchema,
     listProgramCapabilitiesRequest: listProgramCapabilitiesRequestSchema,
     listProgramCapabilitiesResult: listProgramCapabilitiesResultSchema,
+    learningRecord: learningRecordSchema,
     portfolio: portfolioSchema,
+    programIntelligenceRecord: programIntelligenceRecordSchema,
     program: programSchema,
     programContextAnchor: programContextAnchorSchema,
     programToolRequestContext: programToolRequestContextSchema,
@@ -1010,6 +1149,7 @@ export const programManagerSchemaBundleSchema = z
     queryProgramContextRequest: queryProgramContextRequestSchema,
     queryProgramContextResult: queryProgramContextResultSchema,
     redactionSummary: redactionSummarySchema,
+    riskSignal: riskSignalSchema,
     syncCursor: syncCursorSchema
   })
   .strict();

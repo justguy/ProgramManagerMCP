@@ -4,12 +4,14 @@ import type {
   EvidenceRef,
   GraphRelationship,
   ProgramEvent,
+  ProgramIntelligenceRecord,
   ProgramRef,
   ProjectRef,
   SyncCursor
 } from "../types/domain.js";
 import type {
   DecisionQuery,
+  ProgramIntelligenceQuery,
   RepositoryScope
 } from "./program-manager-repository.js";
 
@@ -65,6 +67,7 @@ export type ProgramManagerGraphSeed = {
   evidenceRefs?: EvidenceRef[];
   artifactRefs?: ArtifactRef[];
   decisions?: DecisionRecordEnvelope[];
+  intelligenceRecords?: ProgramIntelligenceRecord[];
   events?: ProgramEvent[];
   syncCursors?: SyncCursorRecord[];
 };
@@ -79,6 +82,7 @@ export interface ProgramManagerGraphStore {
   upsertEvidenceRef(evidenceRef: EvidenceRef): Promise<void>;
   upsertArtifactRef(artifactRef: ArtifactRef): Promise<void>;
   upsertDecision(decision: DecisionRecordEnvelope): Promise<void>;
+  upsertIntelligenceRecord(record: ProgramIntelligenceRecord): Promise<void>;
   appendEvent(event: ProgramEvent): Promise<void>;
   upsertSyncCursor(cursor: SyncCursorRecord): Promise<void>;
   listPrograms(scope: RepositoryScope): Promise<ProgramRef[]>;
@@ -90,6 +94,7 @@ export interface ProgramManagerGraphStore {
   listEvidenceRefs(scope: RepositoryScope, refs?: string[]): Promise<EvidenceRef[]>;
   listArtifactRefs(scope: RepositoryScope, refs?: string[]): Promise<ArtifactRef[]>;
   listDecisions(query: DecisionQuery): Promise<DecisionRecordEnvelope[]>;
+  listIntelligenceRecords(query: ProgramIntelligenceQuery): Promise<ProgramIntelligenceRecord[]>;
   listEvents(scope: RepositoryScope): Promise<ProgramEvent[]>;
   listSyncCursors(scope: RepositoryScope): Promise<SyncCursorRecord[]>;
 }
@@ -163,6 +168,20 @@ function cloneDecision(decision: DecisionRecordEnvelope): DecisionRecordEnvelope
     appliesToRefs: sortStringArray(decision.appliesToRefs),
     evidenceRefs: [...decision.evidenceRefs].sort(compareStrings)
   };
+}
+
+function cloneIntelligenceRecord(record: ProgramIntelligenceRecord): ProgramIntelligenceRecord {
+  return {
+    ...record,
+    appliesToRefs: [...record.appliesToRefs].sort(compareStrings),
+    conditionTags: [...record.conditionTags].sort(compareStrings),
+    evidenceRefs: [...record.evidenceRefs].sort(compareStrings),
+    sourceRefs: [...record.sourceRefs].sort(compareStrings),
+    ...(record.recordType === "learning" ? { confidence: { ...record.confidence } } : {}),
+    ...(record.recordType === "failure_pattern"
+      ? { occurrenceRefs: [...record.occurrenceRefs].sort(compareStrings) }
+      : {})
+  } as ProgramIntelligenceRecord;
 }
 
 function cloneEvent(event: ProgramEvent): ProgramEvent {
@@ -261,6 +280,17 @@ export function compareDecisions(left: DecisionRecordEnvelope, right: DecisionRe
   );
 }
 
+export function compareIntelligenceRecords(
+  left: ProgramIntelligenceRecord,
+  right: ProgramIntelligenceRecord
+): number {
+  return (
+    compareStrings(left.recordedAt, right.recordedAt) ||
+    compareStrings(left.recordType, right.recordType) ||
+    compareStrings(left.recordId, right.recordId)
+  );
+}
+
 export function compareEvents(left: ProgramEvent, right: ProgramEvent): number {
   return (
     compareStrings(left.recordedAt, right.recordedAt) ||
@@ -327,6 +357,7 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
   private readonly evidenceRefs: EvidenceRef[] = [];
   private readonly artifactRefs: ArtifactRef[] = [];
   private readonly decisions: DecisionRecordEnvelope[] = [];
+  private readonly intelligenceRecords: ProgramIntelligenceRecord[] = [];
   private readonly events: ProgramEvent[] = [];
   private readonly syncCursors: SyncCursorRecord[] = [];
 
@@ -357,6 +388,9 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
     }
     for (const decision of seed.decisions ?? []) {
       await this.upsertDecision(decision);
+    }
+    for (const record of seed.intelligenceRecords ?? []) {
+      await this.upsertIntelligenceRecord(record);
     }
     for (const event of seed.events ?? []) {
       await this.appendEvent(event);
@@ -462,6 +496,17 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
         clone: cloneDecision
       },
       decision
+    );
+  }
+
+  async upsertIntelligenceRecord(record: ProgramIntelligenceRecord): Promise<void> {
+    upsertEntity(
+      {
+        data: this.intelligenceRecords,
+        keyOf: (value) => `${value.portfolioId}::${value.recordId}`,
+        clone: cloneIntelligenceRecord
+      },
+      record
     );
   }
 
@@ -613,6 +658,44 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
         return (decision.appliesToRefs ?? []).some((ref) => targetRefSet.has(ref));
       })
       .map(cloneDecision);
+  }
+
+  async listIntelligenceRecords(
+    query: ProgramIntelligenceQuery
+  ): Promise<ProgramIntelligenceRecord[]> {
+    const targetRefSet = query.targetRefs?.length ? new Set(query.targetRefs) : undefined;
+    const conditionTagSet = query.conditionTags?.length ? new Set(query.conditionTags) : undefined;
+    return this.intelligenceRecords
+      .filter((record) => {
+        if (!inScope(record.portfolioId, record.programId, query.scope)) {
+          return false;
+        }
+        if (!matchesProjectScope(record.projectId, query.scope)) {
+          return false;
+        }
+        if (query.recordTypes && !query.recordTypes.includes(record.recordType)) {
+          return false;
+        }
+        if (query.reviewStatuses && !query.reviewStatuses.includes(record.reviewStatus)) {
+          return false;
+        }
+        if (targetRefSet) {
+          const refs = [
+            record.recordId,
+            ...record.appliesToRefs,
+            ...record.sourceRefs,
+            ...record.evidenceRefs
+          ];
+          if (!refs.some((ref) => targetRefSet.has(ref))) {
+            return false;
+          }
+        }
+        if (conditionTagSet && !record.conditionTags.some((tag) => conditionTagSet.has(tag))) {
+          return false;
+        }
+        return true;
+      })
+      .map(cloneIntelligenceRecord);
   }
 
   async listEvents(scope: RepositoryScope): Promise<ProgramEvent[]> {
