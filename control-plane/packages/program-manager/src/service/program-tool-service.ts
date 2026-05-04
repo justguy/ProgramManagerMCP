@@ -1,4 +1,6 @@
 import {
+  analyzeProgramIntelligenceRequestSchema,
+  analyzeProgramIntelligenceResultSchema,
   assessProgramImpactRequestSchema,
   assessProgramImpactResultSchema,
   generateProgramUpdateCoreSchema,
@@ -22,7 +24,13 @@ import type {
   ProgramCapabilityListing
 } from "../adapters/index.js";
 import type { ProgramManagerRepository } from "../repository/program-manager-repository.js";
-import type { ContextAnchor, DecisionRecord, GraphRelationship, ProgramEvent } from "../types/domain.js";
+import type {
+  ContextAnchor,
+  DecisionRecord,
+  GraphRelationship,
+  ProgramEvent,
+  ProgramIntelligenceRecord
+} from "../types/domain.js";
 import {
   assertReadAuthorized,
   inferScopedProjectIds,
@@ -43,7 +51,8 @@ type ToolName =
   | "query_program_context"
   | "assess_program_impact"
   | "generate_program_update"
-  | "get_program_audit_trail";
+  | "get_program_audit_trail"
+  | "analyze_program_intelligence";
 
 type ToolWarning = {
   warningId: string;
@@ -112,6 +121,44 @@ type RecommendedContextAction = {
   evidenceRefs: string[];
 };
 
+type IntelligenceIssueType =
+  | "discarded_decision_match"
+  | "failure_pattern_match"
+  | "learning_match"
+  | "repeated_blocker"
+  | "risk_signal"
+  | "stale_evidence";
+
+type IntelligenceIssueCard = {
+  issueId: string;
+  issueType: IntelligenceIssueType;
+  title: string;
+  summary: string;
+  affectedScope: Array<{ kind: string; ref: string }>;
+  relevance: { score: number; rationale: string };
+  confidence: {
+    mode: "deterministic_rule" | "needs_review";
+    score: number;
+    source: "persisted_fact" | "fixture_rule" | "model_assisted";
+  };
+  ruleId: string;
+  ruleVersion: string;
+  provenance: {
+    recordIds: string[];
+    ruleId: string;
+    ruleVersion: string;
+    sourceRecordTypes: string[];
+  };
+  evidenceRefs: string[];
+  sourceRefs: string[];
+  recommendedNextAction: {
+    actionType: string;
+    summary: string;
+    targetRefs: string[];
+  };
+  proposedUpdateStatus: "proposed" | "not_applicable" | "needs_review";
+};
+
 type ProgramToolServiceDependencies = {
   adapterRegistry: {
     assertNoMutationAuthority(): Promise<void>;
@@ -148,7 +195,8 @@ const TOOL_NEXT_RECOMMENDATION: Record<ToolName, ToolName> = {
   query_program_context: "assess_program_impact",
   assess_program_impact: "query_program_context",
   generate_program_update: "get_program_audit_trail",
-  get_program_audit_trail: "query_program_context"
+  get_program_audit_trail: "query_program_context",
+  analyze_program_intelligence: "query_program_context"
 };
 
 const STATUS_RANK = new Map([
@@ -350,6 +398,13 @@ function compareRecommendedActions(
   right: RecommendedContextAction
 ): number {
   return left.actionId.localeCompare(right.actionId);
+}
+
+function compareIntelligenceIssueCards(
+  left: IntelligenceIssueCard,
+  right: IntelligenceIssueCard
+): number {
+  return left.issueType.localeCompare(right.issueType) || left.issueId.localeCompare(right.issueId);
 }
 
 function compareCapabilities(
@@ -629,6 +684,172 @@ function collectArtifactRefsFromEvidence(
 
 function dependencyPointer(dependencyId: string): string {
   return `dependency://${dependencyId.replace(/[^A-Za-z0-9._~:-]/g, "-")}`;
+}
+
+function refKind(ref: string): string {
+  return ref.split("://", 1)[0] || "reference";
+}
+
+function issueIdFromRecord(record: ProgramIntelligenceRecord, issueType: IntelligenceIssueType): string {
+  const suffix = record.recordId
+    .replace(/^[a-z][a-z0-9_-]*:\/\//, "")
+    .replace(/[^A-Za-z0-9._~:-]/g, "-");
+  return `issue://program-intelligence/${issueType}/${suffix}`;
+}
+
+function issueTypeForRecord(record: ProgramIntelligenceRecord): IntelligenceIssueType {
+  switch (record.recordType) {
+    case "discarded_decision":
+      return "discarded_decision_match";
+    case "failure_pattern":
+      return "failure_pattern_match";
+    case "learning":
+      return "learning_match";
+    case "risk_signal":
+      return "risk_signal";
+    case "attempt":
+      return record.conditionTags.includes("risk:stale_evidence")
+        ? "stale_evidence"
+        : "failure_pattern_match";
+  }
+}
+
+function recommendedActionForIssue(
+  issueType: IntelligenceIssueType,
+  targetRefs: string[]
+): IntelligenceIssueCard["recommendedNextAction"] {
+  const summaryTarget = targetRefs.length > 0 ? targetRefs.join(", ") : "the matched PMO scope";
+  switch (issueType) {
+    case "discarded_decision_match":
+      return {
+        actionType: "review_discarded_decision",
+        summary: `Review whether the proposed work repeats a discarded decision for ${summaryTarget}.`,
+        targetRefs
+      };
+    case "failure_pattern_match":
+      return {
+        actionType: "apply_failure_pattern_mitigation",
+        summary: `Apply or record mitigation for the matched failure pattern on ${summaryTarget}.`,
+        targetRefs
+      };
+    case "learning_match":
+      return {
+        actionType: "apply_learning",
+        summary: `Apply the evidence-backed learning before changing ${summaryTarget}.`,
+        targetRefs
+      };
+    case "repeated_blocker":
+      return {
+        actionType: "resolve_repeated_blocker",
+        summary: `Resolve or reclassify the repeated blocker affecting ${summaryTarget}.`,
+        targetRefs
+      };
+    case "risk_signal":
+      return {
+        actionType: "review_risk_signal",
+        summary: `Review the persisted risk signal before proceeding on ${summaryTarget}.`,
+        targetRefs
+      };
+    case "stale_evidence":
+      return {
+        actionType: "refresh_stale_evidence",
+        summary: `Refresh stale evidence before relying on ${summaryTarget}.`,
+        targetRefs
+      };
+  }
+}
+
+function issueCardFromRecord(record: ProgramIntelligenceRecord): IntelligenceIssueCard {
+  const issueType = issueTypeForRecord(record);
+  const confidenceScore =
+    record.recordType === "learning"
+      ? record.confidence.score
+      : record.reviewStatus === "supported"
+        ? 0.9
+        : 0.5;
+  const affectedScope = record.appliesToRefs
+    .map((ref) => ({ kind: refKind(ref), ref }))
+    .sort(compareAffectedRefs);
+  const ruleId = `rule://program-intelligence/${issueType}/v1`;
+  const sourceRecordTypes = sortUniqueRefs([record.recordType]);
+
+  return {
+    issueId: issueIdFromRecord(record, issueType),
+    issueType,
+    title: record.title,
+    summary: record.summary,
+    affectedScope,
+    relevance: {
+      score: record.conditionTags.length > 0 ? 0.9 : 0.65,
+      rationale: `Matched persisted ${record.recordType} by target ref, condition tag, or scoped repository query.`
+    },
+    confidence: {
+      mode: record.reviewStatus === "supported" ? "deterministic_rule" : "needs_review",
+      score: confidenceScore,
+      source: "persisted_fact"
+    },
+    ruleId,
+    ruleVersion: "v1",
+    provenance: {
+      recordIds: [record.recordId],
+      ruleId,
+      ruleVersion: "v1",
+      sourceRecordTypes
+    },
+    evidenceRefs: sortUniqueRefs(record.evidenceRefs),
+    sourceRefs: sortUniqueRefs(record.sourceRefs),
+    recommendedNextAction: recommendedActionForIssue(issueType, sortUniqueRefs(record.appliesToRefs)),
+    proposedUpdateStatus: record.reviewStatus === "supported" ? "proposed" : "needs_review"
+  };
+}
+
+function repeatedBlockerCardsFromRelationships(
+  relationships: GraphRelationship[],
+  targetRefs: string[]
+): IntelligenceIssueCard[] {
+  return relationships
+    .filter((relationship) => ["blocked", "stale"].includes(relationship.status))
+    .filter((relationship) => intersectsTargetRefs(relationship, targetRefs))
+    .map((relationship) => {
+      const target = dependencyPointer(relationship.dependencyId);
+      const issueType: IntelligenceIssueType =
+        relationship.status === "stale" ? "stale_evidence" : "repeated_blocker";
+      const ruleId = `rule://program-intelligence/${issueType}/v1`;
+      const evidenceRefs = sortUniqueRefs(relationship.evidenceRefs);
+      const targetRefsForAction = sortUniqueRefs([target, relationship.fromRef, relationship.toRef]);
+
+      return {
+        issueId: `issue://program-intelligence/${issueType}/${relationship.dependencyId.replace(/[^A-Za-z0-9._~:-]/g, "-")}`,
+        issueType,
+        title:
+          relationship.status === "stale"
+            ? "Stale dependency evidence"
+            : "Repeated blocking dependency",
+        summary: `${relationship.fromRef} ${relationship.dependencyType} ${relationship.toRef} is ${relationship.status}.`,
+        affectedScope: targetRefsForAction.map((ref) => ({ kind: refKind(ref), ref })).sort(compareAffectedRefs),
+        relevance: {
+          score: 0.85,
+          rationale: "Matched deterministic dependency state intersecting requested target refs."
+        },
+        confidence: {
+          mode: evidenceRefs.length > 0 ? "deterministic_rule" : "needs_review",
+          score: evidenceRefs.length > 0 ? 0.85 : 0.5,
+          source: "fixture_rule"
+        },
+        ruleId,
+        ruleVersion: "v1",
+        provenance: {
+          recordIds: [],
+          ruleId,
+          ruleVersion: "v1",
+          sourceRecordTypes: ["GraphRelationship"]
+        },
+        evidenceRefs,
+        sourceRefs: sortUniqueRefs([target]),
+        recommendedNextAction: recommendedActionForIssue(issueType, targetRefsForAction),
+        proposedUpdateStatus: evidenceRefs.length > 0 ? "proposed" : "needs_review"
+      };
+    });
 }
 
 function contextPaneItemFromMatch(match: ContextMatch, inclusionReason: string): ContextPaneItem {
@@ -981,6 +1202,129 @@ export class ProgramToolService {
           artifactRefs
         })
       });
+  }
+
+  async analyzeProgramIntelligence(requestInput: unknown, actor: ProgramToolActor) {
+    const request = analyzeProgramIntelligenceRequestSchema.parse(requestInput);
+
+    try {
+      assertReadAuthorized(
+        actor,
+        {
+          ...request,
+          projectIds: inferScopedProjectIds({
+            ...request,
+            projectIds: request.projectIds,
+            targetRefs: request.targetRefs
+          })
+        },
+        this.#now()
+      );
+      await this.#adapterRegistry.assertNoMutationAuthority();
+    } catch (error) {
+      return analyzeProgramIntelligenceResultSchema.parse(
+        this.#blockedEnvelope("analyze_program_intelligence", request, error)
+      );
+    }
+
+    const scope = {
+      portfolioId: request.portfolioId,
+      programId: request.programId,
+      projectIds: inferScopedProjectIds({
+        ...request,
+        projectIds: request.projectIds,
+        targetRefs: request.targetRefs
+      })
+    };
+    const contextAnchor = defaultContextAnchor({
+      portfolioId: request.portfolioId,
+      programId: request.programId,
+      projectIds: scope.projectIds,
+      contextAnchor: request.contextAnchor
+    });
+    const [records, relationships] = await Promise.all([
+      this.#repository.listIntelligenceRecords({
+        scope,
+        contextAnchor: request.contextAnchor,
+        recordTypes: request.recordTypes,
+        targetRefs: request.targetRefs,
+        conditionTags: request.conditionTags
+      }),
+      this.#repository.listRelationships(scope)
+    ]);
+    const recordCards = records.map(issueCardFromRecord);
+    const relationshipCards = repeatedBlockerCardsFromRelationships(
+      relationships,
+      request.targetRefs
+    );
+    const allCards = [...recordCards, ...relationshipCards].sort(compareIntelligenceIssueCards);
+    const limit = request.limit ?? allCards.length;
+    const issueCards = allCards.slice(0, limit);
+    const omittedCardCount = Math.max(0, allCards.length - issueCards.length);
+    const evidenceRefs = sortUniqueRefs(issueCards.flatMap((card) => card.evidenceRefs));
+    const matchedEvidenceRefs = await this.#repository.listEvidenceRefs(scope, evidenceRefs);
+    const artifactRefs = sortUniqueRefs(collectArtifactRefsFromEvidence(matchedEvidenceRefs));
+    const deterministicCore = {
+      contextAnchor,
+      issueCards,
+      omittedCardCount,
+      rulesVersion: "program-intelligence-rules-v1"
+    };
+    const warnings =
+      omittedCardCount > 0
+        ? [
+            makeWarning(
+              "intelligence-cards-bounded",
+              "medium",
+              `${omittedCardCount} intelligence issue cards were omitted by the requested limit.`,
+              evidenceRefs
+            )
+          ]
+        : [];
+    const advisoryPane = request.includeAdvisoryPane
+      ? {
+          content: {
+            summary: `${issueCards.length} deterministic intelligence cards matched. Advisory summaries are excluded from deterministic hashes.`
+          },
+          excludedFromDeterministicHash: true as const,
+          modelAssisted: false
+        }
+      : undefined;
+
+    return analyzeProgramIntelligenceResultSchema.parse({
+      schemaVersion: "1",
+      status: warnings.length > 0 ? "warning" : "ok",
+      toolName: "analyze_program_intelligence",
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(scope.projectIds.length > 0 ? { projectIds: scope.projectIds } : {}),
+      deterministicCore,
+      evidenceRefs,
+      artifactRefs,
+      redactionSummary: buildRedactionSummary({
+        policyRefs: DEFAULT_REDACTION_POLICY_REFS
+      }),
+      warnings,
+      ...(advisoryPane ? { advisoryPane } : {}),
+      nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.analyze_program_intelligence,
+      traceId: request.traceId,
+      correlationId: request.correlationId,
+      stateVersionHash: stateVersionHashFromInput({
+        request: {
+          conditionTags: request.conditionTags,
+          limit: request.limit,
+          portfolioId: request.portfolioId,
+          programId: request.programId,
+          projectIds: scope.projectIds,
+          recordTypes: request.recordTypes,
+          targetRefs: request.targetRefs,
+          contextAnchor: request.contextAnchor
+        },
+        deterministicCore,
+        evidenceRefs,
+        artifactRefs
+      })
+    });
   }
 
   async generateProgramUpdate(requestInput: unknown, actor: ProgramToolActor) {

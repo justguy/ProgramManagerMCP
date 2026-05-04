@@ -56,26 +56,22 @@ test("golden fixture import into graph repository is deterministic and complete"
     (await repository.listIntegrationPoints(scope)).map((integrationPoint) => integrationPoint.integrationPointId),
     [
       "integration://guardrail/runtime-controls",
-      "integration://hoplon/authz-gateway",
-      "integration://phalanx/orchestration",
-      "integration://semantix/readiness-spec-flow",
-      "integration://tracker/program-state"
+      "integration://hoplon/authz-contract",
+      "integration://tracker/local-json"
     ]
   );
   assert.deepEqual(
     (await repository.listContracts(scope)).map((contract) => contract.contractRef),
     [
-      "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-      "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-      "contract://semantix/readiness-spec@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     ]
   );
   assert.deepEqual(
     (await repository.listRelationships(scope)).map((relationship) => relationship.dependencyId),
     [
+      "dep-approval-hoplon-authz",
       "dep-guardrail-runtime-controls",
-      "dep-hoplon-authz",
-      "dep-semantix-readiness",
       "dep-tracker-evidence-freshness"
     ]
   );
@@ -107,7 +103,7 @@ test("golden fixture import into graph repository is deterministic and complete"
   const impactTargetRefs = [
     "tracker://program-manager-mcp/PMO-001",
     "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-    "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
   ];
   const impactA = await repository.assessImpact({
     scope,
@@ -128,7 +124,7 @@ test("golden fixture import into graph repository is deterministic and complete"
   assert.deepEqual(impactA.affectedRefs, [
     {
       kind: "contract",
-      ref: "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      ref: "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       reason: "REQUIRES_EVIDENCE:dep-guardrail-runtime-controls"
     },
     {
@@ -153,7 +149,7 @@ test("golden fixture import into graph repository is deterministic and complete"
     [
       {
         policyRef: "dep-guardrail-runtime-controls",
-        targetRef: "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        targetRef: "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         status: "missing"
       },
       {

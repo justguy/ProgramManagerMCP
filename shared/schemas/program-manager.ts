@@ -786,6 +786,110 @@ export const getProgramAuditTrailResultSchema = programToolResultEnvelopeSchema(
   z.object({ summary: z.string().min(1) }).strict()
 );
 
+export const analyzeProgramIntelligenceRequestSchema = programToolRequestContextSchema
+  .extend({
+    conditionTags: z
+      .array(z.string().min(1))
+      .superRefine((values, ctx) => {
+        try {
+          enforceSorted(values, (left, right) => left.localeCompare(right), "conditionTags must be sorted");
+        } catch (error) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: error instanceof Error ? error.message : "conditionTags must be sorted"
+          });
+        }
+      })
+      .optional(),
+    includeAdvisoryPane: z.boolean().optional(),
+    limit: z.number().int().positive().optional(),
+    recordTypes: z
+      .array(z.enum(["learning", "attempt", "discarded_decision", "failure_pattern", "risk_signal"]))
+      .optional(),
+    targetRefs: sortedStringArraySchema("intelligence targetRefs")
+  })
+  .strict();
+
+const intelligenceIssueCardSchema = z
+  .object({
+    affectedScope: z.array(affectedRefSchema),
+    confidence: z
+      .object({
+        mode: z.enum(["deterministic_rule", "needs_review"]),
+        score: z.number().min(0).max(1),
+        source: z.enum(["persisted_fact", "fixture_rule", "model_assisted"])
+      })
+      .strict(),
+    evidenceRefs: sortedStringArraySchema("intelligence card evidenceRefs"),
+    issueId: pointerRefSchema,
+    issueType: z.enum([
+      "discarded_decision_match",
+      "failure_pattern_match",
+      "learning_match",
+      "repeated_blocker",
+      "risk_signal",
+      "stale_evidence"
+    ]),
+    proposedUpdateStatus: z.enum(["proposed", "not_applicable", "needs_review"]),
+    provenance: z
+      .object({
+        recordIds: sortedStringArraySchema("intelligence provenance recordIds"),
+        ruleId: pointerRefSchema,
+        ruleVersion: z.string().min(1),
+        sourceRecordTypes: z.array(z.string().min(1))
+      })
+      .strict(),
+    recommendedNextAction: z
+      .object({
+        actionType: z.string().min(1),
+        summary: z.string().min(1),
+        targetRefs: sortedStringArraySchema("intelligence recommended action targetRefs")
+      })
+      .strict(),
+    relevance: z
+      .object({
+        rationale: z.string().min(1),
+        score: z.number().min(0).max(1)
+      })
+      .strict(),
+    ruleId: pointerRefSchema,
+    ruleVersion: z.string().min(1),
+    sourceRefs: sortedStringArraySchema("intelligence card sourceRefs"),
+    summary: z.string().min(1),
+    title: z.string().min(1)
+  })
+  .strict();
+
+export const analyzeProgramIntelligenceCoreSchema = z
+  .object({
+    contextAnchor: programContextAnchorSchema,
+    issueCards: z.array(intelligenceIssueCardSchema),
+    omittedCardCount: z.number().int().nonnegative(),
+    rulesVersion: z.string().min(1)
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    try {
+      enforceSorted(
+        value.issueCards,
+        (left, right) =>
+          left.issueType.localeCompare(right.issueType) ||
+          left.issueId.localeCompare(right.issueId),
+        "issueCards must be sorted by issueType then issueId"
+      );
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "intelligence issue card ordering failed"
+      });
+    }
+  });
+
+export const analyzeProgramIntelligenceResultSchema = programToolResultEnvelopeSchema(
+  analyzeProgramIntelligenceCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+);
+
 export const phase1aToolExamplesSchema = z
   .object({
     assess_program_impact: z
@@ -1115,6 +1219,9 @@ export const adapterContractFixturesDocumentSchema = z
 export const programManagerSchemaBundleSchema = z
   .object({
     artifactRef: artifactRefSchema,
+    analyzeProgramIntelligenceCore: analyzeProgramIntelligenceCoreSchema,
+    analyzeProgramIntelligenceRequest: analyzeProgramIntelligenceRequestSchema,
+    analyzeProgramIntelligenceResult: analyzeProgramIntelligenceResultSchema,
     assessProgramImpactCore: assessProgramImpactCoreSchema,
     assessProgramImpactRequest: assessProgramImpactRequestSchema,
     assessProgramImpactResult: assessProgramImpactResultSchema,

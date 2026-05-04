@@ -54,9 +54,9 @@
         "description": "Single pmo_macro public tool, normalized PMO object model, editable safe macro registry, and deterministic macro implementations for blockers, context, impact simulation, drift, and acceptance proof."
       }
     ],
-    "scratchpad": "Added Phase 5 Macro Omni-Tool swimlane with pmo-701 through pmo-709, gated behind pmo-604 so existing roadmap work completes first. Prompt references are absolute for shared-workspace brief rendering.",
-    "rev": 46,
-    "updatedAt": "2026-05-04T01:45:41.643Z"
+    "scratchpad": "Phase 1C complete: analyze_program_intelligence landed, deterministic issue cards are tested, advisory output is hash-excluded, and npm test is green (45 pass, 1 skipped).",
+    "rev": 47,
+    "updatedAt": "2026-05-04T03:01:54.294Z"
   },
   "tasks": [
     {
@@ -1004,7 +1004,7 @@
       "id": "pmo-301",
       "title": "Learning, attempt, discarded decision, failure pattern, and risk records",
       "goal": "Add read-only intelligence record types so Program Manager can preserve reusable lessons, failed attempts, rejected options, and risk signals as typed memory.",
-      "status": "in_progress",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1c",
         "priorityId": "p0"
@@ -1033,11 +1033,23 @@
           "attempts",
           "discarded-decisions",
           "risk"
-        ]
+        ],
+        "files_touched": [
+          "shared/schemas/program-manager.ts",
+          "control-plane/packages/program-manager/src/fixtures/golden-fixture-backbone.js",
+          "docs/phase-1c/acceptance-proof.md"
+        ],
+        "notes": "All five intelligence record types are schema-backed, fixture-backed, queryable, and validated by the full package test run."
       },
-      "comment": "Starting Phase 1C pmo-301 implementation: typed read-only intelligence records, evidence-backed fixtures, repository query support, and confidence calculation.",
+      "comment": "Closed: typed 1C intelligence records are schema-backed, fixture-backed, repository-queryable, and confidence-bounded.",
       "assignee": "codex",
-      "blocker_reason": null
+      "blocker_reason": null,
+      "references": [
+        "shared/schemas/program-manager.ts:176-284",
+        "control-plane/packages/program-manager/src/repository/program-manager-repository.ts:68-101",
+        "control-plane/packages/program-manager/src/fixtures/golden-fixture-backbone.js:47-73",
+        "docs/phase-1c/acceptance-proof.md:1"
+      ]
     },
     {
       "dependencies": [
@@ -1046,7 +1058,7 @@
       "id": "pmo-302",
       "title": "Deterministic intelligence matching rules",
       "goal": "Implement deterministic rules for discarded-decision matching, repeated blockers, stale evidence, failure patterns, and cross-program learning cards.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1c",
         "priorityId": "p0"
@@ -1075,9 +1087,20 @@
           "rules",
           "deterministic-intelligence",
           "condition-tags"
-        ]
+        ],
+        "files_touched": [
+          "control-plane/packages/program-manager/src/service/program-tool-service.ts",
+          "control-plane/packages/program-manager/tests/program-tools.test.js"
+        ],
+        "notes": "Rules emit sorted cards for discarded decisions, failure patterns, learnings, risk signals, stale evidence, and repeated blockers."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-301 first."
+      "comment": "Closed: deterministic intelligence rules now produce stable issue cards from persisted facts and blocked/stale graph relationships.",
+      "assignee": "codex",
+      "references": [
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1",
+        "docs/phase-1c/acceptance-proof.md:1"
+      ]
     },
     {
       "dependencies": [
@@ -1086,7 +1109,7 @@
       "id": "pmo-303",
       "title": "analyze_program_intelligence tool",
       "goal": "Expose deterministic proactive intelligence through analyze_program_intelligence while cleanly separating advisory/model-assisted content.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1c",
         "priorityId": "p1"
@@ -1114,9 +1137,22 @@
           "mcp-tool",
           "intelligence",
           "advisory-separation"
-        ]
+        ],
+        "files_touched": [
+          "control-plane/packages/program-manager/src/mcp/program-manager-mcp-gateway.ts",
+          "control-plane/packages/program-manager/src/service/program-tool-service.ts",
+          "shared/schemas/program-manager.ts"
+        ],
+        "notes": "Tool returns deterministic issue cards and labels optional advisory summaries outside stateVersionHash inputs."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-302 first."
+      "comment": "Closed: analyze_program_intelligence is exposed through the MCP gateway with authz, redaction, provenance, and hash-safe advisory output.",
+      "assignee": "codex",
+      "references": [
+        "control-plane/packages/program-manager/src/mcp/program-manager-mcp-gateway.ts:1",
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1",
+        "shared/schemas/program-manager.ts:789",
+        "docs/phase-1c/acceptance-proof.md:1"
+      ]
     },
     {
       "dependencies": [
@@ -1125,7 +1161,7 @@
       "id": "pmo-304",
       "title": "Phase 1C acceptance proof",
       "goal": "Close Phase 1C by proving evidence-backed intelligence, anchor-scoped decision behavior, deterministic matching, and advisory hash exclusion.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1c",
         "priorityId": "p1"
@@ -1152,9 +1188,21 @@
           "acceptance",
           "phase-1c",
           "determinism"
-        ]
+        ],
+        "files_touched": [
+          "docs/phase-1c/acceptance-proof.md",
+          "control-plane/packages/program-manager/tests/program-tools.test.js",
+          "control-plane/packages/program-manager/tests/golden-fixture-seed.test.js"
+        ],
+        "notes": "Verification: npm run typecheck; node --test tests/program-tools.test.js; node --test tests/golden-fixture-seed.test.js; npm test."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-303 first."
+      "comment": "Closed: Phase 1C acceptance proof added with typecheck, focused tool tests, fixture-seed test, and full package test evidence.",
+      "assignee": "codex",
+      "references": [
+        "docs/phase-1c/acceptance-proof.md:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1",
+        "control-plane/packages/program-manager/tests/golden-fixture-seed.test.js:1"
+      ]
     },
     {
       "dependencies": [

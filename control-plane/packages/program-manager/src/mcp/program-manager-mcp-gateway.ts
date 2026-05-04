@@ -1,4 +1,5 @@
 import {
+  analyzeProgramIntelligenceRequestSchema,
   assessProgramImpactRequestSchema,
   generateProgramUpdateRequestSchema,
   getProgramAuditTrailRequestSchema,
@@ -39,6 +40,11 @@ export const PROGRAM_MANAGER_MCP_TOOLS = Object.freeze([
     name: "get_program_audit_trail",
     description: "Return filtered, redaction-safe PMO audit entries and evidence refs.",
     requestSchema: getProgramAuditTrailRequestSchema
+  },
+  {
+    name: "analyze_program_intelligence",
+    description: "Return deterministic evidence-backed PMO intelligence cards without downstream mutation.",
+    requestSchema: analyzeProgramIntelligenceRequestSchema
   }
 ] as const);
 
@@ -70,6 +76,8 @@ export class ProgramManagerMcpGateway {
         return this.#service.generateProgramUpdate(request, actor);
       case "get_program_audit_trail":
         return this.#service.getProgramAuditTrail(request, actor);
+      case "analyze_program_intelligence":
+        return this.#service.analyzeProgramIntelligence(request, actor);
       default:
         throw new Error(`Unsupported PMO MCP tool: ${toolName}`);
     }
