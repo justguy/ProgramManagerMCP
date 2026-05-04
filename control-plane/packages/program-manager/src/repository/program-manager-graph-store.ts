@@ -2,16 +2,21 @@ import type {
   ArtifactRef,
   DecisionRecord,
   EvidenceRef,
+  ExpectedReceipt,
   GraphRelationship,
+  ActionLedgerEntry,
+  ObservedReceipt,
   ProgramEvent,
   ProgramIntelligenceRecord,
   ProgramRef,
   ProjectRef,
+  ReceiptReconcileRecord,
   SyncCursor
 } from "../types/domain.js";
 import type {
   DecisionQuery,
   ProgramIntelligenceQuery,
+  ReceiptLedgerQuery,
   RepositoryScope
 } from "./program-manager-repository.js";
 
@@ -68,6 +73,10 @@ export type ProgramManagerGraphSeed = {
   artifactRefs?: ArtifactRef[];
   decisions?: DecisionRecordEnvelope[];
   intelligenceRecords?: ProgramIntelligenceRecord[];
+  expectedReceipts?: ExpectedReceipt[];
+  observedReceipts?: ObservedReceipt[];
+  actionLedgerEntries?: ActionLedgerEntry[];
+  receiptReconcileStatuses?: ReceiptReconcileRecord[];
   events?: ProgramEvent[];
   syncCursors?: SyncCursorRecord[];
 };
@@ -83,6 +92,10 @@ export interface ProgramManagerGraphStore {
   upsertArtifactRef(artifactRef: ArtifactRef): Promise<void>;
   upsertDecision(decision: DecisionRecordEnvelope): Promise<void>;
   upsertIntelligenceRecord(record: ProgramIntelligenceRecord): Promise<void>;
+  upsertExpectedReceipt(receipt: ExpectedReceipt): Promise<void>;
+  appendObservedReceipt(receipt: ObservedReceipt): Promise<void>;
+  appendActionLedgerEntry(entry: ActionLedgerEntry): Promise<void>;
+  upsertReceiptReconcileStatus(status: ReceiptReconcileRecord): Promise<void>;
   appendEvent(event: ProgramEvent): Promise<void>;
   upsertSyncCursor(cursor: SyncCursorRecord): Promise<void>;
   listPrograms(scope: RepositoryScope): Promise<ProgramRef[]>;
@@ -95,6 +108,10 @@ export interface ProgramManagerGraphStore {
   listArtifactRefs(scope: RepositoryScope, refs?: string[]): Promise<ArtifactRef[]>;
   listDecisions(query: DecisionQuery): Promise<DecisionRecordEnvelope[]>;
   listIntelligenceRecords(query: ProgramIntelligenceQuery): Promise<ProgramIntelligenceRecord[]>;
+  listExpectedReceipts(query: ReceiptLedgerQuery): Promise<ExpectedReceipt[]>;
+  listObservedReceipts(query: ReceiptLedgerQuery): Promise<ObservedReceipt[]>;
+  listActionLedgerEntries(query: ReceiptLedgerQuery): Promise<ActionLedgerEntry[]>;
+  listReceiptReconcileStatuses(query: ReceiptLedgerQuery): Promise<ReceiptReconcileRecord[]>;
   listEvents(scope: RepositoryScope): Promise<ProgramEvent[]>;
   listSyncCursors(scope: RepositoryScope): Promise<SyncCursorRecord[]>;
 }
@@ -182,6 +199,43 @@ function cloneIntelligenceRecord(record: ProgramIntelligenceRecord): ProgramInte
       ? { occurrenceRefs: [...record.occurrenceRefs].sort(compareStrings) }
       : {})
   } as ProgramIntelligenceRecord;
+}
+
+function cloneExpectedReceipt(receipt: ExpectedReceipt): ExpectedReceipt {
+  return {
+    ...receipt,
+    contractRefs: [...receipt.contractRefs].sort(compareStrings),
+    evidencePolicyRefs: [...receipt.evidencePolicyRefs].sort(compareStrings),
+    requiredEvidenceRefs: [...receipt.requiredEvidenceRefs].sort(compareStrings),
+    scopeRefs: [...receipt.scopeRefs].sort(compareStrings)
+  };
+}
+
+function cloneObservedReceipt(receipt: ObservedReceipt): ObservedReceipt {
+  return {
+    ...receipt,
+    contractRefs: [...receipt.contractRefs].sort(compareStrings),
+    evidenceRefs: [...receipt.evidenceRefs].sort(compareStrings),
+    artifactRefs: [...receipt.artifactRefs].sort(compareStrings),
+    observedStateRefs: [...receipt.observedStateRefs].sort(compareStrings)
+  };
+}
+
+function cloneActionLedgerEntry(entry: ActionLedgerEntry): ActionLedgerEntry {
+  return {
+    ...entry,
+    contractRefs: [...entry.contractRefs].sort(compareStrings),
+    evidenceRefs: [...entry.evidenceRefs].sort(compareStrings),
+    artifactRefs: [...entry.artifactRefs].sort(compareStrings)
+  };
+}
+
+function cloneReceiptReconcileRecord(record: ReceiptReconcileRecord): ReceiptReconcileRecord {
+  return {
+    ...record,
+    contractRefs: [...record.contractRefs].sort(compareStrings),
+    evidenceRefs: [...record.evidenceRefs].sort(compareStrings)
+  };
 }
 
 function cloneEvent(event: ProgramEvent): ProgramEvent {
@@ -291,6 +345,42 @@ export function compareIntelligenceRecords(
   );
 }
 
+export function compareExpectedReceipts(left: ExpectedReceipt, right: ExpectedReceipt): number {
+  return (
+    compareStrings(left.flightPlanId, right.flightPlanId) ||
+    compareStrings(left.proposedActionId, right.proposedActionId) ||
+    compareStrings(left.receiptRequirementId, right.receiptRequirementId)
+  );
+}
+
+export function compareObservedReceipts(left: ObservedReceipt, right: ObservedReceipt): number {
+  return (
+    compareStrings(left.recordedAt, right.recordedAt) ||
+    compareStrings(left.observedReceiptId, right.observedReceiptId)
+  );
+}
+
+export function compareActionLedgerEntries(
+  left: ActionLedgerEntry,
+  right: ActionLedgerEntry
+): number {
+  return (
+    compareStrings(left.recordedAt, right.recordedAt) ||
+    compareStrings(left.ledgerEntryId, right.ledgerEntryId)
+  );
+}
+
+export function compareReceiptReconcileRecords(
+  left: ReceiptReconcileRecord,
+  right: ReceiptReconcileRecord
+): number {
+  return (
+    compareStrings(left.flightPlanId, right.flightPlanId) ||
+    compareStrings(left.proposedActionId, right.proposedActionId) ||
+    compareStrings(left.receiptRequirementId, right.receiptRequirementId)
+  );
+}
+
 export function compareEvents(left: ProgramEvent, right: ProgramEvent): number {
   return (
     compareStrings(left.recordedAt, right.recordedAt) ||
@@ -330,6 +420,47 @@ function matchesProjectScope(projectId: string | undefined, scope: RepositorySco
   return scope.projectIds.includes(projectId);
 }
 
+function overlaps(filter: string[] | undefined, values: string[]): boolean {
+  if (!filter?.length) {
+    return true;
+  }
+  return filter.some((value) => values.includes(value));
+}
+
+function matchesLedgerScope(
+  portfolioId: string,
+  programId: string | undefined,
+  projectId: string | undefined,
+  scope: RepositoryScope
+): boolean {
+  return inScope(portfolioId, programId, scope) && matchesProjectScope(projectId, scope);
+}
+
+function matchesLedgerQuery(
+  value: {
+    actorId?: string;
+    contractRefs: string[];
+    evidenceRefs?: string[];
+    flightPlanId: string;
+    portfolioId: string;
+    programId?: string;
+    projectId?: string;
+    proposedActionId: string;
+    receiptRequirementId?: string;
+  },
+  query: ReceiptLedgerQuery
+): boolean {
+  return (
+    matchesLedgerScope(value.portfolioId, value.programId, value.projectId, query.scope) &&
+    overlaps(query.actorIds, value.actorId ? [value.actorId] : []) &&
+    overlaps(query.contractRefs, value.contractRefs) &&
+    overlaps(query.evidenceRefs, value.evidenceRefs ?? []) &&
+    overlaps(query.flightPlanIds, [value.flightPlanId]) &&
+    overlaps(query.proposedActionIds, [value.proposedActionId]) &&
+    overlaps(query.receiptRequirementIds, value.receiptRequirementId ? [value.receiptRequirementId] : [])
+  );
+}
+
 type EntityCollection<T> = {
   data: T[];
   keyOf: (value: T) => string;
@@ -358,6 +489,10 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
   private readonly artifactRefs: ArtifactRef[] = [];
   private readonly decisions: DecisionRecordEnvelope[] = [];
   private readonly intelligenceRecords: ProgramIntelligenceRecord[] = [];
+  private readonly expectedReceipts: ExpectedReceipt[] = [];
+  private readonly observedReceipts: ObservedReceipt[] = [];
+  private readonly actionLedgerEntries: ActionLedgerEntry[] = [];
+  private readonly receiptReconcileStatuses: ReceiptReconcileRecord[] = [];
   private readonly events: ProgramEvent[] = [];
   private readonly syncCursors: SyncCursorRecord[] = [];
 
@@ -391,6 +526,18 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
     }
     for (const record of seed.intelligenceRecords ?? []) {
       await this.upsertIntelligenceRecord(record);
+    }
+    for (const receipt of seed.expectedReceipts ?? []) {
+      await this.upsertExpectedReceipt(receipt);
+    }
+    for (const receipt of seed.observedReceipts ?? []) {
+      await this.appendObservedReceipt(receipt);
+    }
+    for (const entry of seed.actionLedgerEntries ?? []) {
+      await this.appendActionLedgerEntry(entry);
+    }
+    for (const status of seed.receiptReconcileStatuses ?? []) {
+      await this.upsertReceiptReconcileStatus(status);
     }
     for (const event of seed.events ?? []) {
       await this.appendEvent(event);
@@ -510,15 +657,38 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
     );
   }
 
-  async appendEvent(event: ProgramEvent): Promise<void> {
+  async upsertExpectedReceipt(receipt: ExpectedReceipt): Promise<void> {
     upsertEntity(
       {
-        data: this.events,
-        keyOf: (value) => `${value.portfolioId}::${value.eventId}`,
-        clone: cloneEvent
+        data: this.expectedReceipts,
+        keyOf: (value) => `${value.portfolioId}::${value.receiptRequirementId}`,
+        clone: cloneExpectedReceipt
       },
-      event
+      receipt
     );
+  }
+
+  async appendObservedReceipt(receipt: ObservedReceipt): Promise<void> {
+    this.observedReceipts.push(cloneObservedReceipt(receipt));
+  }
+
+  async appendActionLedgerEntry(entry: ActionLedgerEntry): Promise<void> {
+    this.actionLedgerEntries.push(cloneActionLedgerEntry(entry));
+  }
+
+  async upsertReceiptReconcileStatus(status: ReceiptReconcileRecord): Promise<void> {
+    upsertEntity(
+      {
+        data: this.receiptReconcileStatuses,
+        keyOf: (value) => `${value.portfolioId}::${value.receiptRequirementId}`,
+        clone: cloneReceiptReconcileRecord
+      },
+      status
+    );
+  }
+
+  async appendEvent(event: ProgramEvent): Promise<void> {
+    this.events.push(cloneEvent(event));
   }
 
   async upsertSyncCursor(cursor: SyncCursorRecord): Promise<void> {
@@ -696,6 +866,50 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
         return true;
       })
       .map(cloneIntelligenceRecord);
+  }
+
+  async listExpectedReceipts(query: ReceiptLedgerQuery): Promise<ExpectedReceipt[]> {
+    const values = this.expectedReceipts
+      .filter((receipt) =>
+        matchesLedgerQuery({ ...receipt, evidenceRefs: receipt.requiredEvidenceRefs }, query)
+      )
+      .map(cloneExpectedReceipt)
+      .sort(compareExpectedReceipts);
+    return typeof query.limit === "number" ? values.slice(0, query.limit) : values;
+  }
+
+  async listObservedReceipts(query: ReceiptLedgerQuery): Promise<ObservedReceipt[]> {
+    const values = this.observedReceipts
+      .filter(
+        (receipt) =>
+          matchesLedgerQuery(receipt, query) &&
+          (!query.observedStatuses?.length || query.observedStatuses.includes(receipt.status))
+      )
+      .map(cloneObservedReceipt)
+      .sort(compareObservedReceipts);
+    return typeof query.limit === "number" ? values.slice(0, query.limit) : values;
+  }
+
+  async listActionLedgerEntries(query: ReceiptLedgerQuery): Promise<ActionLedgerEntry[]> {
+    const values = this.actionLedgerEntries
+      .filter((entry) => matchesLedgerQuery(entry, query))
+      .map(cloneActionLedgerEntry)
+      .sort(compareActionLedgerEntries);
+    return typeof query.limit === "number" ? values.slice(0, query.limit) : values;
+  }
+
+  async listReceiptReconcileStatuses(
+    query: ReceiptLedgerQuery
+  ): Promise<ReceiptReconcileRecord[]> {
+    const values = this.receiptReconcileStatuses
+      .filter(
+        (status) =>
+          matchesLedgerQuery(status, query) &&
+          (!query.reconcileStatuses?.length || query.reconcileStatuses.includes(status.status))
+      )
+      .map(cloneReceiptReconcileRecord)
+      .sort(compareReceiptReconcileRecords);
+    return typeof query.limit === "number" ? values.slice(0, query.limit) : values;
   }
 
   async listEvents(scope: RepositoryScope): Promise<ProgramEvent[]> {

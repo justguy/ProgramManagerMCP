@@ -55,8 +55,8 @@
       }
     ],
     "scratchpad": "Phase 1C complete: analyze_program_intelligence landed, deterministic issue cards are tested, advisory output is hash-excluded, and npm test is green (45 pass, 1 skipped).",
-    "rev": 49,
-    "updatedAt": "2026-05-04T03:24:09.490Z"
+    "rev": 58,
+    "updatedAt": "2026-05-04T04:00:36.911Z"
   },
   "tasks": [
     {
@@ -1444,7 +1444,7 @@
       "id": "pmo-501",
       "title": "Expected-vs-observed receipt ledger and audit events",
       "goal": "Implement PMO-owned ledger storage for expected receipts, observed receipts, action ledger entries, audit events, and reconcile status.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-3",
         "priorityId": "p0"
@@ -1474,7 +1474,15 @@
           "audit-events"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-405 first."
+      "comment": "Completed Phase 3 receipt ledger storage foundation: schemas/domain types, repository interface, in-memory/graph/Neo4j persistence/query methods, append-only audit events, and focused tests for schema validation, filtering, partial reconcile state, and audit ordering. Verified typecheck, schema generation, focused ledger test, and full npm test (49 pass, 1 skipped).",
+      "assignee": "codex",
+      "blocker_reason": null,
+      "references": [
+        "control-plane/packages/program-manager/tests/receipt-ledger.test.js:1",
+        "control-plane/packages/program-manager/src/repository/program-manager-repository.ts:1",
+        "control-plane/packages/program-manager/src/repository/program-manager-graph-store.ts:1",
+        "shared/schemas/program-manager.ts:1"
+      ]
     },
     {
       "dependencies": [
@@ -1483,7 +1491,7 @@
       "id": "pmo-502",
       "title": "record_program_receipt tool and validation",
       "goal": "Expose receipt submission with validation for digest, signature, operator attestation, authz, idempotency, stale plan state, and required evidence.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-3",
         "priorityId": "p0"
@@ -1513,7 +1521,15 @@
           "idempotency"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-501 first."
+      "comment": "Completed record_program_receipt. Added request/core/result schemas, gateway/tool listing, Phase 3 capability listing, validation for expected match, digest, evidence, verifier, idempotency duplicate, stale plan hash, operator authz path, PMO-only ledger writes, and tests for accepted, duplicate, forged, incomplete, stale, and unauthorized receipts. Verified typecheck, schema generation, and full npm test (51 pass, 1 skipped).",
+      "assignee": "codex",
+      "blocker_reason": null,
+      "references": [
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1",
+        "control-plane/packages/program-manager/src/mcp/program-manager-mcp-gateway.ts:1",
+        "shared/schemas/program-manager.ts:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1"
+      ]
     },
     {
       "dependencies": [
@@ -1523,7 +1539,7 @@
       "id": "pmo-503",
       "title": "reconcile_program_state tool and findings",
       "goal": "Compare expected receipts and PMO graph state against observed adapter state to raise missing, stale, conflicting, or desynchronized findings.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-3",
         "priorityId": "p1"
@@ -1553,7 +1569,15 @@
           "desynchronization"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-501 and pmo-502 first."
+      "comment": "Completed reconcile_program_state. Added request/core/result schemas, gateway/tool/capability wiring, ledger-vs-adapter reconciliation, satisfied/in_flight/late/lost/conflicting statuses, deterministic findings, replacement proposal payloads, PMO reconcile status persistence, and tests for accepted+lost partial state and conflicting receipt claims. Verified typecheck, schema generation, and full npm test (53 pass, 1 skipped).",
+      "assignee": "codex",
+      "blocker_reason": null,
+      "references": [
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1",
+        "control-plane/packages/program-manager/src/mcp/program-manager-mcp-gateway.ts:1",
+        "shared/schemas/program-manager.ts:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1"
+      ]
     },
     {
       "dependencies": [
@@ -1563,7 +1587,7 @@
       "id": "pmo-504",
       "title": "Receipt security, idempotency, due-policy, and conflict tests",
       "goal": "Harden receipt and reconciliation behavior with tests for authz rejection, duplicates, stale plan receipts, due-policy timing, forgery, incompleteness, and conflicting observed state.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-3",
         "priorityId": "p1"
@@ -1595,7 +1619,14 @@
           "due-policy"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-502 and pmo-503 first."
+      "comment": "Completed Phase 3 receipt hardening coverage. Added explicit stuck reconcile status and due-policy logic; tests now cover authz rejection, duplicate/idempotency, stale plan receipts, forged digest, incomplete evidence, accepted+missing partial reconcile, in_flight/late/lost/stuck timing, and conflicting observed state. Verified typecheck, schema generation, and full npm test (54 pass, 1 skipped).",
+      "assignee": "codex",
+      "references": [
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1",
+        "control-plane/packages/program-manager/tests/receipt-ledger.test.js:1",
+        "shared/schemas/program-manager.ts:1",
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1"
+      ]
     },
     {
       "dependencies": [
@@ -1604,7 +1635,7 @@
       "id": "pmo-505",
       "title": "Phase 3 acceptance proof",
       "goal": "Close Phase 3 by proving receipt ledger, validation, idempotency, due policy, reconciliation, and desynchronization behavior.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-3",
         "priorityId": "p1"
@@ -1633,7 +1664,14 @@
           "reconciliation"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-504 first."
+      "comment": "Completed Phase 3 acceptance proof. Evidence covers receipt validation, authz, idempotency, stale plans, due-policy reconciliation, missing/accepted receipts, conflict findings, and proposal-only recovery. Verification: npm test passes 55 tests, 54 pass, 1 skipped.",
+      "assignee": "codex",
+      "blocker_reason": null,
+      "references": [
+        "docs/phase-3/acceptance-proof.md:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1",
+        "control-plane/packages/program-manager/tests/receipt-ledger.test.js:1"
+      ]
     },
     {
       "dependencies": [

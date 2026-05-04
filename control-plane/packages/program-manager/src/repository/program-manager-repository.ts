@@ -3,13 +3,18 @@ import type {
   ContextAnchor,
   DecisionRecord,
   EvidenceRef,
+  ExpectedReceipt,
   GraphRelationship,
+  ActionLedgerEntry,
+  ObservedReceipt,
   IntelligenceRecordType,
   IntelligenceReviewStatus,
   ProgramEvent,
   ProgramIntelligenceRecord,
   ProgramRef,
   ProjectRef,
+  ReceiptReconcileRecord,
+  ReceiptReconcileStatus,
   SyncCursor
 } from "../types/domain.js";
 
@@ -75,6 +80,26 @@ export type ProgramIntelligenceQuery = {
   limit?: number;
 };
 
+export type ReceiptLedgerQuery = {
+  scope: RepositoryScope;
+  actorIds?: string[];
+  contractRefs?: string[];
+  evidenceRefs?: string[];
+  flightPlanIds?: string[];
+  proposedActionIds?: string[];
+  receiptRequirementIds?: string[];
+  reconcileStatuses?: ReceiptReconcileStatus[];
+  observedStatuses?: ObservedReceipt["status"][];
+  limit?: number;
+};
+
+export type ReceiptLedgerState = {
+  expectedReceipts: ExpectedReceipt[];
+  observedReceipts: ObservedReceipt[];
+  actionLedgerEntries: ActionLedgerEntry[];
+  reconcileStatuses: ReceiptReconcileRecord[];
+};
+
 export interface ProgramManagerRepository {
   listPrograms(scope: RepositoryScope): Promise<ProgramRef[]>;
   listProjects(scope: RepositoryScope): Promise<ProjectRef[]>;
@@ -98,6 +123,11 @@ export interface ProgramManagerRepository {
   listArtifactRefs(scope: RepositoryScope, refs?: string[]): Promise<ArtifactRef[]>;
   listDecisions(query: DecisionQuery): Promise<DecisionRecord[]>;
   listIntelligenceRecords(query: ProgramIntelligenceQuery): Promise<ProgramIntelligenceRecord[]>;
+  upsertExpectedReceipts(receipts: ExpectedReceipt[], auditEvent?: ProgramEvent): Promise<void>;
+  appendObservedReceipt(receipt: ObservedReceipt, auditEvent: ProgramEvent): Promise<void>;
+  appendActionLedgerEntry(entry: ActionLedgerEntry): Promise<void>;
+  upsertReceiptReconcileStatus(status: ReceiptReconcileRecord, auditEvent?: ProgramEvent): Promise<void>;
+  listReceiptLedger(query: ReceiptLedgerQuery): Promise<ReceiptLedgerState>;
   listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]>;
   getSyncCursors(scope: RepositoryScope): Promise<SyncCursor[]>;
 }

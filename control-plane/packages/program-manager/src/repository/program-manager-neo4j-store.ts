@@ -1,15 +1,20 @@
 import type {
   ArtifactRef,
   EvidenceRef,
+  ExpectedReceipt,
   GraphRelationship,
+  ActionLedgerEntry,
+  ObservedReceipt,
   ProgramEvent,
   ProgramIntelligenceRecord,
   ProgramRef,
-  ProjectRef
+  ProjectRef,
+  ReceiptReconcileRecord
 } from "../types/domain.js";
 import type {
   DecisionQuery,
   ProgramIntelligenceQuery,
+  ReceiptLedgerQuery,
   RepositoryScope
 } from "./program-manager-repository.js";
 import {
@@ -80,6 +85,73 @@ function toScopeParams(scope: RepositoryScope): Record<string, unknown> {
     programId: scope.programId,
     projectIds: scope.projectIds
   };
+}
+
+function matchesLedgerScope(
+  portfolioId: string,
+  programId: string | undefined,
+  projectId: string | undefined,
+  scope: RepositoryScope
+): boolean {
+  if (portfolioId !== scope.portfolioId) {
+    return false;
+  }
+  if (scope.programId && programId !== scope.programId) {
+    return false;
+  }
+  if (scope.projectIds?.length && (!projectId || !scope.projectIds.includes(projectId))) {
+    return false;
+  }
+  return true;
+}
+
+function overlaps(filter: string[] | undefined, values: string[]): boolean {
+  if (!filter?.length) {
+    return true;
+  }
+  return filter.some((value) => values.includes(value));
+}
+
+function matchesLedgerQuery(
+  value: {
+    actorId?: string;
+    contractRefs: string[];
+    evidenceRefs?: string[];
+    flightPlanId: string;
+    portfolioId: string;
+    programId?: string;
+    projectId?: string;
+    proposedActionId: string;
+    receiptRequirementId?: string;
+  },
+  query: ReceiptLedgerQuery
+): boolean {
+  return (
+    matchesLedgerScope(value.portfolioId, value.programId, value.projectId, query.scope) &&
+    overlaps(query.actorIds, value.actorId ? [value.actorId] : []) &&
+    overlaps(query.contractRefs, value.contractRefs) &&
+    overlaps(query.evidenceRefs, value.evidenceRefs ?? []) &&
+    overlaps(query.flightPlanIds, [value.flightPlanId]) &&
+    overlaps(query.proposedActionIds, [value.proposedActionId]) &&
+    overlaps(query.receiptRequirementIds, value.receiptRequirementId ? [value.receiptRequirementId] : [])
+  );
+}
+
+function compareLedgerValues(
+  left: { recordedAt?: string; flightPlanId?: string; proposedActionId?: string; receiptRequirementId?: string },
+  right: { recordedAt?: string; flightPlanId?: string; proposedActionId?: string; receiptRequirementId?: string }
+): number {
+  return (
+    (left.flightPlanId ?? "").localeCompare(right.flightPlanId ?? "") ||
+    (left.proposedActionId ?? "").localeCompare(right.proposedActionId ?? "") ||
+    (left.receiptRequirementId ?? "").localeCompare(right.receiptRequirementId ?? "") ||
+    (left.recordedAt ?? "").localeCompare(right.recordedAt ?? "")
+  );
+}
+
+function parsePayload<T>(record: Neo4jRecordLike, key: string): T {
+  const payload = record.get(key);
+  return JSON.parse(payload as string) as T;
 }
 
 async function runWrite(
@@ -390,11 +462,103 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
     );
   }
 
+  async upsertExpectedReceipt(receipt: ExpectedReceipt): Promise<void> {
+    await runWrite(
+      this.driver,
+      `
+        MERGE (receipt:PmExpectedReceipt {portfolioId: $portfolioId, receiptRequirementId: $receiptRequirementId})
+        SET receipt.payload = $payload,
+            receipt.flightPlanId = $flightPlanId,
+            receipt.proposedActionId = $proposedActionId,
+            receipt.projectId = $projectId,
+            receipt.programId = $programId,
+            receipt.actorId = $actorId,
+            receipt.recordedAt = $recordedAt
+      `,
+      {
+        ...receipt,
+        payload: JSON.stringify(receipt)
+      }
+    );
+  }
+
+  async appendObservedReceipt(receipt: ObservedReceipt): Promise<void> {
+    await runWrite(
+      this.driver,
+      `
+        CREATE (receipt:PmObservedReceipt {
+          portfolioId: $portfolioId,
+          observedReceiptId: $observedReceiptId,
+          receiptRequirementId: $receiptRequirementId,
+          flightPlanId: $flightPlanId,
+          proposedActionId: $proposedActionId,
+          projectId: $projectId,
+          programId: $programId,
+          actorId: $actorId,
+          recordedAt: $recordedAt,
+          status: $status,
+          payload: $payload
+        })
+      `,
+      {
+        ...receipt,
+        payload: JSON.stringify(receipt)
+      }
+    );
+  }
+
+  async appendActionLedgerEntry(entry: ActionLedgerEntry): Promise<void> {
+    await runWrite(
+      this.driver,
+      `
+        CREATE (entry:PmActionLedgerEntry {
+          portfolioId: $portfolioId,
+          ledgerEntryId: $ledgerEntryId,
+          flightPlanId: $flightPlanId,
+          proposedActionId: $proposedActionId,
+          receiptRequirementId: $receiptRequirementId,
+          observedReceiptId: $observedReceiptId,
+          projectId: $projectId,
+          programId: $programId,
+          actorId: $actorId,
+          recordedAt: $recordedAt,
+          entryType: $entryType,
+          status: $status,
+          payload: $payload
+        })
+      `,
+      {
+        ...entry,
+        payload: JSON.stringify(entry)
+      }
+    );
+  }
+
+  async upsertReceiptReconcileStatus(status: ReceiptReconcileRecord): Promise<void> {
+    await runWrite(
+      this.driver,
+      `
+        MERGE (status:PmReceiptReconcileStatus {portfolioId: $portfolioId, receiptRequirementId: $receiptRequirementId})
+        SET status.payload = $payload,
+            status.flightPlanId = $flightPlanId,
+            status.proposedActionId = $proposedActionId,
+            status.projectId = $projectId,
+            status.programId = $programId,
+            status.reconcileStatus = $status,
+            status.updatedAt = $updatedAt
+      `,
+      {
+        ...status,
+        payload: JSON.stringify(status)
+      }
+    );
+  }
+
   async appendEvent(event: ProgramEvent): Promise<void> {
     await runWrite(
       this.driver,
       `
-        MERGE (event:PmEvent {portfolioId: $portfolioId, eventId: $eventId})
+        CREATE (event:PmEvent {portfolioId: $portfolioId, eventId: $eventId})
         SET event.eventType = $eventType,
             event.recordedAt = $recordedAt,
             event.contextAnchor = $contextAnchor,
@@ -698,6 +862,86 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
       (record) => JSON.parse(mapRecord<string>(record, "payload")) as ProgramIntelligenceRecord
     );
     return typeof query.limit === "number" ? records.slice(0, query.limit) : records;
+  }
+
+  async listExpectedReceipts(query: ReceiptLedgerQuery): Promise<ExpectedReceipt[]> {
+    const records = await runRead(
+      this.driver,
+      `
+        MATCH (receipt:PmExpectedReceipt)
+        WHERE receipt.portfolioId = $portfolioId
+        RETURN receipt.payload AS payload
+      `,
+      toScopeParams(query.scope),
+      (record) => parsePayload<ExpectedReceipt>(record, "payload")
+    );
+    const filtered = records
+      .filter((receipt) =>
+        matchesLedgerQuery({ ...receipt, evidenceRefs: receipt.requiredEvidenceRefs }, query)
+      )
+      .sort(compareLedgerValues);
+    return typeof query.limit === "number" ? filtered.slice(0, query.limit) : filtered;
+  }
+
+  async listObservedReceipts(query: ReceiptLedgerQuery): Promise<ObservedReceipt[]> {
+    const records = await runRead(
+      this.driver,
+      `
+        MATCH (receipt:PmObservedReceipt)
+        WHERE receipt.portfolioId = $portfolioId
+        RETURN receipt.payload AS payload
+      `,
+      toScopeParams(query.scope),
+      (record) => parsePayload<ObservedReceipt>(record, "payload")
+    );
+    const filtered = records
+      .filter(
+        (receipt) =>
+          matchesLedgerQuery(receipt, query) &&
+          (!query.observedStatuses?.length || query.observedStatuses.includes(receipt.status))
+      )
+      .sort(compareLedgerValues);
+    return typeof query.limit === "number" ? filtered.slice(0, query.limit) : filtered;
+  }
+
+  async listActionLedgerEntries(query: ReceiptLedgerQuery): Promise<ActionLedgerEntry[]> {
+    const records = await runRead(
+      this.driver,
+      `
+        MATCH (entry:PmActionLedgerEntry)
+        WHERE entry.portfolioId = $portfolioId
+        RETURN entry.payload AS payload
+      `,
+      toScopeParams(query.scope),
+      (record) => parsePayload<ActionLedgerEntry>(record, "payload")
+    );
+    const filtered = records
+      .filter((entry) => matchesLedgerQuery(entry, query))
+      .sort(compareLedgerValues);
+    return typeof query.limit === "number" ? filtered.slice(0, query.limit) : filtered;
+  }
+
+  async listReceiptReconcileStatuses(
+    query: ReceiptLedgerQuery
+  ): Promise<ReceiptReconcileRecord[]> {
+    const records = await runRead(
+      this.driver,
+      `
+        MATCH (status:PmReceiptReconcileStatus)
+        WHERE status.portfolioId = $portfolioId
+        RETURN status.payload AS payload
+      `,
+      toScopeParams(query.scope),
+      (record) => parsePayload<ReceiptReconcileRecord>(record, "payload")
+    );
+    const filtered = records
+      .filter(
+        (status) =>
+          matchesLedgerQuery(status, query) &&
+          (!query.reconcileStatuses?.length || query.reconcileStatuses.includes(status.status))
+      )
+      .sort(compareLedgerValues);
+    return typeof query.limit === "number" ? filtered.slice(0, query.limit) : filtered;
   }
 
   async listEvents(scope: RepositoryScope): Promise<ProgramEvent[]> {

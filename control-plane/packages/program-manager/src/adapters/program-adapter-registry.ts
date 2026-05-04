@@ -776,6 +776,16 @@ export class AdapterRegistry {
         adapterIds: manifests.map((item) => item.adapterId),
         evidencePolicyRefs,
         sideEffectPosture: "describes_actions_only"
+      },
+      {
+        capabilityId: "capability://program-manager/receipt-ledger",
+        phase: "3",
+        status: "available",
+        domains: filteredDomains,
+        toolNames: ["record_program_receipt", "reconcile_program_state"],
+        adapterIds: manifests.map((item) => item.adapterId),
+        evidencePolicyRefs,
+        sideEffectPosture: "pmo_internal_write"
       }
     ];
 

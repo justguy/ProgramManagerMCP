@@ -6,7 +6,9 @@ import {
   getProgramDocumentationRequestSchema,
   listProgramCapabilitiesRequestSchema,
   planProgramActionRequestSchema,
-  queryProgramContextRequestSchema
+  queryProgramContextRequestSchema,
+  recordProgramReceiptRequestSchema,
+  reconcileProgramStateRequestSchema
 } from "../../../../../shared/schemas/program-manager.ts";
 import type { ProgramToolActor } from "../authz/program-tool-authz.ts";
 import { ProgramToolService } from "../service/program-tool-service.ts";
@@ -52,6 +54,18 @@ export const PROGRAM_MANAGER_MCP_TOOLS = Object.freeze([
     description:
       "Create a deterministic proposal-only PMO flight plan with approval, evidence, receipt, TTL, and loop-suppression obligations.",
     requestSchema: planProgramActionRequestSchema
+  },
+  {
+    name: "record_program_receipt",
+    description:
+      "Record and validate a PMO receipt against an expected flight-plan receipt obligation without downstream mutation.",
+    requestSchema: recordProgramReceiptRequestSchema
+  },
+  {
+    name: "reconcile_program_state",
+    description:
+      "Compare expected receipts, observed receipts, and adapter state to surface PMO reconciliation findings.",
+    requestSchema: reconcileProgramStateRequestSchema
   }
 ] as const);
 
@@ -87,6 +101,10 @@ export class ProgramManagerMcpGateway {
         return this.#service.analyzeProgramIntelligence(request, actor);
       case "plan_program_action":
         return this.#service.planProgramAction(request, actor);
+      case "record_program_receipt":
+        return this.#service.recordProgramReceipt(request, actor);
+      case "reconcile_program_state":
+        return this.#service.reconcileProgramState(request, actor);
       default:
         throw new Error(`Unsupported PMO MCP tool: ${toolName}`);
     }

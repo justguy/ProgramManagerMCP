@@ -3,11 +3,15 @@ import type {
   ContextAnchor,
   DecisionRecord,
   EvidenceRef,
+  ExpectedReceipt,
   GraphRelationship,
+  ActionLedgerEntry,
+  ObservedReceipt,
   ProgramEvent,
   ProgramIntelligenceRecord,
   ProgramRef,
   ProjectRef,
+  ReceiptReconcileRecord,
   SyncCursor
 } from "../types/domain.js";
 import type {
@@ -17,19 +21,25 @@ import type {
   ProgramContextQuery,
   ProgramIntelligenceQuery,
   ProgramManagerRepository,
+  ReceiptLedgerQuery,
+  ReceiptLedgerState,
   RepositoryScope
 } from "./program-manager-repository.js";
 import {
+  compareActionLedgerEntries,
   compareArtifactRefs,
   compareContracts,
   compareDecisions,
   compareEvents,
   compareEvidenceRefs,
+  compareExpectedReceipts,
   compareIntegrationPoints,
   compareIntelligenceRecords,
   compareMemberships,
+  compareObservedReceipts,
   comparePrograms,
   compareProjects,
+  compareReceiptReconcileRecords,
   compareRelationships,
   compareSyncCursors,
   InMemoryProgramManagerGraphStore,
@@ -275,6 +285,55 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
 
   async putSyncCursor(cursor: SyncCursorRecord): Promise<void> {
     await this.store.upsertSyncCursor(cursor);
+  }
+
+  async upsertExpectedReceipts(receipts: ExpectedReceipt[], auditEvent?: ProgramEvent): Promise<void> {
+    for (const receipt of [...receipts].sort(compareExpectedReceipts)) {
+      await this.store.upsertExpectedReceipt({
+        ...receipt,
+        contractRefs: uniqueSortedStrings(receipt.contractRefs),
+        evidencePolicyRefs: uniqueSortedStrings(receipt.evidencePolicyRefs),
+        requiredEvidenceRefs: uniqueSortedStrings(receipt.requiredEvidenceRefs),
+        scopeRefs: uniqueSortedStrings(receipt.scopeRefs)
+      });
+    }
+    if (auditEvent) {
+      await this.putEvent(auditEvent);
+    }
+  }
+
+  async appendObservedReceipt(receipt: ObservedReceipt, auditEvent: ProgramEvent): Promise<void> {
+    await this.store.appendObservedReceipt({
+      ...receipt,
+      artifactRefs: uniqueSortedStrings(receipt.artifactRefs),
+      contractRefs: uniqueSortedStrings(receipt.contractRefs),
+      evidenceRefs: uniqueSortedStrings(receipt.evidenceRefs),
+      observedStateRefs: uniqueSortedStrings(receipt.observedStateRefs)
+    });
+    await this.putEvent(auditEvent);
+  }
+
+  async appendActionLedgerEntry(entry: ActionLedgerEntry): Promise<void> {
+    await this.store.appendActionLedgerEntry({
+      ...entry,
+      artifactRefs: uniqueSortedStrings(entry.artifactRefs),
+      contractRefs: uniqueSortedStrings(entry.contractRefs),
+      evidenceRefs: uniqueSortedStrings(entry.evidenceRefs)
+    });
+  }
+
+  async upsertReceiptReconcileStatus(
+    status: ReceiptReconcileRecord,
+    auditEvent?: ProgramEvent
+  ): Promise<void> {
+    await this.store.upsertReceiptReconcileStatus({
+      ...status,
+      contractRefs: uniqueSortedStrings(status.contractRefs),
+      evidenceRefs: uniqueSortedStrings(status.evidenceRefs)
+    });
+    if (auditEvent) {
+      await this.putEvent(auditEvent);
+    }
   }
 
   async listPrograms(scope: RepositoryScope): Promise<ProgramRef[]> {
@@ -654,8 +713,31 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
     return typeof query.limit === "number" ? records.slice(0, query.limit) : records;
   }
 
+  async listReceiptLedger(query: ReceiptLedgerQuery): Promise<ReceiptLedgerState> {
+    const [
+      expectedReceipts,
+      observedReceipts,
+      actionLedgerEntries,
+      reconcileStatuses
+    ] = await Promise.all([
+      this.store.listExpectedReceipts(query),
+      this.store.listObservedReceipts(query),
+      this.store.listActionLedgerEntries(query),
+      this.store.listReceiptReconcileStatuses(query)
+    ]);
+
+    return {
+      expectedReceipts: expectedReceipts.sort(compareExpectedReceipts),
+      observedReceipts: observedReceipts.sort(compareObservedReceipts),
+      actionLedgerEntries: actionLedgerEntries.sort(compareActionLedgerEntries),
+      reconcileStatuses: reconcileStatuses.sort(compareReceiptReconcileRecords)
+    };
+  }
+
   async listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]> {
-    const events = (await this.store.listEvents(scope)).sort(compareEvents);
+    const events = (await this.store.listEvents(scope)).sort(
+      (left, right) => right.recordedAt.localeCompare(left.recordedAt) || left.eventId.localeCompare(right.eventId)
+    );
     return typeof limit === "number" ? events.slice(0, limit) : events;
   }
 

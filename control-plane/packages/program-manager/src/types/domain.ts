@@ -17,6 +17,16 @@ export type DecisionStatus =
 
 export type EvidenceObligationStatus = "satisfied" | "missing" | "stale";
 
+export type ReceiptReconcileStatus =
+  | "expected"
+  | "in_flight"
+  | "partial"
+  | "satisfied"
+  | "late"
+  | "lost"
+  | "stuck"
+  | "conflicting";
+
 export type ContextAnchor = {
   portfolioId?: string;
   programId?: string;
@@ -105,6 +115,96 @@ export type ProgramEvent = {
   contextAnchor?: ContextAnchor;
   evidenceRefs: string[];
   artifactRefs: string[];
+};
+
+export type ExpectedReceipt = {
+  receiptRequirementId: string;
+  portfolioId: string;
+  programId?: string;
+  projectId?: string;
+  contractRefs: string[];
+  flightPlanId: string;
+  flightPlanHash: string;
+  flightPlanStateVersionHash: string;
+  proposedActionId: string;
+  expectedReceiptType: string;
+  actorId: string;
+  traceId: string;
+  correlationId: string;
+  idempotencyKey: string;
+  requiredVerifier: "adapter_observed_state" | "content_digest" | "operator_attestation";
+  requiredEvidenceRefs: string[];
+  evidencePolicyRefs: string[];
+  scopeRefs: string[];
+  dueAt?: string;
+  recordedAt: string;
+  status: "expected";
+};
+
+export type ObservedReceipt = {
+  observedReceiptId: string;
+  receiptRequirementId: string;
+  portfolioId: string;
+  programId?: string;
+  projectId?: string;
+  contractRefs: string[];
+  flightPlanId: string;
+  flightPlanHash: string;
+  proposedActionId: string;
+  actorId: string;
+  traceId: string;
+  correlationId: string;
+  idempotencyKey: string;
+  receiptType: string;
+  receiptDigest: string;
+  evidenceRefs: string[];
+  artifactRefs: string[];
+  observedStateRefs: string[];
+  observedAt: string;
+  recordedAt: string;
+  status: "accepted" | "late" | "duplicate" | "conflicting" | "rejected";
+  summary: string;
+};
+
+export type ActionLedgerEntry = {
+  ledgerEntryId: string;
+  portfolioId: string;
+  programId?: string;
+  projectId?: string;
+  contractRefs: string[];
+  flightPlanId: string;
+  proposedActionId: string;
+  receiptRequirementId?: string;
+  observedReceiptId?: string;
+  actorId: string;
+  traceId: string;
+  correlationId: string;
+  entryType: "expected_receipt" | "observed_receipt" | "reconcile_status";
+  status: ReceiptReconcileStatus | ObservedReceipt["status"];
+  summary: string;
+  evidenceRefs: string[];
+  artifactRefs: string[];
+  recordedAt: string;
+};
+
+export type ReceiptReconcileRecord = {
+  receiptRequirementId: string;
+  portfolioId: string;
+  programId?: string;
+  projectId?: string;
+  contractRefs: string[];
+  flightPlanId: string;
+  flightPlanHash: string;
+  proposedActionId: string;
+  status: ReceiptReconcileStatus;
+  expectedCount: number;
+  observedCount: number;
+  acceptedCount: number;
+  missingCount: number;
+  duplicateCount: number;
+  conflictingCount: number;
+  evidenceRefs: string[];
+  updatedAt: string;
 };
 
 export type SyncCursor = {

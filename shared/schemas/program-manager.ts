@@ -817,16 +817,23 @@ const flightPlanRiskFindingSchema = z
   })
   .strict();
 
-const expectedReceiptSchema = z
+export const expectedReceiptSchema = z
   .object({
     correlationId: z.string().min(1),
+    actorId: pointerRefSchema.optional(),
+    contractRefs: sortedStringArraySchema("expectedReceipt contractRefs").optional(),
+    dueAt: isoDateTimeSchema.optional(),
     evidencePolicyRefs: sortedStringArraySchema("expectedReceipt evidencePolicyRefs"),
     expectedReceiptType: z.string().min(1),
     flightPlanHash: sha256DigestSchema,
     flightPlanId: pointerRefSchema,
     flightPlanStateVersionHash: sha256DigestSchema,
     idempotencyKey: sha256DigestSchema,
+    portfolioId: pointerRefSchema.optional(),
+    programId: pointerRefSchema.optional(),
+    projectId: pointerRefSchema.optional(),
     proposedActionId: pointerRefSchema,
+    recordedAt: isoDateTimeSchema.optional(),
     receiptRequirementId: pointerRefSchema,
     requiredEvidenceRefs: sortedStringArraySchema("expectedReceipt requiredEvidenceRefs"),
     requiredVerifier: z.enum([
@@ -839,6 +846,106 @@ const expectedReceiptSchema = z
     traceId: z.string().min(1)
   })
   .strict();
+
+const receiptReconcileStatusSchema = z.enum([
+  "expected",
+  "in_flight",
+  "partial",
+  "satisfied",
+  "late",
+  "lost",
+  "stuck",
+  "conflicting"
+]);
+
+export const observedReceiptSchema = z
+  .object({
+    actorId: pointerRefSchema,
+    artifactRefs: sortedStringArraySchema("observedReceipt artifactRefs"),
+    contractRefs: sortedStringArraySchema("observedReceipt contractRefs"),
+    correlationId: z.string().min(1),
+    evidenceRefs: sortedStringArraySchema("observedReceipt evidenceRefs"),
+    flightPlanHash: sha256DigestSchema,
+    flightPlanId: pointerRefSchema,
+    idempotencyKey: sha256DigestSchema,
+    observedAt: isoDateTimeSchema,
+    observedReceiptId: pointerRefSchema,
+    observedStateRefs: sortedStringArraySchema("observedReceipt observedStateRefs"),
+    portfolioId: pointerRefSchema,
+    programId: pointerRefSchema.optional(),
+    projectId: pointerRefSchema.optional(),
+    proposedActionId: pointerRefSchema,
+    receiptDigest: sha256DigestSchema,
+    receiptRequirementId: pointerRefSchema,
+    receiptType: z.string().min(1),
+    recordedAt: isoDateTimeSchema,
+    status: z.enum(["accepted", "late", "duplicate", "conflicting", "rejected"]),
+    summary: z.string().min(1),
+    traceId: z.string().min(1)
+  })
+  .strict();
+
+export const actionLedgerEntrySchema = z
+  .object({
+    actorId: pointerRefSchema,
+    artifactRefs: sortedStringArraySchema("actionLedgerEntry artifactRefs"),
+    contractRefs: sortedStringArraySchema("actionLedgerEntry contractRefs"),
+    correlationId: z.string().min(1),
+    entryType: z.enum(["expected_receipt", "observed_receipt", "reconcile_status"]),
+    evidenceRefs: sortedStringArraySchema("actionLedgerEntry evidenceRefs"),
+    flightPlanId: pointerRefSchema,
+    ledgerEntryId: pointerRefSchema,
+    observedReceiptId: pointerRefSchema.optional(),
+    portfolioId: pointerRefSchema,
+    programId: pointerRefSchema.optional(),
+    projectId: pointerRefSchema.optional(),
+    proposedActionId: pointerRefSchema,
+    receiptRequirementId: pointerRefSchema.optional(),
+    recordedAt: isoDateTimeSchema,
+    status: z.union([
+      receiptReconcileStatusSchema,
+      z.enum(["accepted", "late", "duplicate", "conflicting", "rejected"])
+    ]),
+    summary: z.string().min(1),
+    traceId: z.string().min(1)
+  })
+  .strict();
+
+export const receiptReconcileRecordSchema = z
+  .object({
+    acceptedCount: z.number().int().nonnegative(),
+    conflictingCount: z.number().int().nonnegative(),
+    contractRefs: sortedStringArraySchema("receiptReconcile contractRefs"),
+    duplicateCount: z.number().int().nonnegative(),
+    evidenceRefs: sortedStringArraySchema("receiptReconcile evidenceRefs"),
+    expectedCount: z.number().int().nonnegative(),
+    flightPlanHash: sha256DigestSchema,
+    flightPlanId: pointerRefSchema,
+    missingCount: z.number().int().nonnegative(),
+    observedCount: z.number().int().nonnegative(),
+    portfolioId: pointerRefSchema,
+    programId: pointerRefSchema.optional(),
+    projectId: pointerRefSchema.optional(),
+    proposedActionId: pointerRefSchema,
+    receiptRequirementId: pointerRefSchema,
+    status: receiptReconcileStatusSchema,
+    updatedAt: isoDateTimeSchema
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.acceptedCount + value.missingCount + value.duplicateCount + value.conflictingCount < value.expectedCount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "receipt reconcile counts must account for expected receipts"
+      });
+    }
+    if (value.status === "satisfied" && value.missingCount > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "satisfied reconcile status cannot have missing receipts"
+      });
+    }
+  });
 
 const proposedExternalActionSchema = z
   .object({
@@ -962,6 +1069,136 @@ export const planProgramActionCoreSchema = z
 
 export const planProgramActionResultSchema = programToolResultEnvelopeSchema(
   planProgramActionCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+);
+
+const receiptSignatureSchema = z
+  .object({
+    digest: sha256DigestSchema,
+    keyRef: pointerRefSchema,
+    signatureRef: pointerRefSchema
+  })
+  .strict();
+
+const operatorAttestationSchema = z
+  .object({
+    attestedAt: isoDateTimeSchema,
+    attestedBy: pointerRefSchema,
+    authorityRef: pointerRefSchema,
+    evidenceRefs: sortedStringArraySchema("operatorAttestation evidenceRefs")
+  })
+  .strict();
+
+export const recordProgramReceiptRequestSchema = programToolRequestContextSchema
+  .extend({
+    artifactRefs: sortedStringArraySchema("receipt artifactRefs").optional(),
+    evidenceRefs: sortedStringArraySchema("receipt evidenceRefs"),
+    flightPlanHash: sha256DigestSchema,
+    flightPlanId: pointerRefSchema,
+    flightPlanStateVersionHash: sha256DigestSchema,
+    idempotencyKey: sha256DigestSchema,
+    observedAt: isoDateTimeSchema,
+    observedStateRefs: sortedStringArraySchema("receipt observedStateRefs"),
+    operatorAttestation: operatorAttestationSchema.optional(),
+    proposedActionId: pointerRefSchema,
+    receiptDigest: sha256DigestSchema,
+    receiptRequirementId: pointerRefSchema,
+    receiptType: z.string().min(1),
+    signature: receiptSignatureSchema.optional(),
+    summary: z.string().min(1),
+    verificationMethod: z.enum([
+      "adapter_observed_state",
+      "content_digest",
+      "operator_attestation"
+    ])
+  })
+  .strict();
+
+export const recordProgramReceiptCoreSchema = z
+  .object({
+    actionLedgerEntry: actionLedgerEntrySchema.optional(),
+    duplicateOf: pointerRefSchema.optional(),
+    expectedReceipt: expectedReceiptSchema.optional(),
+    observedReceipt: observedReceiptSchema.optional(),
+    receiptRequirementId: pointerRefSchema,
+    reconcileStatus: receiptReconcileRecordSchema.optional(),
+    validation: z
+      .object({
+        status: z.enum(["accepted", "duplicate", "rejected"]),
+        validationRuleRefs: sortedStringArraySchema("receipt validationRuleRefs")
+      })
+      .strict()
+  })
+  .strict();
+
+export const recordProgramReceiptResultSchema = programToolResultEnvelopeSchema(
+  recordProgramReceiptCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+);
+
+export const reconcileProgramStateRequestSchema = programToolRequestContextSchema
+  .extend({
+    asOf: isoDateTimeSchema.optional(),
+    flightPlanIds: sortedStringArraySchema("reconcile flightPlanIds").optional(),
+    includeCompensatingPlanProposals: z.boolean().optional(),
+    lostAfterSeconds: z.number().int().positive().optional(),
+    receiptRequirementIds: sortedStringArraySchema("reconcile receiptRequirementIds").optional(),
+    targetRefs: sortedStringArraySchema("reconcile targetRefs")
+  })
+  .strict();
+
+const compensatingPlanProposalSchema = z
+  .object({
+    evidenceRefs: sortedStringArraySchema("compensatingPlanProposal evidenceRefs"),
+    proposalId: pointerRefSchema,
+    proposalType: z.enum(["replacement_flight_plan", "compensating_followup"]),
+    reason: z.string().min(1),
+    targetRefs: sortedStringArraySchema("compensatingPlanProposal targetRefs")
+  })
+  .strict();
+
+export const reconcileProgramStateCoreSchema = z
+  .object({
+    compensatingPlanProposals: z.array(compensatingPlanProposalSchema),
+    findings: z.array(findingSchema),
+    observedReceiptCount: z.number().int().nonnegative(),
+    reconcileStatuses: z.array(receiptReconcileRecordSchema),
+    rulesVersion: z.string().min(1)
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    try {
+      enforceSorted(
+        value.findings,
+        (left, right) =>
+          (severityRank.get(left.severity) ?? Number.MAX_SAFE_INTEGER) -
+            (severityRank.get(right.severity) ?? Number.MAX_SAFE_INTEGER) ||
+          left.findingId.localeCompare(right.findingId),
+        "reconcile findings must be sorted by severity then findingId"
+      );
+      enforceSorted(
+        value.reconcileStatuses,
+        (left, right) =>
+          left.flightPlanId.localeCompare(right.flightPlanId) ||
+          left.proposedActionId.localeCompare(right.proposedActionId) ||
+          left.receiptRequirementId.localeCompare(right.receiptRequirementId),
+        "reconcile statuses must be sorted by flightPlanId, proposedActionId, receiptRequirementId"
+      );
+      enforceSorted(
+        value.compensatingPlanProposals,
+        (left, right) => left.proposalId.localeCompare(right.proposalId),
+        "compensatingPlanProposals must be sorted by proposalId"
+      );
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "reconcile core ordering failed"
+      });
+    }
+  });
+
+export const reconcileProgramStateResultSchema = programToolResultEnvelopeSchema(
+  reconcileProgramStateCoreSchema,
   z.object({ summary: z.string().min(1) }).strict()
 );
 
@@ -1448,6 +1685,7 @@ export const adapterContractFixturesDocumentSchema = z
 export const programManagerSchemaBundleSchema = z
   .object({
     artifactRef: artifactRefSchema,
+    actionLedgerEntry: actionLedgerEntrySchema,
     analyzeProgramIntelligenceCore: analyzeProgramIntelligenceCoreSchema,
     analyzeProgramIntelligenceRequest: analyzeProgramIntelligenceRequestSchema,
     analyzeProgramIntelligenceResult: analyzeProgramIntelligenceResultSchema,
@@ -1460,6 +1698,7 @@ export const programManagerSchemaBundleSchema = z
     dependencyRelationshipProps: dependencyRelationshipPropsSchema,
     evidencePolicy: evidencePolicySchema,
     evidenceRef: evidenceRefSchema,
+    expectedReceipt: expectedReceiptSchema,
     attemptRecord: attemptRecordSchema,
     failurePattern: failurePatternSchema,
     generateProgramUpdateCore: generateProgramUpdateCoreSchema,
@@ -1478,6 +1717,7 @@ export const programManagerSchemaBundleSchema = z
     planProgramActionCore: planProgramActionCoreSchema,
     planProgramActionRequest: planProgramActionRequestSchema,
     planProgramActionResult: planProgramActionResultSchema,
+    observedReceipt: observedReceiptSchema,
     portfolio: portfolioSchema,
     programIntelligenceRecord: programIntelligenceRecordSchema,
     program: programSchema,
@@ -1487,6 +1727,13 @@ export const programManagerSchemaBundleSchema = z
     queryProgramContextCore: queryProgramContextCoreSchema,
     queryProgramContextRequest: queryProgramContextRequestSchema,
     queryProgramContextResult: queryProgramContextResultSchema,
+    recordProgramReceiptCore: recordProgramReceiptCoreSchema,
+    recordProgramReceiptRequest: recordProgramReceiptRequestSchema,
+    recordProgramReceiptResult: recordProgramReceiptResultSchema,
+    reconcileProgramStateCore: reconcileProgramStateCoreSchema,
+    reconcileProgramStateRequest: reconcileProgramStateRequestSchema,
+    reconcileProgramStateResult: reconcileProgramStateResultSchema,
+    receiptReconcileRecord: receiptReconcileRecordSchema,
     redactionSummary: redactionSummarySchema,
     riskSignal: riskSignalSchema,
     syncCursor: syncCursorSchema

@@ -15,7 +15,11 @@ import {
   planProgramActionRequestSchema,
   planProgramActionResultSchema,
   queryProgramContextRequestSchema,
-  queryProgramContextResultSchema
+  queryProgramContextResultSchema,
+  recordProgramReceiptRequestSchema,
+  recordProgramReceiptResultSchema,
+  reconcileProgramStateRequestSchema,
+  reconcileProgramStateResultSchema
 } from "../../../../../shared/schemas/program-manager.ts";
 import type {
   AdapterCursor,
@@ -29,9 +33,13 @@ import type { ProgramManagerRepository } from "../repository/program-manager-rep
 import type {
   ContextAnchor,
   DecisionRecord,
+  ExpectedReceipt,
   GraphRelationship,
+  ActionLedgerEntry,
+  ObservedReceipt,
   ProgramEvent,
-  ProgramIntelligenceRecord
+  ProgramIntelligenceRecord,
+  ReceiptReconcileRecord
 } from "../types/domain.js";
 import {
   assertReadAuthorized,
@@ -55,7 +63,9 @@ type ToolName =
   | "generate_program_update"
   | "get_program_audit_trail"
   | "analyze_program_intelligence"
-  | "plan_program_action";
+  | "plan_program_action"
+  | "record_program_receipt"
+  | "reconcile_program_state";
 
 type ToolWarning = {
   warningId: string;
@@ -235,7 +245,9 @@ const TOOL_NEXT_RECOMMENDATION: Record<ToolName, ToolName> = {
   generate_program_update: "get_program_audit_trail",
   get_program_audit_trail: "query_program_context",
   analyze_program_intelligence: "query_program_context",
-  plan_program_action: "get_program_audit_trail"
+  plan_program_action: "get_program_audit_trail",
+  record_program_receipt: "get_program_audit_trail",
+  reconcile_program_state: "plan_program_action"
 };
 
 const STATUS_RANK = new Map([
@@ -466,6 +478,40 @@ function sortUniqueRefs(values: string[]): string[] {
   return [...new Set(values)]
     .filter((value) => value.length > 0)
     .sort((left, right) => left.localeCompare(right));
+}
+
+function expectedReceiptContractRefs(receipt: ExpectedReceipt): string[] {
+  return sortUniqueRefs(receipt.contractRefs ?? []);
+}
+
+function receiptDigestForInput(request: {
+  evidenceRefs: string[];
+  flightPlanHash: string;
+  flightPlanId: string;
+  observedAt: string;
+  observedStateRefs: string[];
+  proposedActionId: string;
+  receiptRequirementId: string;
+  receiptType: string;
+}): string {
+  return stateVersionHashFromInput({
+    evidenceRefs: sortUniqueRefs(request.evidenceRefs),
+    flightPlanHash: request.flightPlanHash,
+    flightPlanId: request.flightPlanId,
+    observedAt: request.observedAt,
+    observedStateRefs: sortUniqueRefs(request.observedStateRefs),
+    proposedActionId: request.proposedActionId,
+    receiptRequirementId: request.receiptRequirementId,
+    receiptType: request.receiptType
+  });
+}
+
+function receiptObservedId(idempotencyKey: string): string {
+  return `receipt-observed://program-action/${sanitizedPointerSegment(idempotencyKey)}`;
+}
+
+function receiptLedgerEntryId(idempotencyKey: string): string {
+  return `ledger://program-action/${sanitizedPointerSegment(idempotencyKey)}`;
 }
 
 function makeReportMarkdownRef(reportTemplateVersion: string, digest: string) {
@@ -1739,6 +1785,584 @@ export class ProgramToolService {
       traceId: request.traceId,
       correlationId: request.correlationId,
       stateVersionHash: flightPlanStateVersionHash
+    });
+  }
+
+  async recordProgramReceipt(requestInput: unknown, actor: ProgramToolActor) {
+    const request = recordProgramReceiptRequestSchema.parse(requestInput);
+    const scope = {
+      portfolioId: request.portfolioId,
+      programId: request.programId,
+      projectIds: inferScopedProjectIds({
+        ...request,
+        projectIds: request.projectIds,
+        targetRefs: request.observedStateRefs
+      })
+    };
+
+    try {
+      assertReadAuthorized(
+        actor,
+        {
+          ...request,
+          projectIds: scope.projectIds,
+          targetRefs: request.observedStateRefs
+        },
+        this.#now()
+      );
+      await this.#adapterRegistry.assertNoMutationAuthority();
+    } catch (error) {
+      return recordProgramReceiptResultSchema.parse(
+        this.#blockedEnvelope("record_program_receipt", request, error)
+      );
+    }
+
+    const validationRuleRefs = sortUniqueRefs([
+      "rule://program-receipt/expected-match/v1",
+      "rule://program-receipt/idempotency/v1",
+      "rule://program-receipt/evidence-policy/v1",
+      "rule://program-receipt/digest-attestation/v1",
+      "rule://program-receipt/stale-plan/v1"
+    ]);
+    const ledger = await this.#repository.listReceiptLedger({
+      scope,
+      flightPlanIds: [request.flightPlanId],
+      receiptRequirementIds: [request.receiptRequirementId]
+    });
+    const expectedReceipt = ledger.expectedReceipts.find(
+      (receipt) =>
+        receipt.receiptRequirementId === request.receiptRequirementId &&
+        receipt.flightPlanId === request.flightPlanId &&
+        receipt.proposedActionId === request.proposedActionId
+    );
+    const duplicateReceipt = ledger.observedReceipts.find(
+      (receipt) =>
+        receipt.receiptRequirementId === request.receiptRequirementId &&
+        receipt.idempotencyKey === request.idempotencyKey
+    );
+    const evidenceRefs = sortUniqueRefs([
+      ...request.evidenceRefs,
+      ...(request.operatorAttestation?.evidenceRefs ?? [])
+    ]);
+    const artifactRefs = sortUniqueRefs(request.artifactRefs ?? []);
+
+    const rejectedEnvelope = (
+      warningId: string,
+      summary: string,
+      validationStatus: "duplicate" | "rejected" = "rejected",
+      duplicateOf?: string
+    ) =>
+      recordProgramReceiptResultSchema.parse({
+        schemaVersion: "1",
+        status: "blocked",
+        toolName: "record_program_receipt",
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(scope.projectIds.length > 0 ? { projectIds: scope.projectIds } : {}),
+        deterministicCore: {
+          receiptRequirementId: request.receiptRequirementId,
+          ...(expectedReceipt ? { expectedReceipt } : {}),
+          ...(duplicateOf ? { duplicateOf } : {}),
+          validation: {
+            status: validationStatus,
+            validationRuleRefs
+          }
+        },
+        evidenceRefs,
+        artifactRefs,
+        redactionSummary: buildRedactionSummary({
+          policyRefs: DEFAULT_REDACTION_POLICY_REFS
+        }),
+        warnings: [makeWarning(warningId, "high", summary, evidenceRefs)],
+        nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.record_program_receipt,
+        traceId: request.traceId,
+        correlationId: request.correlationId,
+        stateVersionHash: stateVersionHashFromInput({
+          request,
+          validationStatus,
+          warningId,
+          duplicateOf,
+          expectedReceipt,
+          evidenceRefs,
+          artifactRefs
+        })
+      });
+
+    if (!expectedReceipt) {
+      return rejectedEnvelope(
+        "receipt-expected-not-found",
+        "No expected receipt obligation matched the submitted receipt."
+      );
+    }
+
+    if (
+      expectedReceipt.flightPlanHash !== request.flightPlanHash ||
+      expectedReceipt.flightPlanStateVersionHash !== request.flightPlanStateVersionHash
+    ) {
+      return rejectedEnvelope(
+        "receipt-stale-flight-plan",
+        "Receipt references a stale or mismatched flight plan hash."
+      );
+    }
+
+    if (expectedReceipt.expectedReceiptType !== request.receiptType) {
+      return rejectedEnvelope(
+        "receipt-type-mismatch",
+        "Receipt type does not match the expected receipt obligation."
+      );
+    }
+
+    if (expectedReceipt.requiredVerifier !== request.verificationMethod) {
+      return rejectedEnvelope(
+        "receipt-verifier-mismatch",
+        "Receipt verification method does not match the expected evidence policy."
+      );
+    }
+
+    if (duplicateReceipt) {
+      return rejectedEnvelope(
+        "receipt-duplicate-idempotency-key",
+        "Receipt idempotency key was already recorded for this expected receipt.",
+        "duplicate",
+        duplicateReceipt.observedReceiptId
+      );
+    }
+
+    const requiredEvidenceRefs = sortUniqueRefs(expectedReceipt.requiredEvidenceRefs ?? []);
+    const submittedEvidenceContext = new Set([...evidenceRefs, ...request.observedStateRefs]);
+    const missingEvidenceRefs = requiredEvidenceRefs.filter((ref) => !submittedEvidenceContext.has(ref));
+
+    if (missingEvidenceRefs.length > 0) {
+      return rejectedEnvelope(
+        "receipt-required-evidence-missing",
+        `Receipt is missing required evidence refs: ${missingEvidenceRefs.join(", ")}.`
+      );
+    }
+
+    if (request.verificationMethod === "adapter_observed_state" && request.observedStateRefs.length === 0) {
+      return rejectedEnvelope(
+        "receipt-observed-state-missing",
+        "Adapter-observed receipts require at least one observed state ref."
+      );
+    }
+
+    if (request.verificationMethod === "operator_attestation") {
+      if (!request.operatorAttestation) {
+        return rejectedEnvelope(
+          "receipt-operator-attestation-missing",
+          "Operator-attested receipts require an operator attestation."
+        );
+      }
+      if (request.operatorAttestation.attestedBy !== actor.actorId) {
+        return rejectedEnvelope(
+          "receipt-operator-attestation-actor-mismatch",
+          "Operator attestation must be made by the authenticated actor."
+        );
+      }
+    }
+
+    const expectedDigest = receiptDigestForInput(request);
+    if (request.receiptDigest !== expectedDigest) {
+      return rejectedEnvelope(
+        "receipt-digest-mismatch",
+        "Receipt digest does not match the canonical receipt payload."
+      );
+    }
+
+    if (request.signature && request.signature.digest !== request.receiptDigest) {
+      return rejectedEnvelope(
+        "receipt-signature-digest-mismatch",
+        "Receipt signature digest does not match the submitted receipt digest."
+      );
+    }
+
+    const now = this.#now();
+    const observedReceipt: ObservedReceipt = {
+      observedReceiptId: receiptObservedId(request.idempotencyKey),
+      receiptRequirementId: request.receiptRequirementId,
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(scope.projectIds.length === 1 ? { projectId: scope.projectIds[0] } : {}),
+      contractRefs: expectedReceiptContractRefs(expectedReceipt),
+      flightPlanId: request.flightPlanId,
+      flightPlanHash: request.flightPlanHash,
+      proposedActionId: request.proposedActionId,
+      actorId: actor.actorId,
+      traceId: request.traceId,
+      correlationId: request.correlationId,
+      idempotencyKey: request.idempotencyKey,
+      receiptType: request.receiptType,
+      receiptDigest: request.receiptDigest,
+      evidenceRefs,
+      artifactRefs,
+      observedStateRefs: sortUniqueRefs(request.observedStateRefs),
+      observedAt: request.observedAt,
+      recordedAt: now,
+      status: "accepted",
+      summary: request.summary
+    };
+    const actionLedgerEntry: ActionLedgerEntry = {
+      ledgerEntryId: receiptLedgerEntryId(request.idempotencyKey),
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(observedReceipt.projectId ? { projectId: observedReceipt.projectId } : {}),
+      contractRefs: observedReceipt.contractRefs,
+      flightPlanId: request.flightPlanId,
+      proposedActionId: request.proposedActionId,
+      receiptRequirementId: request.receiptRequirementId,
+      observedReceiptId: observedReceipt.observedReceiptId,
+      actorId: actor.actorId,
+      traceId: request.traceId,
+      correlationId: request.correlationId,
+      entryType: "observed_receipt",
+      status: "accepted",
+      summary: request.summary,
+      evidenceRefs,
+      artifactRefs,
+      recordedAt: now
+    };
+    const reconcileStatus: ReceiptReconcileRecord = {
+      receiptRequirementId: request.receiptRequirementId,
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(observedReceipt.projectId ? { projectId: observedReceipt.projectId } : {}),
+      contractRefs: observedReceipt.contractRefs,
+      flightPlanId: request.flightPlanId,
+      flightPlanHash: request.flightPlanHash,
+      proposedActionId: request.proposedActionId,
+      status: "satisfied",
+      expectedCount: 1,
+      observedCount: ledger.observedReceipts.length + 1,
+      acceptedCount:
+        ledger.observedReceipts.filter((receipt) => receipt.status === "accepted").length + 1,
+      missingCount: 0,
+      duplicateCount: ledger.observedReceipts.filter((receipt) => receipt.status === "duplicate").length,
+      conflictingCount: ledger.observedReceipts.filter((receipt) => receipt.status === "conflicting").length,
+      evidenceRefs,
+      updatedAt: now
+    };
+    const auditEvent: ProgramEvent = {
+      eventId: `event://program-receipt/${sanitizedPointerSegment(request.idempotencyKey)}`,
+      portfolioId: request.portfolioId,
+      eventType: "record_program_receipt.accepted",
+      recordedAt: now,
+      contextAnchor: defaultContextAnchor({
+        portfolioId: request.portfolioId,
+        programId: request.programId,
+        projectIds: scope.projectIds,
+        contextAnchor: request.contextAnchor
+      }),
+      evidenceRefs,
+      artifactRefs
+    };
+
+    await this.#repository.appendObservedReceipt(observedReceipt, auditEvent);
+    await this.#repository.appendActionLedgerEntry(actionLedgerEntry);
+    await this.#repository.upsertReceiptReconcileStatus(reconcileStatus);
+
+    return recordProgramReceiptResultSchema.parse({
+      schemaVersion: "1",
+      status: "ok",
+      toolName: "record_program_receipt",
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(scope.projectIds.length > 0 ? { projectIds: scope.projectIds } : {}),
+      deterministicCore: {
+        expectedReceipt,
+        observedReceipt,
+        actionLedgerEntry,
+        reconcileStatus,
+        receiptRequirementId: request.receiptRequirementId,
+        validation: {
+          status: "accepted",
+          validationRuleRefs
+        }
+      },
+      evidenceRefs,
+      artifactRefs,
+      redactionSummary: buildRedactionSummary({
+        policyRefs: DEFAULT_REDACTION_POLICY_REFS
+      }),
+      warnings: [],
+      nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.record_program_receipt,
+      traceId: request.traceId,
+      correlationId: request.correlationId,
+      stateVersionHash: stateVersionHashFromInput({
+        request,
+        deterministicCore: {
+          expectedReceipt,
+          observedReceipt,
+          actionLedgerEntry,
+          reconcileStatus
+        },
+        evidenceRefs,
+        artifactRefs
+      })
+    });
+  }
+
+  async reconcileProgramState(requestInput: unknown, actor: ProgramToolActor) {
+    const request = reconcileProgramStateRequestSchema.parse(requestInput);
+
+    try {
+      assertReadAuthorized(
+        actor,
+        {
+          ...request,
+          projectIds: inferScopedProjectIds({
+            ...request,
+            projectIds: request.projectIds,
+            targetRefs: request.targetRefs
+          }),
+          targetRefs: request.targetRefs
+        },
+        this.#now()
+      );
+      await this.#adapterRegistry.assertNoMutationAuthority();
+    } catch (error) {
+      return reconcileProgramStateResultSchema.parse(
+        this.#blockedEnvelope("reconcile_program_state", request, error)
+      );
+    }
+
+    const scope = {
+      portfolioId: request.portfolioId,
+      programId: request.programId,
+      projectIds: inferScopedProjectIds({
+        ...request,
+        projectIds: request.projectIds,
+        targetRefs: request.targetRefs
+      })
+    };
+    const now = request.asOf ?? this.#now();
+    const ledger = await this.#repository.listReceiptLedger({
+      scope,
+      flightPlanIds: request.flightPlanIds,
+      receiptRequirementIds: request.receiptRequirementIds
+    });
+    const targetRefSet = new Set(request.targetRefs);
+    const relevantExpectedReceipts = ledger.expectedReceipts
+      .filter((receipt) => receipt.scopeRefs.some((ref) => targetRefSet.has(ref)))
+      .sort((left, right) => left.receiptRequirementId.localeCompare(right.receiptRequirementId));
+    const manifests = this.#adapterRegistry.listManifests();
+    const [healths, adapterReads] = await Promise.all([
+      Promise.all(manifests.map((manifest) => this.#adapterRegistry.getHealth(manifest.adapterId, scope, now))),
+      Promise.all(
+        manifests.map(async (manifest) => {
+          try {
+            return await this.#adapterRegistry.readState(
+              manifest.adapterId,
+              {
+                requestId: `${request.correlationId}:${manifest.adapterId}:reconcile`,
+                portfolioId: request.portfolioId,
+                programId: request.programId,
+                projectIds: scope.projectIds,
+                targetRefs: request.targetRefs,
+                limit: request.targetRefs.length || 10,
+                contextAnchor: request.contextAnchor
+              },
+              now
+            );
+          } catch {
+            return undefined;
+          }
+        })
+      )
+    ]);
+    const adapterObservationRefs = new Set(
+      adapterReads
+        .filter((read): read is AdapterReadStateResult => read !== undefined)
+        .flatMap((read) => read.observations.flatMap((observation) => [observation.ref, ...observation.evidenceRefs]))
+    );
+    const reconcileStatuses: ReceiptReconcileRecord[] = [];
+    const findings: Array<{
+      findingId: string;
+      severity: "low" | "medium" | "high" | "critical";
+      type: string;
+      summary: string;
+      evidenceRefs: string[];
+    }> = [];
+
+    for (const expectedReceipt of relevantExpectedReceipts) {
+      const observedReceipts = ledger.observedReceipts.filter(
+        (receipt) => receipt.receiptRequirementId === expectedReceipt.receiptRequirementId
+      );
+      const acceptedReceipts = observedReceipts.filter((receipt) => receipt.status === "accepted");
+      const duplicateReceipts = observedReceipts.filter((receipt) => receipt.status === "duplicate");
+      const conflictingReceipts = observedReceipts.filter((receipt) => receipt.status === "conflicting");
+      const acceptedWithoutAdapterSupport = acceptedReceipts.filter(
+        (receipt) =>
+          receipt.observedStateRefs.length > 0 &&
+          !receipt.observedStateRefs.some((ref) => targetRefSet.has(ref) || adapterObservationRefs.has(ref))
+      );
+      const isDue = expectedReceipt.dueAt ? expectedReceipt.dueAt <= now : false;
+      const lateSeconds = expectedReceipt.dueAt
+        ? Math.max(0, Math.floor((Date.parse(now) - Date.parse(expectedReceipt.dueAt)) / 1000))
+        : 0;
+      const stuckSeconds = !expectedReceipt.dueAt
+        ? Math.max(0, Math.floor((Date.parse(now) - Date.parse(expectedReceipt.recordedAt)) / 1000))
+        : 0;
+      const isLost = isDue && lateSeconds >= (request.lostAfterSeconds ?? 3600);
+      const isStuck = !expectedReceipt.dueAt && stuckSeconds >= (request.lostAfterSeconds ?? 3600);
+      const status =
+        conflictingReceipts.length > 0 || acceptedWithoutAdapterSupport.length > 0
+          ? "conflicting"
+          : acceptedReceipts.length > 0
+            ? "satisfied"
+            : isLost
+              ? "lost"
+              : isStuck
+                ? "stuck"
+              : isDue
+                ? "late"
+                : "in_flight";
+      const evidenceRefs = sortUniqueRefs([
+        ...expectedReceipt.requiredEvidenceRefs,
+        ...observedReceipts.flatMap((receipt) => receipt.evidenceRefs),
+        ...healths.map((health) => `evidence://adapter-health/${health.adapterId}/${health.status}`)
+      ]);
+      const reconcileStatus: ReceiptReconcileRecord = {
+        receiptRequirementId: expectedReceipt.receiptRequirementId,
+        portfolioId: expectedReceipt.portfolioId ?? request.portfolioId,
+        ...(expectedReceipt.programId ? { programId: expectedReceipt.programId } : request.programId ? { programId: request.programId } : {}),
+        ...(expectedReceipt.projectId ? { projectId: expectedReceipt.projectId } : scope.projectIds.length === 1 ? { projectId: scope.projectIds[0] } : {}),
+        contractRefs: expectedReceiptContractRefs(expectedReceipt),
+        flightPlanId: expectedReceipt.flightPlanId,
+        flightPlanHash: expectedReceipt.flightPlanHash,
+        proposedActionId: expectedReceipt.proposedActionId,
+        status,
+        expectedCount: 1,
+        observedCount: observedReceipts.length,
+        acceptedCount: acceptedReceipts.length,
+        missingCount: acceptedReceipts.length > 0 ? 0 : 1,
+        duplicateCount: duplicateReceipts.length,
+        conflictingCount: conflictingReceipts.length + acceptedWithoutAdapterSupport.length,
+        evidenceRefs,
+        updatedAt: now
+      };
+      reconcileStatuses.push(reconcileStatus);
+
+      if (status !== "satisfied") {
+        const type =
+          status === "conflicting"
+            ? "receipt_state_conflict"
+          : status === "lost"
+              ? "receipt_lost"
+              : status === "stuck"
+                ? "receipt_stuck"
+              : status === "late"
+                ? "receipt_late"
+                : "receipt_in_flight";
+        findings.push({
+          findingId: `finding://program-reconcile/${sanitizedPointerSegment(expectedReceipt.receiptRequirementId)}/${status}`,
+          severity:
+            status === "conflicting" || status === "lost"
+              ? "critical"
+              : status === "late" || status === "stuck"
+                ? "high"
+                : "low",
+          type,
+          summary: `${expectedReceipt.receiptRequirementId} is ${status}.`,
+          evidenceRefs
+        });
+      }
+    }
+
+    const compensatingPlanProposals = (request.includeCompensatingPlanProposals ?? true)
+      ? findings
+          .filter((finding) => finding.severity === "critical" || finding.severity === "high")
+          .map((finding) => ({
+            proposalId: `proposal://program-reconcile/${sanitizedPointerSegment(finding.findingId)}`,
+            proposalType: "replacement_flight_plan" as const,
+            reason: finding.summary,
+            targetRefs: request.targetRefs,
+            evidenceRefs: finding.evidenceRefs
+          }))
+          .sort((left, right) => left.proposalId.localeCompare(right.proposalId))
+      : [];
+
+    await Promise.all(
+      reconcileStatuses.map((status, index) =>
+        this.#repository.upsertReceiptReconcileStatus(
+          status,
+          index === 0
+            ? {
+                eventId: `event://program-reconcile/${sanitizedPointerSegment(request.correlationId)}`,
+                portfolioId: request.portfolioId,
+                eventType: "reconcile_program_state.completed",
+                recordedAt: now,
+                contextAnchor: defaultContextAnchor({
+                  portfolioId: request.portfolioId,
+                  programId: request.programId,
+                  projectIds: scope.projectIds,
+                  contextAnchor: request.contextAnchor
+                }),
+                evidenceRefs: sortUniqueRefs(findings.flatMap((finding) => finding.evidenceRefs)),
+                artifactRefs: []
+              }
+            : undefined
+        )
+      )
+    );
+
+    const evidenceRefs = sortUniqueRefs([
+      ...findings.flatMap((finding) => finding.evidenceRefs),
+      ...healths.map((health) => `evidence://adapter-health/${health.adapterId}/${health.status}`)
+    ]);
+    const warnings = [
+      ...healths
+        .map((health) => summarizeHealthStatus(health))
+        .filter((warning): warning is ToolWarning => Boolean(warning)),
+      ...findings
+        .filter((finding) => finding.severity !== "low")
+        .map((finding) =>
+          makeWarning(
+            `reconcile-${sanitizedPointerSegment(finding.findingId)}`,
+            finding.severity,
+            finding.summary,
+            finding.evidenceRefs
+          )
+        )
+    ].sort(compareWarnings);
+    const deterministicCore = {
+      compensatingPlanProposals,
+      findings: findings.sort(compareFindings),
+      observedReceiptCount: ledger.observedReceipts.length,
+      reconcileStatuses: reconcileStatuses.sort(
+        (left, right) =>
+          left.flightPlanId.localeCompare(right.flightPlanId) ||
+          left.proposedActionId.localeCompare(right.proposedActionId) ||
+          left.receiptRequirementId.localeCompare(right.receiptRequirementId)
+      ),
+      rulesVersion: "program-reconcile-rules-v1"
+    };
+
+    return reconcileProgramStateResultSchema.parse({
+      schemaVersion: "1",
+      status: findings.some((finding) => finding.severity === "critical")
+        ? "blocked"
+        : findings.length > 0 || warnings.length > 0
+          ? "warning"
+          : "ok",
+      toolName: "reconcile_program_state",
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(scope.projectIds.length > 0 ? { projectIds: scope.projectIds } : {}),
+      deterministicCore,
+      evidenceRefs,
+      artifactRefs: [],
+      redactionSummary: buildRedactionSummary({
+        policyRefs: DEFAULT_REDACTION_POLICY_REFS
+      }),
+      warnings,
+      nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.reconcile_program_state,
+      traceId: request.traceId,
+      correlationId: request.correlationId,
+      stateVersionHash: stateVersionHashFromInput({
+        request,
+        deterministicCore,
+        evidenceRefs
+      })
     });
   }
 

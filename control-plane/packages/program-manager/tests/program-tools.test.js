@@ -9,8 +9,11 @@ import {
   listProgramCapabilitiesResultSchema,
   generateProgramUpdateResultSchema,
   planProgramActionResultSchema,
-  queryProgramContextResultSchema
+  queryProgramContextResultSchema,
+  recordProgramReceiptResultSchema,
+  reconcileProgramStateResultSchema
 } from "../../../../shared/schemas/program-manager.ts";
+import { stateVersionHashFromInput } from "../src/hash/state-version-hash.js";
 import {
   AdapterRegistry,
   HoplonAdapterStub,
@@ -55,6 +58,142 @@ function buildGateway() {
   return new ProgramManagerMcpGateway(service);
 }
 
+async function buildReceiptGateway() {
+  const repository = InMemoryProgramManagerRepository.fromFixture(getBackboneRepositoryFixture());
+  await repository.upsertExpectedReceipts([
+    {
+      actorId: "actor://agents/executor-a",
+      contractRefs: ["contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+      correlationId: "corr://record-receipt",
+      dueAt: "2026-05-03T12:30:00Z",
+      evidencePolicyRefs: ["policy://evidence/tracker-snapshot-fast-expiry"],
+      expectedReceiptType: "tracker_update_receipt",
+      flightPlanHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      flightPlanId: "flightplan://program-action/record-receipt",
+      flightPlanStateVersionHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      idempotencyKey: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      projectId: "project://program-manager-mcp",
+      proposedActionId: "action://program-action/record-receipt",
+      receiptRequirementId: "receipt://program-action/record-receipt",
+      recordedAt: "2026-05-03T12:00:00Z",
+      requiredEvidenceRefs: ["evidence://receipt/required"],
+      requiredVerifier: "adapter_observed_state",
+      scopeRefs: [
+        "portfolio://default",
+        "program://agentic-os",
+        "project://program-manager-mcp",
+        "tracker://program-manager-mcp/PMO-502"
+      ],
+      status: "expected",
+      traceId: "trace://record-receipt"
+    },
+    {
+      actorId: "actor://agents/executor-b",
+      contractRefs: ["contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+      correlationId: "corr://record-receipt-b",
+      dueAt: "2026-05-03T12:05:00Z",
+      evidencePolicyRefs: ["policy://evidence/tracker-snapshot-fast-expiry"],
+      expectedReceiptType: "tracker_update_receipt",
+      flightPlanHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      flightPlanId: "flightplan://program-action/record-receipt",
+      flightPlanStateVersionHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      idempotencyKey: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      projectId: "project://program-manager-mcp",
+      proposedActionId: "action://program-action/record-receipt-b",
+      receiptRequirementId: "receipt://program-action/record-receipt-b",
+      recordedAt: "2026-05-03T12:00:00Z",
+      requiredEvidenceRefs: ["evidence://receipt/required-b"],
+      requiredVerifier: "adapter_observed_state",
+      scopeRefs: [
+        "portfolio://default",
+        "program://agentic-os",
+        "project://program-manager-mcp",
+        "tracker://program-manager-mcp/PMO-502"
+      ],
+      status: "expected",
+      traceId: "trace://record-receipt-b"
+    },
+    {
+      actorId: "actor://agents/executor-c",
+      contractRefs: ["contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+      correlationId: "corr://record-receipt-c",
+      evidencePolicyRefs: ["policy://evidence/tracker-snapshot-fast-expiry"],
+      expectedReceiptType: "tracker_update_receipt",
+      flightPlanHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      flightPlanId: "flightplan://program-action/record-receipt",
+      flightPlanStateVersionHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      idempotencyKey: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      projectId: "project://program-manager-mcp",
+      proposedActionId: "action://program-action/record-receipt-c",
+      receiptRequirementId: "receipt://program-action/record-receipt-c",
+      recordedAt: "2026-05-03T12:00:00Z",
+      requiredEvidenceRefs: ["evidence://receipt/required-c"],
+      requiredVerifier: "adapter_observed_state",
+      scopeRefs: [
+        "portfolio://default",
+        "program://agentic-os",
+        "project://program-manager-mcp",
+        "tracker://program-manager-mcp/PMO-502"
+      ],
+      status: "expected",
+      traceId: "trace://record-receipt-c"
+    }
+  ]);
+  const adapterRegistry = new AdapterRegistry([new HoplonAdapterStub(), new TrackerAdapterStub()]);
+  const service = new ProgramToolService({
+    repository,
+    adapterRegistry,
+    now: () => "2026-05-03T12:10:00Z"
+  });
+
+  return { gateway: new ProgramManagerMcpGateway(service), repository };
+}
+
+function buildReceiptRequest(overrides = {}) {
+  const base = {
+    portfolioId: "portfolio://default",
+    programId: "program://agentic-os",
+    flightPlanHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    flightPlanId: "flightplan://program-action/record-receipt",
+    flightPlanStateVersionHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    idempotencyKey: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    observedAt: "2026-05-03T12:09:00Z",
+    proposedActionId: "action://program-action/record-receipt",
+    receiptRequirementId: "receipt://program-action/record-receipt",
+    receiptType: "tracker_update_receipt",
+    evidenceRefs: ["evidence://receipt/required"],
+    artifactRefs: ["artifact://receipt/record-receipt"],
+    observedStateRefs: ["tracker://program-manager-mcp/PMO-502"],
+    summary: "Executor observed the tracker receipt.",
+    verificationMethod: "adapter_observed_state",
+    traceId: "trace://record-receipt",
+    correlationId: "corr://record-receipt",
+    ...overrides
+  };
+
+  return {
+    ...base,
+    receiptDigest:
+      overrides.receiptDigest ??
+      stateVersionHashFromInput({
+        evidenceRefs: base.evidenceRefs,
+        flightPlanHash: base.flightPlanHash,
+        flightPlanId: base.flightPlanId,
+        observedAt: base.observedAt,
+        observedStateRefs: base.observedStateRefs,
+        proposedActionId: base.proposedActionId,
+        receiptRequirementId: base.receiptRequirementId,
+        receiptType: base.receiptType
+      })
+  };
+}
+
 test("gateway lists public Phase 1A/1B MCP tools", () => {
   const gateway = buildGateway();
 
@@ -68,7 +207,9 @@ test("gateway lists public Phase 1A/1B MCP tools", () => {
       "generate_program_update",
       "get_program_audit_trail",
       "analyze_program_intelligence",
-      "plan_program_action"
+      "plan_program_action",
+      "record_program_receipt",
+      "reconcile_program_state"
     ]
   );
 });
@@ -419,6 +560,279 @@ test("plan_program_action suppresses repeated propagation edges", async () => {
   assert.ok(
     result.warnings.some((warning) =>
       warning.warningId.startsWith("flight-plan-suppressed-")
+    )
+  );
+});
+
+test("record_program_receipt accepts valid receipts once and updates only PMO ledger state", async () => {
+  const { gateway, repository } = await buildReceiptGateway();
+  const actor = buildActor({
+    actorId: "actor://agents/executor-a",
+    actorRole: "execution_agent",
+    projectGrants: ["project://program-manager-mcp"]
+  });
+  const request = buildReceiptRequest();
+
+  const first = await gateway.callTool("record_program_receipt", request, actor);
+  const duplicate = await gateway.callTool("record_program_receipt", request, actor);
+
+  assert.deepEqual(recordProgramReceiptResultSchema.parse(first), first);
+  assert.equal(first.status, "ok");
+  assert.equal(first.toolName, "record_program_receipt");
+  assert.equal(first.deterministicCore.validation.status, "accepted");
+  assert.equal(first.deterministicCore.observedReceipt.status, "accepted");
+  assert.equal(first.deterministicCore.reconcileStatus.status, "satisfied");
+  assert.equal(duplicate.status, "blocked");
+  assert.equal(duplicate.deterministicCore.validation.status, "duplicate");
+  assert.equal(duplicate.warnings[0].warningId, "receipt-duplicate-idempotency-key");
+
+  const ledger = await repository.listReceiptLedger({
+    scope: { portfolioId: "portfolio://default" },
+    receiptRequirementIds: ["receipt://program-action/record-receipt"]
+  });
+  assert.equal(ledger.observedReceipts.length, 1);
+  assert.equal(ledger.actionLedgerEntries.length, 1);
+  assert.equal(ledger.reconcileStatuses[0].status, "satisfied");
+});
+
+test("record_program_receipt rejects forged, incomplete, stale, and unauthorized receipts", async () => {
+  const { gateway } = await buildReceiptGateway();
+  const actor = buildActor({
+    actorId: "actor://agents/executor-a",
+    actorRole: "execution_agent",
+    projectGrants: ["project://program-manager-mcp"]
+  });
+
+  const forged = await gateway.callTool(
+    "record_program_receipt",
+    buildReceiptRequest({
+      idempotencyKey: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      receiptDigest: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }),
+    actor
+  );
+  assert.equal(forged.status, "blocked");
+  assert.equal(forged.warnings[0].warningId, "receipt-digest-mismatch");
+
+  const incomplete = await gateway.callTool(
+    "record_program_receipt",
+    buildReceiptRequest({
+      evidenceRefs: [],
+      idempotencyKey: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }),
+    actor
+  );
+  assert.equal(incomplete.status, "blocked");
+  assert.equal(incomplete.warnings[0].warningId, "receipt-required-evidence-missing");
+
+  const stale = await gateway.callTool(
+    "record_program_receipt",
+    buildReceiptRequest({
+      flightPlanStateVersionHash: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      idempotencyKey: "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    }),
+    actor
+  );
+  assert.equal(stale.status, "blocked");
+  assert.equal(stale.warnings[0].warningId, "receipt-stale-flight-plan");
+
+  const unauthorized = await gateway.callTool(
+    "record_program_receipt",
+    buildReceiptRequest({
+      idempotencyKey: "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    }),
+    buildActor({
+      actorId: "actor://agents/out-of-scope",
+      actorRole: "execution_agent",
+      projectGrants: ["project://phalanx"]
+    })
+  );
+  assert.equal(unauthorized.status, "blocked");
+  assert.equal(unauthorized.warnings[0].warningId, "authz-denied");
+});
+
+test("reconcile_program_state reports accepted, lost, and replacement proposal findings", async () => {
+  const { gateway } = await buildReceiptGateway();
+  const actor = buildActor({
+    actorId: "actor://agents/executor-a",
+    actorRole: "execution_agent",
+    projectGrants: ["project://program-manager-mcp"]
+  });
+
+  await gateway.callTool("record_program_receipt", buildReceiptRequest(), actor);
+
+  const result = await gateway.callTool(
+    "reconcile_program_state",
+    {
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      targetRefs: ["tracker://program-manager-mcp/PMO-502"],
+      asOf: "2026-05-03T13:30:00Z",
+      lostAfterSeconds: 3600,
+      includeCompensatingPlanProposals: true,
+      traceId: "trace://reconcile",
+      correlationId: "corr://reconcile"
+    },
+    actor
+  );
+
+  assert.deepEqual(reconcileProgramStateResultSchema.parse(result), result);
+  assert.equal(result.toolName, "reconcile_program_state");
+  assert.equal(result.status, "blocked");
+  assert.ok(
+    result.deterministicCore.reconcileStatuses.some(
+      (status) =>
+        status.receiptRequirementId === "receipt://program-action/record-receipt" &&
+        status.status === "satisfied"
+    )
+  );
+  assert.ok(
+    result.deterministicCore.reconcileStatuses.some(
+      (status) =>
+        status.receiptRequirementId === "receipt://program-action/record-receipt-b" &&
+        status.status === "lost"
+    )
+  );
+  assert.ok(
+    result.deterministicCore.reconcileStatuses.some(
+      (status) =>
+        status.receiptRequirementId === "receipt://program-action/record-receipt-c" &&
+        status.status === "stuck"
+    )
+  );
+  assert.ok(result.deterministicCore.findings.some((finding) => finding.type === "receipt_lost"));
+  assert.ok(result.deterministicCore.findings.some((finding) => finding.type === "receipt_stuck"));
+  assert.ok(result.deterministicCore.compensatingPlanProposals.length > 0);
+});
+
+test("reconcile_program_state due policy distinguishes in_flight, late, lost, and stuck", async () => {
+  const { gateway } = await buildReceiptGateway();
+  const actor = buildActor({
+    actorId: "actor://agents/executor-a",
+    actorRole: "execution_agent",
+    projectGrants: ["project://program-manager-mcp"]
+  });
+  const baseRequest = {
+    portfolioId: "portfolio://default",
+    programId: "program://agentic-os",
+    targetRefs: ["tracker://program-manager-mcp/PMO-502"],
+    lostAfterSeconds: 3600,
+    traceId: "trace://reconcile-due",
+    correlationId: "corr://reconcile-due"
+  };
+
+  const inFlight = await gateway.callTool(
+    "reconcile_program_state",
+    { ...baseRequest, asOf: "2026-05-03T12:04:00Z" },
+    actor
+  );
+  const late = await gateway.callTool(
+    "reconcile_program_state",
+    { ...baseRequest, asOf: "2026-05-03T12:10:00Z" },
+    actor
+  );
+  const lost = await gateway.callTool(
+    "reconcile_program_state",
+    { ...baseRequest, asOf: "2026-05-03T13:30:00Z" },
+    actor
+  );
+
+  assert.ok(
+    inFlight.deterministicCore.reconcileStatuses.some(
+      (status) =>
+        status.receiptRequirementId === "receipt://program-action/record-receipt-b" &&
+        status.status === "in_flight"
+    )
+  );
+  assert.ok(
+    late.deterministicCore.reconcileStatuses.some(
+      (status) =>
+        status.receiptRequirementId === "receipt://program-action/record-receipt-b" &&
+        status.status === "late"
+    )
+  );
+  assert.ok(
+    lost.deterministicCore.reconcileStatuses.some(
+      (status) =>
+        status.receiptRequirementId === "receipt://program-action/record-receipt-b" &&
+        status.status === "lost"
+    )
+  );
+  assert.ok(
+    lost.deterministicCore.reconcileStatuses.some(
+      (status) =>
+        status.receiptRequirementId === "receipt://program-action/record-receipt-c" &&
+        status.status === "stuck"
+    )
+  );
+});
+
+test("reconcile_program_state detects conflicting receipt claims", async () => {
+  const { gateway, repository } = await buildReceiptGateway();
+  const actor = buildActor({
+    actorId: "actor://agents/executor-a",
+    actorRole: "execution_agent",
+    projectGrants: ["project://program-manager-mcp"]
+  });
+
+  await repository.appendObservedReceipt(
+    {
+      actorId: "actor://agents/executor-a",
+      artifactRefs: ["artifact://receipt/conflict"],
+      contractRefs: ["contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+      correlationId: "corr://conflict",
+      evidenceRefs: ["evidence://receipt/required"],
+      flightPlanHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      flightPlanId: "flightplan://program-action/record-receipt",
+      idempotencyKey: "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      observedAt: "2026-05-03T12:10:00Z",
+      observedReceiptId: "receipt-observed://program-action/conflict",
+      observedStateRefs: ["tracker://program-manager-mcp/other-task"],
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      projectId: "project://program-manager-mcp",
+      proposedActionId: "action://program-action/record-receipt",
+      receiptDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      receiptRequirementId: "receipt://program-action/record-receipt",
+      receiptType: "tracker_update_receipt",
+      recordedAt: "2026-05-03T12:10:00Z",
+      status: "accepted",
+      summary: "Conflicting observed target.",
+      traceId: "trace://conflict"
+    },
+    {
+      eventId: "event://receipt/conflict",
+      portfolioId: "portfolio://default",
+      eventType: "record_program_receipt.accepted",
+      recordedAt: "2026-05-03T12:10:00Z",
+      evidenceRefs: ["evidence://receipt/required"],
+      artifactRefs: []
+    }
+  );
+
+  const result = await gateway.callTool(
+    "reconcile_program_state",
+    {
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      targetRefs: ["tracker://program-manager-mcp/PMO-502"],
+      asOf: "2026-05-03T12:15:00Z",
+      traceId: "trace://reconcile-conflict",
+      correlationId: "corr://reconcile-conflict"
+    },
+    actor
+  );
+
+  assert.deepEqual(reconcileProgramStateResultSchema.parse(result), result);
+  assert.equal(result.status, "blocked");
+  assert.ok(
+    result.deterministicCore.findings.some(
+      (finding) => finding.type === "receipt_state_conflict"
+    )
+  );
+  assert.ok(
+    result.deterministicCore.reconcileStatuses.some(
+      (status) => status.status === "conflicting" && status.conflictingCount > 0
     )
   );
 });

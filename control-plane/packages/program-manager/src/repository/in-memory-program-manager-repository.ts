@@ -3,11 +3,15 @@ import type {
   ContextAnchor,
   DecisionRecord,
   EvidenceRef,
+  ExpectedReceipt,
   GraphRelationship,
+  ActionLedgerEntry,
+  ObservedReceipt,
   ProgramEvent,
   ProgramIntelligenceRecord,
   ProgramRef,
   ProjectRef,
+  ReceiptReconcileRecord,
   SyncCursor
 } from "../types/domain.js";
 import type {
@@ -17,6 +21,8 @@ import type {
   ProgramContextQuery,
   ProgramIntelligenceQuery,
   ProgramManagerRepository,
+  ReceiptLedgerQuery,
+  ReceiptLedgerState,
   RepositoryScope
 } from "./program-manager-repository.js";
 
@@ -28,6 +34,10 @@ type FixtureData = {
   artifactRefs?: ArtifactRef[];
   decisions?: DecisionRecord[];
   intelligenceRecords?: ProgramIntelligenceRecord[];
+  expectedReceipts?: ExpectedReceipt[];
+  observedReceipts?: ObservedReceipt[];
+  actionLedgerEntries?: ActionLedgerEntry[];
+  receiptReconcileStatuses?: ReceiptReconcileRecord[];
   events?: ProgramEvent[];
   syncCursors?: SyncCursor[];
   contextMatches?: Array<{
@@ -52,6 +62,10 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
   private artifactRefs: ArtifactRef[] = [];
   private decisions: DecisionRecord[] = [];
   private intelligenceRecords: ProgramIntelligenceRecord[] = [];
+  private expectedReceipts: ExpectedReceipt[] = [];
+  private observedReceipts: ObservedReceipt[] = [];
+  private actionLedgerEntries: ActionLedgerEntry[] = [];
+  private receiptReconcileStatuses: ReceiptReconcileRecord[] = [];
   private events: ProgramEvent[] = [];
   private syncCursors: SyncCursor[] = [];
   private contextMatches: NonNullable<FixtureData["contextMatches"]> = [];
@@ -77,6 +91,10 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
     this.artifactRefs = fixture.artifactRefs ?? this.artifactRefs;
     this.decisions = fixture.decisions ?? this.decisions;
     this.intelligenceRecords = fixture.intelligenceRecords ?? this.intelligenceRecords;
+    this.expectedReceipts = fixture.expectedReceipts ?? this.expectedReceipts;
+    this.observedReceipts = fixture.observedReceipts ?? this.observedReceipts;
+    this.actionLedgerEntries = fixture.actionLedgerEntries ?? this.actionLedgerEntries;
+    this.receiptReconcileStatuses = fixture.receiptReconcileStatuses ?? this.receiptReconcileStatuses;
     this.events = fixture.events ?? this.events;
     this.syncCursors = fixture.syncCursors ?? this.syncCursors;
     this.contextMatches = fixture.contextMatches ?? this.contextMatches;
@@ -203,8 +221,77 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
     return typeof query.limit === "number" ? sorted.slice(0, query.limit) : sorted;
   }
 
+  async upsertExpectedReceipts(receipts: ExpectedReceipt[], auditEvent?: ProgramEvent): Promise<void> {
+    for (const receipt of receipts) {
+      this.expectedReceipts = upsertBy(
+        this.expectedReceipts,
+        receipt,
+        (value) => `${value.portfolioId}::${value.receiptRequirementId}`,
+        cloneExpectedReceipt
+      );
+    }
+    if (auditEvent) {
+      this.events.push(cloneEvent(auditEvent));
+    }
+  }
+
+  async appendObservedReceipt(receipt: ObservedReceipt, auditEvent: ProgramEvent): Promise<void> {
+    this.observedReceipts.push(cloneObservedReceipt(receipt));
+    this.events.push(cloneEvent(auditEvent));
+  }
+
+  async appendActionLedgerEntry(entry: ActionLedgerEntry): Promise<void> {
+    this.actionLedgerEntries.push(cloneActionLedgerEntry(entry));
+  }
+
+  async upsertReceiptReconcileStatus(
+    status: ReceiptReconcileRecord,
+    auditEvent?: ProgramEvent
+  ): Promise<void> {
+    this.receiptReconcileStatuses = upsertBy(
+      this.receiptReconcileStatuses,
+      status,
+      (value) => `${value.portfolioId}::${value.receiptRequirementId}`,
+      cloneReceiptReconcileRecord
+    );
+    if (auditEvent) {
+      this.events.push(cloneEvent(auditEvent));
+    }
+  }
+
+  async listReceiptLedger(query: ReceiptLedgerQuery): Promise<ReceiptLedgerState> {
+    const expectedReceipts = this.expectedReceipts
+      .filter((receipt) => receiptMatchesQuery(receipt, query))
+      .map(cloneExpectedReceipt)
+      .sort(compareExpectedReceipts);
+    const observedReceipts = this.observedReceipts
+      .filter((receipt) => observedReceiptMatchesQuery(receipt, query))
+      .map(cloneObservedReceipt)
+      .sort(compareObservedReceipts);
+    const actionLedgerEntries = this.actionLedgerEntries
+      .filter((entry) => actionLedgerEntryMatchesQuery(entry, query))
+      .map(cloneActionLedgerEntry)
+      .sort(compareActionLedgerEntries);
+    const reconcileStatuses = this.receiptReconcileStatuses
+      .filter((status) => reconcileStatusMatchesQuery(status, query))
+      .map(cloneReceiptReconcileRecord)
+      .sort(compareReceiptReconcileRecords);
+    const limit = query.limit;
+
+    return {
+      expectedReceipts: typeof limit === "number" ? expectedReceipts.slice(0, limit) : expectedReceipts,
+      observedReceipts: typeof limit === "number" ? observedReceipts.slice(0, limit) : observedReceipts,
+      actionLedgerEntries:
+        typeof limit === "number" ? actionLedgerEntries.slice(0, limit) : actionLedgerEntries,
+      reconcileStatuses: typeof limit === "number" ? reconcileStatuses.slice(0, limit) : reconcileStatuses
+    };
+  }
+
   async listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]> {
-    const filtered = this.events.filter((item) => item.portfolioId === scope.portfolioId);
+    const filtered = this.events
+      .filter((item) => item.portfolioId === scope.portfolioId)
+      .map(cloneEvent)
+      .sort(compareEventsDescending);
     if (!limit) {
       return filtered;
     }
@@ -228,4 +315,196 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
     }
     return programId === scope.programId;
   }
+}
+
+function compareStrings(left: string, right: string): number {
+  return left.localeCompare(right);
+}
+
+function sortStrings(values: string[]): string[] {
+  return [...values].sort(compareStrings);
+}
+
+function cloneEvent(event: ProgramEvent): ProgramEvent {
+  return {
+    ...event,
+    contextAnchor: event.contextAnchor ? { ...event.contextAnchor } : undefined,
+    evidenceRefs: sortStrings(event.evidenceRefs),
+    artifactRefs: sortStrings(event.artifactRefs)
+  };
+}
+
+function cloneExpectedReceipt(receipt: ExpectedReceipt): ExpectedReceipt {
+  return {
+    ...receipt,
+    contractRefs: sortStrings(receipt.contractRefs),
+    evidencePolicyRefs: sortStrings(receipt.evidencePolicyRefs),
+    requiredEvidenceRefs: sortStrings(receipt.requiredEvidenceRefs),
+    scopeRefs: sortStrings(receipt.scopeRefs)
+  };
+}
+
+function cloneObservedReceipt(receipt: ObservedReceipt): ObservedReceipt {
+  return {
+    ...receipt,
+    contractRefs: sortStrings(receipt.contractRefs),
+    evidenceRefs: sortStrings(receipt.evidenceRefs),
+    artifactRefs: sortStrings(receipt.artifactRefs),
+    observedStateRefs: sortStrings(receipt.observedStateRefs)
+  };
+}
+
+function cloneActionLedgerEntry(entry: ActionLedgerEntry): ActionLedgerEntry {
+  return {
+    ...entry,
+    contractRefs: sortStrings(entry.contractRefs),
+    evidenceRefs: sortStrings(entry.evidenceRefs),
+    artifactRefs: sortStrings(entry.artifactRefs)
+  };
+}
+
+function cloneReceiptReconcileRecord(record: ReceiptReconcileRecord): ReceiptReconcileRecord {
+  return {
+    ...record,
+    contractRefs: sortStrings(record.contractRefs),
+    evidenceRefs: sortStrings(record.evidenceRefs)
+  };
+}
+
+function upsertBy<T>(
+  values: T[],
+  value: T,
+  keyOf: (item: T) => string,
+  clone: (item: T) => T
+): T[] {
+  const key = keyOf(value);
+  const next = values.slice();
+  const index = next.findIndex((item) => keyOf(item) === key);
+  if (index === -1) {
+    next.push(clone(value));
+  } else {
+    next[index] = clone(value);
+  }
+  return next;
+}
+
+function scopeMatches(
+  portfolioId: string,
+  programId: string | undefined,
+  projectId: string | undefined,
+  scope: RepositoryScope
+): boolean {
+  if (portfolioId !== scope.portfolioId) {
+    return false;
+  }
+  if (scope.programId && programId !== scope.programId) {
+    return false;
+  }
+  if (scope.projectIds?.length && (!projectId || !scope.projectIds.includes(projectId))) {
+    return false;
+  }
+  return true;
+}
+
+function overlaps(filter: string[] | undefined, values: string[]): boolean {
+  if (!filter?.length) {
+    return true;
+  }
+  return filter.some((value) => values.includes(value));
+}
+
+function matchesCommonLedgerFilters(
+  value: {
+    actorId?: string;
+    contractRefs: string[];
+    evidenceRefs?: string[];
+    flightPlanId: string;
+    portfolioId: string;
+    programId?: string;
+    projectId?: string;
+    proposedActionId: string;
+    receiptRequirementId?: string;
+  },
+  query: ReceiptLedgerQuery
+): boolean {
+  return (
+    scopeMatches(value.portfolioId, value.programId, value.projectId, query.scope) &&
+    overlaps(query.actorIds, value.actorId ? [value.actorId] : []) &&
+    overlaps(query.contractRefs, value.contractRefs) &&
+    overlaps(query.evidenceRefs, value.evidenceRefs ?? []) &&
+    overlaps(query.flightPlanIds, [value.flightPlanId]) &&
+    overlaps(query.proposedActionIds, [value.proposedActionId]) &&
+    overlaps(query.receiptRequirementIds, value.receiptRequirementId ? [value.receiptRequirementId] : [])
+  );
+}
+
+function receiptMatchesQuery(receipt: ExpectedReceipt, query: ReceiptLedgerQuery): boolean {
+  return matchesCommonLedgerFilters(
+    {
+      ...receipt,
+      evidenceRefs: receipt.requiredEvidenceRefs
+    },
+    query
+  );
+}
+
+function observedReceiptMatchesQuery(receipt: ObservedReceipt, query: ReceiptLedgerQuery): boolean {
+  return (
+    matchesCommonLedgerFilters(receipt, query) &&
+    (!query.observedStatuses?.length || query.observedStatuses.includes(receipt.status))
+  );
+}
+
+function actionLedgerEntryMatchesQuery(entry: ActionLedgerEntry, query: ReceiptLedgerQuery): boolean {
+  return matchesCommonLedgerFilters(entry, query);
+}
+
+function reconcileStatusMatchesQuery(
+  status: ReceiptReconcileRecord,
+  query: ReceiptLedgerQuery
+): boolean {
+  return (
+    matchesCommonLedgerFilters(status, query) &&
+    (!query.reconcileStatuses?.length || query.reconcileStatuses.includes(status.status))
+  );
+}
+
+function compareExpectedReceipts(left: ExpectedReceipt, right: ExpectedReceipt): number {
+  return (
+    compareStrings(left.flightPlanId, right.flightPlanId) ||
+    compareStrings(left.proposedActionId, right.proposedActionId) ||
+    compareStrings(left.receiptRequirementId, right.receiptRequirementId)
+  );
+}
+
+function compareObservedReceipts(left: ObservedReceipt, right: ObservedReceipt): number {
+  return (
+    compareStrings(left.recordedAt, right.recordedAt) ||
+    compareStrings(left.observedReceiptId, right.observedReceiptId)
+  );
+}
+
+function compareActionLedgerEntries(left: ActionLedgerEntry, right: ActionLedgerEntry): number {
+  return (
+    compareStrings(left.recordedAt, right.recordedAt) ||
+    compareStrings(left.ledgerEntryId, right.ledgerEntryId)
+  );
+}
+
+function compareReceiptReconcileRecords(
+  left: ReceiptReconcileRecord,
+  right: ReceiptReconcileRecord
+): number {
+  return (
+    compareStrings(left.flightPlanId, right.flightPlanId) ||
+    compareStrings(left.proposedActionId, right.proposedActionId) ||
+    compareStrings(left.receiptRequirementId, right.receiptRequirementId)
+  );
+}
+
+function compareEventsDescending(left: ProgramEvent, right: ProgramEvent): number {
+  return (
+    compareStrings(right.recordedAt, left.recordedAt) ||
+    compareStrings(left.eventId, right.eventId)
+  );
 }
