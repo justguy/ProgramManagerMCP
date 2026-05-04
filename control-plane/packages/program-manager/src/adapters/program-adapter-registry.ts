@@ -766,6 +766,16 @@ export class AdapterRegistry {
         adapterIds: manifests.map((item) => item.adapterId),
         evidencePolicyRefs,
         sideEffectPosture: "read_only"
+      },
+      {
+        capabilityId: "capability://program-manager/flight-plan-planning",
+        phase: "2",
+        status: "available",
+        domains: filteredDomains,
+        toolNames: ["plan_program_action"],
+        adapterIds: manifests.map((item) => item.adapterId),
+        evidencePolicyRefs,
+        sideEffectPosture: "describes_actions_only"
       }
     ];
 

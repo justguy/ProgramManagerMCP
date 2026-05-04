@@ -5,6 +5,7 @@ import {
   generateProgramUpdateResultSchema,
   getProgramAuditTrailResultSchema,
   listProgramCapabilitiesResultSchema,
+  planProgramActionResultSchema,
   queryProgramContextResultSchema
 } from "../../../../shared/schemas/program-manager.ts";
 import {
@@ -122,4 +123,25 @@ test("authz denies unauthorized actor scope for project-bearing context reads", 
   assert.deepEqual(queryProgramContextResultSchema.parse(result), result);
   assert.equal(result.status, "blocked");
   assert.match(result.warnings[0].summary, /explicit assigned project scope/);
+
+  const planResult = await gateway.callTool(
+    "plan_program_action",
+    {
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traversalBudgetRef: "budget://phase-2/default",
+      proposedChange: {
+        changeType: "tracker_update",
+        summary: "Attempt unauthorized tracker proposal planning.",
+        targetRefs: ["tracker://program-manager-mcp/PMO-001"]
+      },
+      traceId: "trace://unauthorized-plan-scope",
+      correlationId: "corr://unauthorized-plan-scope"
+    },
+    actor
+  );
+
+  assert.deepEqual(planProgramActionResultSchema.parse(planResult), planResult);
+  assert.equal(planResult.status, "blocked");
+  assert.match(planResult.warnings[0].summary, /explicit assigned project scope/);
 });

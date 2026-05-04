@@ -736,6 +736,235 @@ export const generateProgramUpdateResultSchema = programToolResultEnvelopeSchema
   z.object({ summary: z.string().min(1) }).strict()
 );
 
+const flightPlanRuleVersionSchema = z
+  .object({
+    ruleId: pointerRefSchema,
+    version: z.string().min(1)
+  })
+  .strict();
+
+const flightPlanProposedChangeSchema = z
+  .object({
+    changeType: z.string().min(1),
+    payloadDigest: sha256DigestSchema.optional(),
+    payloadSchemaRef: pointerRefSchema.optional(),
+    summary: z.string().min(1),
+    targetRefs: sortedStringArraySchema("flightPlan proposedChange targetRefs")
+  })
+  .strict();
+
+const flightPlanPropagationEdgeSchema = z
+  .object({
+    actionType: z.string().min(1),
+    adapterId: z.string().min(1),
+    targetRef: pointerRefSchema
+  })
+  .strict();
+
+const requestedExternalActionSchema = z
+  .object({
+    actionType: z.string().min(1),
+    adapterId: z.string().min(1),
+    rationale: z.string().min(1).optional(),
+    targetRef: pointerRefSchema
+  })
+  .strict();
+
+export const planProgramActionRequestSchema = programToolRequestContextSchema
+  .extend({
+    includeAdvisoryPane: z.boolean().optional(),
+    maxPropagationDepth: z.number().int().nonnegative().optional(),
+    planTtlSeconds: z.number().int().positive().optional(),
+    proposedChange: flightPlanProposedChangeSchema,
+    propagationDepth: z.number().int().nonnegative().optional(),
+    propagationPath: z.array(flightPlanPropagationEdgeSchema).optional(),
+    requestedExternalActions: z.array(requestedExternalActionSchema).optional(),
+    traversalBudgetRef: pointerRefSchema
+  })
+  .strict();
+
+const flightPlanApprovalObligationSchema = z
+  .object({
+    authorityRef: pointerRefSchema,
+    blocking: z.boolean(),
+    evidencePolicyRefs: sortedStringArraySchema("flightPlan approval evidencePolicyRefs"),
+    reason: z.string().min(1),
+    status: z.enum(["satisfied", "unsatisfied"])
+  })
+  .strict();
+
+const flightPlanEvidenceObligationSchema = z
+  .object({
+    blocking: z.boolean(),
+    policyRef: pointerRefSchema,
+    requiredVerifier: z.enum([
+      "adapter_observed_state",
+      "content_digest",
+      "operator_attestation"
+    ]),
+    status: z.enum(["satisfied", "missing", "stale"]),
+    targetRef: pointerRefSchema
+  })
+  .strict();
+
+const flightPlanRiskFindingSchema = z
+  .object({
+    evidenceRefs: sortedStringArraySchema("flightPlan risk evidenceRefs"),
+    findingId: pointerRefSchema,
+    severity: z.enum(["low", "medium", "high", "critical"]),
+    summary: z.string().min(1),
+    type: z.string().min(1)
+  })
+  .strict();
+
+const expectedReceiptSchema = z
+  .object({
+    correlationId: z.string().min(1),
+    evidencePolicyRefs: sortedStringArraySchema("expectedReceipt evidencePolicyRefs"),
+    expectedReceiptType: z.string().min(1),
+    flightPlanHash: sha256DigestSchema,
+    flightPlanId: pointerRefSchema,
+    flightPlanStateVersionHash: sha256DigestSchema,
+    idempotencyKey: sha256DigestSchema,
+    proposedActionId: pointerRefSchema,
+    receiptRequirementId: pointerRefSchema,
+    requiredEvidenceRefs: sortedStringArraySchema("expectedReceipt requiredEvidenceRefs"),
+    requiredVerifier: z.enum([
+      "adapter_observed_state",
+      "content_digest",
+      "operator_attestation"
+    ]),
+    scopeRefs: sortedStringArraySchema("expectedReceipt scopeRefs"),
+    status: z.literal("expected"),
+    traceId: z.string().min(1)
+  })
+  .strict();
+
+const proposedExternalActionSchema = z
+  .object({
+    actionType: z.string().min(1),
+    approvalAuthorityRefs: sortedStringArraySchema("proposedExternalAction approvalAuthorityRefs"),
+    causation: z
+      .object({
+        depth: z.number().int().nonnegative(),
+        path: z.array(flightPlanPropagationEdgeSchema),
+        sourceTool: z.literal("plan_program_action")
+      })
+      .strict(),
+    evidencePolicyRefs: sortedStringArraySchema("proposedExternalAction evidencePolicyRefs"),
+    expectedReceiptRequirementIds: sortedStringArraySchema(
+      "proposedExternalAction expectedReceiptRequirementIds"
+    ),
+    idempotencyKey: sha256DigestSchema,
+    proposedActionId: pointerRefSchema,
+    rationale: z.string().min(1),
+    status: z.enum(["proposed", "suppressed"]),
+    targetAdapterId: z.string().min(1),
+    targetRef: pointerRefSchema
+  })
+  .strict();
+
+const suppressedProposalSchema = z
+  .object({
+    actionType: z.string().min(1),
+    evidenceRefs: sortedStringArraySchema("suppressedProposal evidenceRefs"),
+    reason: z.enum(["duplicate_propagation_edge", "max_propagation_depth_reached"]),
+    suppressionId: pointerRefSchema,
+    targetAdapterId: z.string().min(1),
+    targetRef: pointerRefSchema
+  })
+  .strict();
+
+export const planProgramActionCoreSchema = z
+  .object({
+    adapterManifestVersions: z.array(
+      z
+        .object({
+          adapterId: z.string().min(1),
+          adapterVersion: z.string().min(1),
+          sideEffectPosture: z.enum([
+            "read_only",
+            "describes_actions_only",
+            "mutation_capable_not_exposed"
+          ])
+        })
+        .strict()
+    ),
+    affectedRefs: z.array(affectedRefSchema),
+    approvalObligations: z.array(flightPlanApprovalObligationSchema),
+    contextAnchor: programContextAnchorSchema,
+    evidenceObligations: z.array(flightPlanEvidenceObligationSchema),
+    expectedReceipts: z.array(expectedReceiptSchema),
+    expiresAt: isoDateTimeSchema,
+    flightPlanHash: sha256DigestSchema,
+    flightPlanId: pointerRefSchema,
+    flightPlanStateVersionHash: sha256DigestSchema,
+    plannerRuleVersions: z.array(flightPlanRuleVersionSchema),
+    proposedChange: flightPlanProposedChangeSchema,
+    proposedExternalActions: z.array(proposedExternalActionSchema),
+    revalidation: z
+      .object({
+        requiredBeforeReceiptSatisfaction: z.boolean(),
+        staleIfAnyChangeTo: z.array(
+          z.enum([
+            "stateVersionHash",
+            "contextAnchor",
+            "adapterManifestVersions",
+            "plannerRuleVersions"
+          ])
+        )
+      })
+      .strict(),
+    riskFindings: z.array(flightPlanRiskFindingSchema),
+    suppressedProposals: z.array(suppressedProposalSchema),
+    traversalBudgetRef: pointerRefSchema
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    try {
+      enforceSorted(
+        value.adapterManifestVersions,
+        (left, right) => left.adapterId.localeCompare(right.adapterId),
+        "adapterManifestVersions must be sorted by adapterId"
+      );
+      enforceSorted(
+        value.affectedRefs,
+        (left, right) => left.kind.localeCompare(right.kind) || left.ref.localeCompare(right.ref),
+        "affectedRefs must be sorted by kind then ref"
+      );
+      enforceSorted(
+        value.plannerRuleVersions,
+        (left, right) => left.ruleId.localeCompare(right.ruleId),
+        "plannerRuleVersions must be sorted by ruleId"
+      );
+      enforceSorted(
+        value.proposedExternalActions,
+        (left, right) => left.proposedActionId.localeCompare(right.proposedActionId),
+        "proposedExternalActions must be sorted by proposedActionId"
+      );
+      enforceSorted(
+        value.expectedReceipts,
+        (left, right) => left.receiptRequirementId.localeCompare(right.receiptRequirementId),
+        "expectedReceipts must be sorted by receiptRequirementId"
+      );
+      enforceSorted(
+        value.suppressedProposals,
+        (left, right) => left.suppressionId.localeCompare(right.suppressionId),
+        "suppressedProposals must be sorted by suppressionId"
+      );
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "flight plan ordering validation failed"
+      });
+    }
+  });
+
+export const planProgramActionResultSchema = programToolResultEnvelopeSchema(
+  planProgramActionCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+);
+
 export const getProgramAuditTrailRequestSchema = programToolRequestContextSchema
   .extend({
     eventTypes: z.array(z.string().min(1)).optional(),
@@ -1246,6 +1475,9 @@ export const programManagerSchemaBundleSchema = z
     listProgramCapabilitiesRequest: listProgramCapabilitiesRequestSchema,
     listProgramCapabilitiesResult: listProgramCapabilitiesResultSchema,
     learningRecord: learningRecordSchema,
+    planProgramActionCore: planProgramActionCoreSchema,
+    planProgramActionRequest: planProgramActionRequestSchema,
+    planProgramActionResult: planProgramActionResultSchema,
     portfolio: portfolioSchema,
     programIntelligenceRecord: programIntelligenceRecordSchema,
     program: programSchema,

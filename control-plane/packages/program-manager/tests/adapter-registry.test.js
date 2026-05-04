@@ -172,6 +172,9 @@ test("PMO capability listing surfaces adapter manifests", async () => {
   const impact = capabilities.find(
     (capability) => capability.capabilityId === "capability://program-manager/impact-analysis"
   );
+  const flightPlan = capabilities.find(
+    (capability) => capability.capabilityId === "capability://program-manager/flight-plan-planning"
+  );
 
   assert.ok(impact);
   assert.equal(impact.sideEffectPosture, "read_only");
@@ -183,10 +186,18 @@ test("PMO capability listing surfaces adapter manifests", async () => {
     "policy://active-adapters/hoplon-authz-tier1",
     "policy://evidence/tracker-snapshot-fast-expiry"
   ]);
+  assert.ok(flightPlan);
+  assert.equal(flightPlan.phase, "2");
+  assert.equal(flightPlan.sideEffectPosture, "describes_actions_only");
+  assert.deepEqual(flightPlan.toolNames, ["plan_program_action"]);
 
-  const impactForTrackerDomain = await registry.listCapabilities("tracker_board");
-  assert.equal(impactForTrackerDomain.length, 1);
-  assert.deepEqual(impactForTrackerDomain[0].domains, ["tracker_board"]);
+  const capabilitiesForTrackerDomain = await registry.listCapabilities("tracker_board");
+  assert.equal(capabilitiesForTrackerDomain.length, 2);
+  assert.ok(
+    capabilitiesForTrackerDomain.every((capability) =>
+      capability.domains.includes("tracker_board")
+    )
+  );
 
   const noMatch = await registry.listCapabilities("nonexistent-domain");
   assert.equal(noMatch.length, 0);

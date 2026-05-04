@@ -12,6 +12,8 @@ import {
   getProgramDocumentationResultSchema,
   listProgramCapabilitiesRequestSchema,
   listProgramCapabilitiesResultSchema,
+  planProgramActionRequestSchema,
+  planProgramActionResultSchema,
   queryProgramContextRequestSchema,
   queryProgramContextResultSchema
 } from "../../../../../shared/schemas/program-manager.ts";
@@ -52,7 +54,8 @@ type ToolName =
   | "assess_program_impact"
   | "generate_program_update"
   | "get_program_audit_trail"
-  | "analyze_program_intelligence";
+  | "analyze_program_intelligence"
+  | "plan_program_action";
 
 type ToolWarning = {
   warningId: string;
@@ -159,6 +162,41 @@ type IntelligenceIssueCard = {
   proposedUpdateStatus: "proposed" | "not_applicable" | "needs_review";
 };
 
+type FlightPlanProposedExternalAction = {
+  actionType: string;
+  approvalAuthorityRefs: string[];
+  causation: {
+    depth: number;
+    path: Array<{ actionType: string; adapterId: string; targetRef: string }>;
+    sourceTool: "plan_program_action";
+  };
+  evidencePolicyRefs: string[];
+  expectedReceiptRequirementIds: string[];
+  idempotencyKey: string;
+  proposedActionId: string;
+  rationale: string;
+  status: "proposed" | "suppressed";
+  targetAdapterId: string;
+  targetRef: string;
+};
+
+type FlightPlanExpectedReceipt = {
+  correlationId: string;
+  evidencePolicyRefs: string[];
+  expectedReceiptType: string;
+  flightPlanHash: string;
+  flightPlanId: string;
+  flightPlanStateVersionHash: string;
+  idempotencyKey: string;
+  proposedActionId: string;
+  receiptRequirementId: string;
+  requiredEvidenceRefs: string[];
+  requiredVerifier: "adapter_observed_state" | "content_digest" | "operator_attestation";
+  scopeRefs: string[];
+  status: "expected";
+  traceId: string;
+};
+
 type ProgramToolServiceDependencies = {
   adapterRegistry: {
     assertNoMutationAuthority(): Promise<void>;
@@ -196,7 +234,8 @@ const TOOL_NEXT_RECOMMENDATION: Record<ToolName, ToolName> = {
   assess_program_impact: "query_program_context",
   generate_program_update: "get_program_audit_trail",
   get_program_audit_trail: "query_program_context",
-  analyze_program_intelligence: "query_program_context"
+  analyze_program_intelligence: "query_program_context",
+  plan_program_action: "get_program_audit_trail"
 };
 
 const STATUS_RANK = new Map([
@@ -660,8 +699,8 @@ function defaultContextAnchor(request: {
   portfolioId: string;
   programId?: string;
   projectIds?: string[];
-  contextAnchor?: Record<string, unknown>;
-}) {
+  contextAnchor?: ContextAnchor;
+}): ContextAnchor {
   return {
     ...(request.contextAnchor ?? {}),
     portfolioId: request.portfolioId,
@@ -684,6 +723,119 @@ function collectArtifactRefsFromEvidence(
 
 function dependencyPointer(dependencyId: string): string {
   return `dependency://${dependencyId.replace(/[^A-Za-z0-9._~:-]/g, "-")}`;
+}
+
+function sanitizedPointerSegment(value: string): string {
+  return value
+    .replace(/^[a-z][a-z0-9_-]*:\/\//, "")
+    .replace(/[^A-Za-z0-9._~:-]/g, "-");
+}
+
+function addSeconds(iso: string, seconds: number): string {
+  return new Date(new Date(iso).valueOf() + seconds * 1000).toISOString();
+}
+
+function adapterForTargetRef(ref: string): string {
+  if (ref.startsWith("tracker://")) {
+    return "tracker";
+  }
+  if (ref.startsWith("decision://") || ref.startsWith("authority://")) {
+    return "decision-log";
+  }
+  if (ref.startsWith("artifact://") || ref.startsWith("evidence://")) {
+    return "evidence-registry";
+  }
+  if (ref.startsWith("contract://") || ref.startsWith("snapshot://")) {
+    return "hoplon";
+  }
+  return refKind(ref);
+}
+
+function actionTypeForTargetRef(ref: string): string {
+  if (ref.startsWith("tracker://")) {
+    return "propose_tracker_update";
+  }
+  if (ref.startsWith("decision://") || ref.startsWith("authority://")) {
+    return "request_decision";
+  }
+  if (ref.startsWith("artifact://") || ref.startsWith("evidence://")) {
+    return "request_evidence_verification";
+  }
+  if (ref.startsWith("contract://") || ref.startsWith("snapshot://")) {
+    return "request_contract_review";
+  }
+  return "request_scope_review";
+}
+
+function edgeKey(edge: { actionType: string; adapterId: string; targetRef: string }): string {
+  return `${edge.adapterId}\u0000${edge.targetRef}\u0000${edge.actionType}`;
+}
+
+function comparePlanActionCandidates(
+  left: { adapterId: string; targetRef: string; actionType: string },
+  right: { adapterId: string; targetRef: string; actionType: string }
+): number {
+  return (
+    left.adapterId.localeCompare(right.adapterId) ||
+    left.targetRef.localeCompare(right.targetRef) ||
+    left.actionType.localeCompare(right.actionType)
+  );
+}
+
+function receiptTypeForAction(actionType: string): string {
+  if (actionType === "propose_tracker_update") {
+    return "tracker_update_receipt";
+  }
+  if (actionType === "request_decision") {
+    return "decision_request_receipt";
+  }
+  if (actionType === "request_evidence_verification") {
+    return "evidence_verification_receipt";
+  }
+  if (actionType === "request_contract_review") {
+    return "contract_review_receipt";
+  }
+  return "external_action_receipt";
+}
+
+function requiredVerifierForAction(
+  actionType: string
+): "adapter_observed_state" | "content_digest" | "operator_attestation" {
+  if (actionType === "request_decision") {
+    return "operator_attestation";
+  }
+  if (actionType === "request_contract_review") {
+    return "content_digest";
+  }
+  return "adapter_observed_state";
+}
+
+function defaultEvidencePolicyRefForTarget(ref: string): string {
+  if (ref.startsWith("tracker://")) {
+    return "policy://evidence/tracker-snapshot-fast-expiry";
+  }
+  if (ref.startsWith("contract://")) {
+    return "policy://active-adapters/hoplon-authz-tier1";
+  }
+  if (ref.startsWith("decision://") || ref.startsWith("authority://")) {
+    return "policy://approval/operator-attestation";
+  }
+  return "policy://evidence/default-pointer-proof";
+}
+
+function isBlockingEvidenceObligation(obligation: {
+  policyRef: string;
+  status: "satisfied" | "missing" | "stale";
+}): boolean {
+  if (obligation.status === "satisfied") {
+    return false;
+  }
+  return (
+    obligation.policyRef.includes("tier0") ||
+    obligation.policyRef.includes("tier1") ||
+    obligation.policyRef.includes("fast-expiry") ||
+    obligation.status === "stale"
+  );
 }
 
 function refKind(ref: string): string {
@@ -1202,6 +1354,392 @@ export class ProgramToolService {
           artifactRefs
         })
       });
+  }
+
+  async planProgramAction(requestInput: unknown, actor: ProgramToolActor) {
+    const request = planProgramActionRequestSchema.parse(requestInput);
+
+    try {
+      assertReadAuthorized(
+        actor,
+        {
+          ...request,
+          projectIds: inferScopedProjectIds({
+            ...request,
+            projectIds: request.projectIds,
+            targetRefs: request.proposedChange.targetRefs
+          })
+        },
+        this.#now()
+      );
+      await this.#adapterRegistry.assertNoMutationAuthority();
+    } catch (error) {
+      return planProgramActionResultSchema.parse(
+        this.#blockedEnvelope("plan_program_action", request, error)
+      );
+    }
+
+    const scope = {
+      portfolioId: request.portfolioId,
+      programId: request.programId,
+      projectIds: inferScopedProjectIds({
+        ...request,
+        projectIds: request.projectIds,
+        targetRefs: request.proposedChange.targetRefs
+      })
+    };
+    const contextAnchor = defaultContextAnchor({
+      portfolioId: request.portfolioId,
+      programId: request.programId,
+      projectIds: scope.projectIds,
+      contextAnchor: request.contextAnchor
+    });
+    const proposedChangeDigest = sha256ForInput(request.proposedChange);
+    const changeRef = `change://program-action/${sanitizedPointerSegment(proposedChangeDigest)}`;
+    const manifests = this.#adapterRegistry
+      .listManifests()
+      .map((manifest) => ({
+        adapterId: manifest.adapterId,
+        adapterVersion: manifest.adapterVersion,
+        sideEffectPosture: manifest.sideEffectPosture
+      }))
+      .sort((left, right) => left.adapterId.localeCompare(right.adapterId));
+    const [repoImpactResult, relationships, adapterCursors] = await Promise.all([
+      this.#repository.assessImpact({
+        scope,
+        changeRef,
+        changeKind: request.proposedChange.changeType,
+        targetRefs: request.proposedChange.targetRefs,
+        traversalBudgetRef: request.traversalBudgetRef,
+        contextAnchor: request.contextAnchor
+      }),
+      this.#repository.listRelationships(scope),
+      Promise.all(
+        manifests.map((manifest) =>
+          this.#adapterRegistry.getSourceCursor(manifest.adapterId, scope)
+        )
+      )
+    ]);
+    const repoImpact = sanitizePointerPayload(repoImpactResult);
+    const plannerRuleVersions = [
+      { ruleId: "rule://program-action/approval-obligations/v1", version: "v1" },
+      { ruleId: "rule://program-action/evidence-obligations/v1", version: "v1" },
+      { ruleId: "rule://program-action/flight-plan-hash/v1", version: "v1" },
+      { ruleId: "rule://program-action/propagation-suppression/v1", version: "v1" },
+      { ruleId: "rule://program-action/proposal-boundary/v1", version: "v1" },
+      { ruleId: "rule://program-action/ttl-revalidation/v1", version: "v1" }
+    ];
+    const relationshipAffectedRefs = relationships
+      .filter((relationship) => intersectsTargetRefs(relationship, request.proposedChange.targetRefs))
+      .flatMap((relationship) => [
+        {
+          kind: "dependency",
+          ref: dependencyPointer(relationship.dependencyId),
+          reason: "dependency intersects proposed change target refs"
+        },
+        ...(relationship.policyRefs ?? []).map((policyRef) => ({
+          kind: "policy",
+          ref: policyRef,
+          reason: "policy attached to affected dependency"
+        })),
+        ...relationship.evidenceRefs.map((evidenceRef) => ({
+          kind: "evidence",
+          ref: evidenceRef,
+          reason: "evidence attached to affected dependency"
+        }))
+      ]);
+    const targetAffectedRefs = request.proposedChange.targetRefs.map((ref) => ({
+      kind: refKind(ref),
+      ref,
+      reason: "direct target of proposed change"
+    }));
+    const affectedRefs = sortUnique(
+      [...repoImpact.value.affectedRefs, ...relationshipAffectedRefs, ...targetAffectedRefs].map(
+        (item) => JSON.stringify(item)
+      )
+    )
+      .map((item) => JSON.parse(item))
+      .sort(compareAffectedRefs);
+    const riskFindings = repoImpact.value.findings
+      .map((finding) => ({
+        findingId: finding.findingId.includes("://")
+          ? finding.findingId
+          : `finding://program-action/${sanitizedPointerSegment(finding.findingId)}`,
+        severity: finding.severity,
+        type: finding.type,
+        summary: finding.summary ?? `${finding.type} risk from impact assessment.`,
+        evidenceRefs: sortUniqueRefs(finding.evidenceRefs)
+      }))
+      .sort(compareFindings);
+    const approvalObligations = repoImpact.value.requiredApprovals
+      .map((approval) => ({
+        authorityRef: approval.authorityRef,
+        blocking: true,
+        evidencePolicyRefs: sortUniqueRefs(approval.evidencePolicyRefs),
+        reason: approval.reason,
+        status: "unsatisfied" as const
+      }))
+      .sort((left, right) => left.authorityRef.localeCompare(right.authorityRef));
+    const evidenceObligations = repoImpact.value.evidenceObligations
+      .map((obligation) => {
+        const enriched = {
+          ...obligation,
+          blocking: isBlockingEvidenceObligation(obligation),
+          requiredVerifier: "adapter_observed_state" as const
+        };
+        return enriched;
+      })
+      .sort((left, right) => left.policyRef.localeCompare(right.policyRef) || left.targetRef.localeCompare(right.targetRef));
+    const requestedActionInputs: Array<{
+      actionType: string;
+      adapterId: string;
+      rationale?: string;
+      targetRef: string;
+    }> = request.requestedExternalActions?.length
+      ? request.requestedExternalActions
+      : request.proposedChange.targetRefs.map((targetRef) => ({
+          actionType: actionTypeForTargetRef(targetRef),
+          adapterId: adapterForTargetRef(targetRef),
+          targetRef
+        }));
+    const requestedActionCandidates = requestedActionInputs
+      .map((action) => ({
+        actionType: action.actionType,
+        adapterId: action.adapterId,
+        rationale:
+          action.rationale ??
+          `Proposal-only ${action.actionType} for ${action.targetRef}; executor owns downstream mutation.`,
+        targetRef: action.targetRef
+      }))
+      .sort(comparePlanActionCandidates)
+      .filter(
+        (action, index, list) =>
+          list.findIndex((candidate) => edgeKey(candidate) === edgeKey(action)) === index
+      );
+    const propagationDepth = request.propagationDepth ?? 0;
+    const maxPropagationDepth = request.maxPropagationDepth ?? 8;
+    const propagationPath = [...(request.propagationPath ?? [])].sort(comparePlanActionCandidates);
+    const propagationPathKeys = new Set(propagationPath.map(edgeKey));
+    const suppressedProposals = requestedActionCandidates
+      .filter(
+        (action) =>
+          propagationDepth >= maxPropagationDepth || propagationPathKeys.has(edgeKey(action))
+      )
+      .map((action) => ({
+        suppressionId: `suppression://program-action/${sanitizedPointerSegment(
+          sha256ForInput({ action, propagationDepth, maxPropagationDepth, propagationPath })
+        )}`,
+        targetAdapterId: action.adapterId,
+        targetRef: action.targetRef,
+        actionType: action.actionType,
+        reason:
+          propagationDepth >= maxPropagationDepth
+            ? "max_propagation_depth_reached" as const
+            : "duplicate_propagation_edge" as const,
+        evidenceRefs: sortUniqueRefs([
+          `evidence://program-action/propagation-path/${sanitizedPointerSegment(
+            sha256ForInput(propagationPath)
+          )}`
+        ])
+      }))
+      .sort((left, right) => left.suppressionId.localeCompare(right.suppressionId));
+    const suppressedKeys = new Set(
+      suppressedProposals.map((proposal) =>
+        edgeKey({
+          adapterId: proposal.targetAdapterId,
+          targetRef: proposal.targetRef,
+          actionType: proposal.actionType
+        })
+      )
+    );
+    const actionPlans: FlightPlanProposedExternalAction[] = requestedActionCandidates
+      .filter((action) => !suppressedKeys.has(edgeKey(action)))
+      .map((action) => {
+        const idempotencyKey = stateVersionHashFromInput({
+          contextAnchor,
+          proposedChange: request.proposedChange,
+          action,
+          propagationDepth,
+          propagationPath
+        });
+        const proposedActionId = `action://program-action/${sanitizedPointerSegment(idempotencyKey)}`;
+        const receiptRequirementId = `receipt://program-action/${sanitizedPointerSegment(
+          idempotencyKey
+        )}`;
+        const evidencePolicyRefs = sortUniqueRefs([
+          defaultEvidencePolicyRefForTarget(action.targetRef),
+          ...evidenceObligations
+            .filter((obligation) => obligation.targetRef === action.targetRef)
+            .map((obligation) => obligation.policyRef)
+        ]);
+        return {
+          actionType: action.actionType,
+          approvalAuthorityRefs: sortUniqueRefs(
+            approvalObligations.map((approval) => approval.authorityRef)
+          ),
+          causation: {
+            depth: propagationDepth,
+            path: propagationPath,
+            sourceTool: "plan_program_action" as const
+          },
+          evidencePolicyRefs,
+          expectedReceiptRequirementIds: [receiptRequirementId],
+          idempotencyKey,
+          proposedActionId,
+          rationale: action.rationale,
+          status: "proposed" as const,
+          targetAdapterId: action.adapterId,
+          targetRef: action.targetRef
+        };
+      })
+      .sort((left, right) => left.proposedActionId.localeCompare(right.proposedActionId));
+    const expiresAt = addSeconds(
+      typeof contextAnchor.asOf === "string" ? contextAnchor.asOf : this.#now(),
+      request.planTtlSeconds ?? 3600
+    );
+    const flightPlanStateVersionHash = stateVersionHashFromInput({
+      adapterManifestVersions: manifests,
+      adapterCursors,
+      contextAnchor,
+      proposedChange: request.proposedChange,
+      repoImpact: repoImpact.value,
+      plannerRuleVersions,
+      traversalBudgetRef: request.traversalBudgetRef
+    });
+    const receiptRequirementsWithoutPlanHash = actionPlans.map((action) => ({
+      correlationId: request.correlationId,
+      evidencePolicyRefs: action.evidencePolicyRefs,
+      expectedReceiptType: receiptTypeForAction(action.actionType),
+      flightPlanStateVersionHash,
+      idempotencyKey: action.idempotencyKey,
+      proposedActionId: action.proposedActionId,
+      receiptRequirementId: action.expectedReceiptRequirementIds[0],
+      requiredEvidenceRefs: sortUniqueRefs([
+        ...riskFindings.flatMap((finding) => finding.evidenceRefs),
+        ...evidenceObligations
+          .filter((obligation) => obligation.targetRef === action.targetRef)
+          .map((obligation) => obligation.targetRef)
+      ]),
+      requiredVerifier: requiredVerifierForAction(action.actionType),
+      scopeRefs: sortUniqueRefs([
+        request.portfolioId,
+        ...(request.programId ? [request.programId] : []),
+        ...scope.projectIds,
+        action.targetRef
+      ]),
+      status: "expected" as const,
+      traceId: request.traceId
+    }));
+    const flightPlanId = `flightplan://program-action/${sanitizedPointerSegment(
+      sha256ForInput({
+        flightPlanStateVersionHash,
+        contextAnchor,
+        proposedChange: request.proposedChange
+      })
+    )}`;
+    const hashInput = {
+      adapterManifestVersions: manifests,
+      affectedRefs,
+      approvalObligations,
+      contextAnchor,
+      evidenceObligations,
+      expiresAt,
+      flightPlanId,
+      flightPlanStateVersionHash,
+      plannerRuleVersions,
+      proposedChange: request.proposedChange,
+      proposedExternalActions: actionPlans,
+      receiptRequirements: receiptRequirementsWithoutPlanHash,
+      revalidation: {
+        requiredBeforeReceiptSatisfaction: true,
+        staleIfAnyChangeTo: [
+          "stateVersionHash",
+          "contextAnchor",
+          "adapterManifestVersions",
+          "plannerRuleVersions"
+        ]
+      },
+      riskFindings,
+      suppressedProposals,
+      traversalBudgetRef: request.traversalBudgetRef
+    };
+    const flightPlanHash = stateVersionHashFromInput(hashInput);
+    const expectedReceipts: FlightPlanExpectedReceipt[] = receiptRequirementsWithoutPlanHash.map(
+      (receipt) => ({
+        ...receipt,
+        flightPlanHash,
+        flightPlanId
+      })
+    );
+    const deterministicCore = {
+      ...hashInput,
+      expectedReceipts,
+      flightPlanHash
+    };
+    delete (deterministicCore as { receiptRequirements?: unknown }).receiptRequirements;
+    const evidenceRefs = sortUniqueRefs([
+      ...riskFindings.flatMap((finding) => finding.evidenceRefs),
+      ...suppressedProposals.flatMap((proposal) => proposal.evidenceRefs),
+      ...manifests.map(
+        (manifest) => `evidence://adapter-manifest/${manifest.adapterId}@${manifest.adapterVersion}`
+      )
+    ]);
+    const matchedEvidenceRefs = await this.#repository.listEvidenceRefs(scope, evidenceRefs);
+    const artifactRefs = sortUniqueRefs([
+      ...collectArtifactRefsFromEvidence(matchedEvidenceRefs),
+      ...adapterCursors.map((cursor) => pointerFromCursor(cursor.adapterId, cursor.cursor))
+    ]);
+    const warnings = [
+      ...evidenceObligations
+        .filter((obligation) => obligation.status !== "satisfied")
+        .map((obligation) =>
+          makeWarning(
+            `flight-plan-evidence-${sanitizedPointerSegment(obligation.policyRef)}-${sanitizedPointerSegment(obligation.targetRef)}`,
+            obligation.blocking ? "high" : "medium",
+            `${obligation.status} evidence for ${obligation.targetRef} under ${obligation.policyRef}.`,
+            [obligation.targetRef]
+          )
+        ),
+      ...suppressedProposals.map((proposal) =>
+        makeWarning(
+          `flight-plan-suppressed-${sanitizedPointerSegment(proposal.suppressionId)}`,
+          "medium",
+          `Suppressed ${proposal.actionType} for ${proposal.targetRef}: ${proposal.reason}.`,
+          proposal.evidenceRefs
+        )
+      )
+    ].sort(compareWarnings);
+    const hasBlockingObligation =
+      approvalObligations.some((approval) => approval.blocking && approval.status === "unsatisfied") ||
+      evidenceObligations.some((obligation) => obligation.blocking);
+    const advisoryPane = request.includeAdvisoryPane
+      ? {
+          content: {
+            summary: `${actionPlans.length} proposal-only external actions planned; no downstream writes were performed.`
+          },
+          excludedFromDeterministicHash: true as const,
+          modelAssisted: false
+        }
+      : undefined;
+
+    return planProgramActionResultSchema.parse({
+      schemaVersion: "1",
+      status: hasBlockingObligation ? "blocked" : warnings.length > 0 ? "warning" : "ok",
+      toolName: "plan_program_action",
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(scope.projectIds.length > 0 ? { projectIds: scope.projectIds } : {}),
+      deterministicCore,
+      evidenceRefs,
+      artifactRefs,
+      redactionSummary: mergeRedactionSummaries(repoImpact.redactionSummary),
+      warnings,
+      ...(advisoryPane ? { advisoryPane } : {}),
+      nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.plan_program_action,
+      traceId: request.traceId,
+      correlationId: request.correlationId,
+      stateVersionHash: flightPlanStateVersionHash
+    });
   }
 
   async analyzeProgramIntelligence(requestInput: unknown, actor: ProgramToolActor) {

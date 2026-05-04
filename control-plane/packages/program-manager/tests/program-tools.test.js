@@ -8,6 +8,7 @@ import {
   getProgramAuditTrailResultSchema,
   listProgramCapabilitiesResultSchema,
   generateProgramUpdateResultSchema,
+  planProgramActionResultSchema,
   queryProgramContextResultSchema
 } from "../../../../shared/schemas/program-manager.ts";
 import {
@@ -66,7 +67,8 @@ test("gateway lists public Phase 1A/1B MCP tools", () => {
       "assess_program_impact",
       "generate_program_update",
       "get_program_audit_trail",
-      "analyze_program_intelligence"
+      "analyze_program_intelligence",
+      "plan_program_action"
     ]
   );
 });
@@ -290,6 +292,135 @@ test("analyze_program_intelligence labels advisory output outside deterministic 
 
   assert.equal(withAdvisory.advisoryPane.excludedFromDeterministicHash, true);
   assert.equal(deterministicOnly.stateVersionHash, withAdvisory.stateVersionHash);
+});
+
+test("plan_program_action returns deterministic proposal-only flight plans", async () => {
+  const gateway = buildGateway();
+  const actor = buildActor();
+  const request = {
+    portfolioId: "portfolio://default",
+    programId: "program://agentic-os",
+    traversalBudgetRef: "budget://phase-2/default",
+    proposedChange: {
+      changeType: "contract_update",
+      summary: "Update Hoplon authz contract and refresh linked tracker evidence.",
+      targetRefs: [
+        "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "tracker://program-manager-mcp/PMO-001"
+      ]
+    },
+    includeAdvisoryPane: true,
+    traceId: "trace://plan-action",
+    correlationId: "corr://plan-action",
+    contextAnchor: {
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      projectId: "project://program-manager-mcp",
+      branchName: "main",
+      gitCommit: "abc123def456",
+      trackerSlug: "program-manager-mcp",
+      trackerRev: 12,
+      asOf: "2026-05-03T12:00:00Z"
+    }
+  };
+
+  const first = await gateway.callTool("plan_program_action", request, actor);
+  const second = await gateway.callTool("plan_program_action", request, actor);
+  const deterministicOnly = await gateway.callTool(
+    "plan_program_action",
+    { ...request, includeAdvisoryPane: false },
+    actor
+  );
+
+  assert.deepEqual(planProgramActionResultSchema.parse(first), first);
+  assert.equal(first.toolName, "plan_program_action");
+  assert.equal(first.status, "blocked");
+  assert.equal(first.advisoryPane.excludedFromDeterministicHash, true);
+  assert.equal(first.deterministicCore.flightPlanHash, second.deterministicCore.flightPlanHash);
+  assert.equal(first.deterministicCore.flightPlanHash, deterministicOnly.deterministicCore.flightPlanHash);
+  assert.equal(first.stateVersionHash, second.stateVersionHash);
+  assert.equal(first.stateVersionHash, deterministicOnly.stateVersionHash);
+  assert.equal(first.deterministicCore.approvalObligations[0].status, "unsatisfied");
+  assert.ok(first.deterministicCore.approvalObligations[0].blocking);
+  assert.ok(first.deterministicCore.evidenceObligations.some((item) => item.blocking));
+  assert.ok(first.deterministicCore.expectedReceipts.length > 0);
+  assert.ok(
+    first.deterministicCore.expectedReceipts.every(
+      (receipt) =>
+        receipt.flightPlanHash === first.deterministicCore.flightPlanHash &&
+        receipt.flightPlanStateVersionHash === first.stateVersionHash &&
+        receipt.status === "expected"
+    )
+  );
+  assert.ok(first.deterministicCore.proposedExternalActions.length > 0);
+  assert.ok(
+    first.deterministicCore.proposedExternalActions.every(
+      (action) =>
+        action.status === "proposed" &&
+        action.causation.sourceTool === "plan_program_action" &&
+        action.expectedReceiptRequirementIds.length > 0
+    )
+  );
+  assert.equal(
+    first.deterministicCore.revalidation.requiredBeforeReceiptSatisfaction,
+    true
+  );
+  assert.deepEqual(
+    first.deterministicCore.proposedExternalActions.map((action) => action.proposedActionId),
+    [...first.deterministicCore.proposedExternalActions]
+      .map((action) => action.proposedActionId)
+      .sort((left, right) => left.localeCompare(right))
+  );
+});
+
+test("plan_program_action suppresses repeated propagation edges", async () => {
+  const gateway = buildGateway();
+  const actor = buildActor();
+  const repeatedEdge = {
+    adapterId: "tracker",
+    targetRef: "tracker://program-manager-mcp/PMO-001",
+    actionType: "propose_tracker_update"
+  };
+
+  const result = await gateway.callTool(
+    "plan_program_action",
+    {
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traversalBudgetRef: "budget://phase-2/default",
+      proposedChange: {
+        changeType: "evidence_refresh",
+        summary: "Refresh tracker evidence without repeating adapter feedback.",
+        targetRefs: ["tracker://program-manager-mcp/PMO-001"]
+      },
+      propagationDepth: 1,
+      maxPropagationDepth: 8,
+      propagationPath: [repeatedEdge],
+      requestedExternalActions: [repeatedEdge],
+      traceId: "trace://plan-suppression",
+      correlationId: "corr://plan-suppression",
+      contextAnchor: {
+        portfolioId: "portfolio://default",
+        programId: "program://agentic-os",
+        asOf: "2026-05-03T12:00:00Z"
+      }
+    },
+    actor
+  );
+
+  assert.deepEqual(planProgramActionResultSchema.parse(result), result);
+  assert.equal(result.deterministicCore.proposedExternalActions.length, 0);
+  assert.equal(result.deterministicCore.expectedReceipts.length, 0);
+  assert.equal(result.deterministicCore.suppressedProposals.length, 1);
+  assert.equal(
+    result.deterministicCore.suppressedProposals[0].reason,
+    "duplicate_propagation_edge"
+  );
+  assert.ok(
+    result.warnings.some((warning) =>
+      warning.warningId.startsWith("flight-plan-suppressed-")
+    )
+  );
 });
 
 test("query_program_context skips stale adapters and caps degraded adapter reads", async () => {

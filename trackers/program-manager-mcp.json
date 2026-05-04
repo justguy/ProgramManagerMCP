@@ -55,8 +55,8 @@
       }
     ],
     "scratchpad": "Phase 1C complete: analyze_program_intelligence landed, deterministic issue cards are tested, advisory output is hash-excluded, and npm test is green (45 pass, 1 skipped).",
-    "rev": 47,
-    "updatedAt": "2026-05-04T03:01:54.294Z"
+    "rev": 49,
+    "updatedAt": "2026-05-04T03:24:09.490Z"
   },
   "tasks": [
     {
@@ -1211,7 +1211,7 @@
       "id": "pmo-401",
       "title": "Deterministic flight-plan model and planner",
       "goal": "Implement plan_program_action as a deterministic PMO planner that turns proposed work into affected scope, risks, approvals, evidence obligations, and expected receipts.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-2",
         "priorityId": "p0"
@@ -1242,7 +1242,15 @@
           "hashing"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-304 first."
+      "comment": "Closed: plan_program_action MCP wiring, FlightPlan schemas, deterministic planner service, flightPlanHash/state hash inputs, and stable repeated-planning tests landed.",
+      "assignee": "codex",
+      "blocker_reason": null,
+      "references": [
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1",
+        "control-plane/packages/program-manager/src/mcp/program-manager-mcp-gateway.ts:1",
+        "shared/schemas/program-manager.ts:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1"
+      ]
     },
     {
       "dependencies": [
@@ -1251,7 +1259,7 @@
       "id": "pmo-402",
       "title": "Approval, evidence, expected receipt, TTL, and stale-plan behavior",
       "goal": "Model the obligations a flight plan creates, including human approval gates, evidence requirements, expected receipts, expiration, and stale-plan revalidation.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-2",
         "priorityId": "p0"
@@ -1283,7 +1291,14 @@
           "ttl"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-401 first."
+      "comment": "Closed: planner now models unsatisfied approval hard blocks, evidence obligations, expected receipts, TTL expiry, and stale-plan revalidation requirements.",
+      "assignee": "codex",
+      "references": [
+        "shared/schemas/program-manager.ts:1",
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1",
+        "docs/phase-2/acceptance-proof.md:1"
+      ]
     },
     {
       "dependencies": [
@@ -1293,7 +1308,7 @@
       "id": "pmo-403",
       "title": "Tracker and decision proposals without downstream mutation",
       "goal": "Let flight plans propose tracker updates and decision requests while preserving the PMO boundary that execution agents perform actual writes.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-2",
         "priorityId": "p1"
@@ -1323,7 +1338,13 @@
           "no-mutation"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-401 and pmo-402 first."
+      "comment": "Closed: tracker/decision/external work is represented as proposal-only actions with receipt expectations; boundary tests prove PMO does not execute downstream mutation APIs.",
+      "assignee": "codex",
+      "references": [
+        "control-plane/packages/program-manager/tests/program-tool-boundary.test.js:1",
+        "control-plane/packages/program-manager/tests/program-tool-authz.test.js:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1"
+      ]
     },
     {
       "dependencies": [
@@ -1332,7 +1353,7 @@
       "id": "pmo-404",
       "title": "Circular propagation suppression and repeated-plan stability",
       "goal": "Prevent adapter-to-adapter feedback loops and prove repeated planning is stable under unchanged deterministic inputs.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-2",
         "priorityId": "p1"
@@ -1362,7 +1383,12 @@
           "loop-suppression"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-401 first."
+      "comment": "Closed: propagation ancestry, idempotency keys, repeated-edge suppression, and deterministic repeated-plan stability are implemented and tested.",
+      "assignee": "codex",
+      "references": [
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1"
+      ]
     },
     {
       "dependencies": [
@@ -1373,7 +1399,7 @@
       "id": "pmo-405",
       "title": "Phase 2 acceptance proof",
       "goal": "Close Phase 2 by proving deterministic flight plans, approval gates, evidence obligations, proposal-only downstream actions, and stale-plan behavior.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-2",
         "priorityId": "p1"
@@ -1403,7 +1429,13 @@
           "flight-plan"
         ]
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-402, pmo-403, and pmo-404 first."
+      "comment": "Closed: Phase 2 acceptance proof documents deterministic flight plans, no tracker writes, approval/evidence behavior, advisory exclusion, receipt expectations, and stale-plan revalidation evidence.",
+      "assignee": "codex",
+      "references": [
+        "docs/phase-2/acceptance-proof.md:1",
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1",
+        "control-plane/packages/program-manager/tests/program-tool-boundary.test.js:1"
+      ]
     },
     {
       "dependencies": [

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   assessProgramImpactResultSchema,
   listProgramCapabilitiesResultSchema,
+  planProgramActionResultSchema,
   queryProgramContextResultSchema
 } from "../../../../shared/schemas/program-manager.ts";
 import {
@@ -200,6 +201,7 @@ test("gateway only calls read-side PMO and adapter APIs for tool execution", asy
             "snapshot_context",
             "tracker_board"
           ],
+          sideEffectPosture: "read_only",
           redactionPolicyRefs: ["policy://redaction/pointer-only-v1"]
         }
       ];
@@ -332,10 +334,40 @@ test("gateway only calls read-side PMO and adapter APIs for tool execution", asy
     },
     actor
   );
+  const plan = await gateway.callTool(
+    "plan_program_action",
+    {
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traversalBudgetRef: "budget://phase-2/default",
+      proposedChange: {
+        changeType: "tracker_update",
+        summary: "Propose a tracker update without executing it.",
+        targetRefs: ["project://phalanx"]
+      },
+      requestedExternalActions: [
+        {
+          adapterId: "tracker",
+          actionType: "propose_tracker_update",
+          targetRef: "project://phalanx"
+        }
+      ],
+      traceId: "trace://plan",
+      correlationId: "corr://plan",
+      contextAnchor: {
+        portfolioId: "portfolio://default",
+        programId: "program://agentic-os",
+        asOf: "2026-05-03T12:00:00Z"
+      }
+    },
+    actor
+  );
 
   assert.deepEqual(listProgramCapabilitiesResultSchema.parse(capabilities), capabilities);
   assert.deepEqual(queryProgramContextResultSchema.parse(context), context);
   assert.deepEqual(assessProgramImpactResultSchema.parse(impact), impact);
+  assert.deepEqual(planProgramActionResultSchema.parse(plan), plan);
+  assert.equal(plan.deterministicCore.proposedExternalActions[0].status, "proposed");
   assert.equal(mutationCalled, false);
   assert.ok(calls.includes("registry.listCapabilities"));
   assert.ok(calls.includes("registry.readState"));

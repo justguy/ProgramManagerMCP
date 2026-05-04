@@ -5,6 +5,7 @@ import {
   getProgramAuditTrailRequestSchema,
   getProgramDocumentationRequestSchema,
   listProgramCapabilitiesRequestSchema,
+  planProgramActionRequestSchema,
   queryProgramContextRequestSchema
 } from "../../../../../shared/schemas/program-manager.ts";
 import type { ProgramToolActor } from "../authz/program-tool-authz.ts";
@@ -45,6 +46,12 @@ export const PROGRAM_MANAGER_MCP_TOOLS = Object.freeze([
     name: "analyze_program_intelligence",
     description: "Return deterministic evidence-backed PMO intelligence cards without downstream mutation.",
     requestSchema: analyzeProgramIntelligenceRequestSchema
+  },
+  {
+    name: "plan_program_action",
+    description:
+      "Create a deterministic proposal-only PMO flight plan with approval, evidence, receipt, TTL, and loop-suppression obligations.",
+    requestSchema: planProgramActionRequestSchema
   }
 ] as const);
 
@@ -78,6 +85,8 @@ export class ProgramManagerMcpGateway {
         return this.#service.getProgramAuditTrail(request, actor);
       case "analyze_program_intelligence":
         return this.#service.analyzeProgramIntelligence(request, actor);
+      case "plan_program_action":
+        return this.#service.planProgramAction(request, actor);
       default:
         throw new Error(`Unsupported PMO MCP tool: ${toolName}`);
     }
