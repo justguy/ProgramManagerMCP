@@ -50,8 +50,8 @@
       }
     ],
     "scratchpad": "Program Manager MCP board is ready: 7 phase swimlanes, 37 tasks, CT-validated dependency graph, pmo-001 is the only currently executable task.",
-    "rev": 31,
-    "updatedAt": "2026-05-04T00:50:30.088Z"
+    "rev": 43,
+    "updatedAt": "2026-05-04T01:21:12.214Z"
   },
   "tasks": [
     {
@@ -659,7 +659,7 @@
       "id": "pmo-201",
       "title": "Context packet panes",
       "goal": "Enhance query_program_context so agents receive bounded, evidence-backed PMO packets instead of raw database state or chat-memory instructions.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1b",
         "priorityId": "p0"
@@ -687,9 +687,24 @@
           "context-packets",
           "anchors",
           "redaction"
-        ]
+        ],
+        "files_touched": [
+          "shared/schemas/program-manager.ts",
+          "control-plane/packages/program-manager/src/service/program-tool-service.ts",
+          "control-plane/packages/program-manager/tests/program-tools.test.js",
+          "control-plane/packages/program-manager/tests/program-tool-redaction.test.js"
+        ],
+        "verification": [
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/program-tools.test.js",
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/program-manager-schemas.test.js",
+          "TPF_LLM_TOOL=codex tpf npm test",
+          "TPF_LLM_TOOL=codex tpf npm run typecheck"
+        ],
+        "notes": "Full npm test: 40 pass, 1 env-gated Neo4j hook skipped. Typecheck passed."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-108 first."
+      "comment": "Completed Phase 1B context packet panes. query_program_context now returns deterministic bounded panes for current state, blocking dependencies, applicable/superseded/discarded/future decisions, stale evidence, and recommended actions. Verified pointer-only evidence refs, context-anchor handling, schema parsing, full package tests, and typecheck.",
+      "assignee": "codex",
+      "blocker_reason": null
     },
     {
       "dependencies": [
@@ -698,7 +713,7 @@
       "id": "pmo-202",
       "title": "Report generator and JSON evidence envelope",
       "goal": "Generate reproducible PMO alignment reports and machine-readable evidence envelopes from PMO state without making reports the source of truth.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1b",
         "priorityId": "p0"
@@ -726,9 +741,24 @@
           "reports",
           "evidence-envelope",
           "determinism"
-        ]
+        ],
+        "files_touched": [
+          "shared/schemas/program-manager.ts",
+          "control-plane/packages/program-manager/src/service/program-tool-service.ts",
+          "control-plane/packages/program-manager/src/mcp/program-manager-mcp-gateway.ts",
+          "control-plane/packages/program-manager/tests/program-tools.test.js"
+        ],
+        "verification": [
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/program-tools.test.js",
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/program-manager-schemas.test.js",
+          "TPF_LLM_TOOL=codex tpf npm test",
+          "TPF_LLM_TOOL=codex tpf npm run typecheck"
+        ],
+        "notes": "Reports remain generated artifacts, not PMO source of truth; evidence envelope is pointer-only and deterministic."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-108 first."
+      "comment": "Completed Phase 1B report generator and JSON evidence envelope. Added generate_program_update request/core/result schemas, MCP gateway registration, deterministic markdown/evidence envelope construction, stable report/envelope/section refs, sorted inputs/sections/evidence refs, and regeneration determinism tests.",
+      "assignee": "codex-spark-report-worker",
+      "blocker_reason": null
     },
     {
       "dependencies": [
@@ -738,7 +768,7 @@
       "id": "pmo-203",
       "title": "Adapter health, circuit behavior, and stale cursors",
       "goal": "Add deterministic adapter health handling so degraded, stale, or unavailable sources affect confidence and findings without corrupting deterministic core state.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1b",
         "priorityId": "p1"
@@ -767,9 +797,27 @@
           "adapter-health",
           "stale-cursors",
           "circuit-breaker"
-        ]
+        ],
+        "files_touched": [
+          "shared/schemas/program-manager.ts",
+          "control-plane/packages/program-manager/src/adapters/program-adapter-registry.ts",
+          "control-plane/packages/program-manager/src/service/program-tool-service.ts",
+          "control-plane/packages/program-manager/tests/adapter-registry.test.js",
+          "control-plane/packages/program-manager/tests/adapter-stubs.test.js",
+          "control-plane/packages/program-manager/tests/program-tools.test.js"
+        ],
+        "verification": [
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/adapter-registry.test.js",
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/adapter-stubs.test.js",
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/program-tools.test.js",
+          "TPF_LLM_TOOL=codex tpf npm test",
+          "TPF_LLM_TOOL=codex tpf npm run typecheck"
+        ],
+        "notes": "No downstream mutations were introduced; unhealthy adapter data affects confidence/warnings without silently satisfying freshness."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-107 and pmo-108 first."
+      "comment": "Completed Phase 1B adapter health, circuit behavior, and stale cursors. Added stale health status, read/impact circuit state with backoff and reset, health-derived gating/warnings/evidence refs, stale adapter skipping, degraded adapter caps, and tests for circuit recovery, stale cursors, degraded reads, and impact caps.",
+      "assignee": "codex-spark-adapter-worker",
+      "blocker_reason": null
     },
     {
       "dependencies": [
@@ -779,7 +827,7 @@
       "id": "pmo-204",
       "title": "Audit trail and program update tools",
       "goal": "Expose get_program_audit_trail and generate_program_update on top of the Phase 1B context/report foundations.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1b",
         "priorityId": "p1"
@@ -807,9 +855,26 @@
           "audit-trail",
           "program-update",
           "mcp-tools"
-        ]
+        ],
+        "files_touched": [
+          "shared/schemas/program-manager.ts",
+          "control-plane/packages/program-manager/src/mcp/program-manager-mcp-gateway.ts",
+          "control-plane/packages/program-manager/src/service/program-tool-service.ts",
+          "control-plane/packages/program-manager/tests/program-tools.test.js",
+          "control-plane/packages/program-manager/tests/program-tool-authz.test.js"
+        ],
+        "verification": [
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/program-tools.test.js",
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/program-tool-authz.test.js",
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/program-manager-schemas.test.js",
+          "TPF_LLM_TOOL=codex tpf npm test",
+          "TPF_LLM_TOOL=codex tpf npm run typecheck"
+        ],
+        "notes": "Full npm test: 43 pass, 1 env-gated Neo4j hook skipped. Typecheck passed."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-201 and pmo-202 first."
+      "comment": "Completed Phase 1B audit trail and program update tools. generate_program_update is exposed through schema/gateway/service with deterministic report refs and evidence envelopes, and get_program_audit_trail is exposed with filtered pointer-only audit entries, bounded-window warnings, standard envelopes, authz, redaction, trace, and correlation coverage.",
+      "assignee": "codex",
+      "blocker_reason": null
     },
     {
       "dependencies": [
@@ -819,7 +884,7 @@
       "id": "pmo-205",
       "title": "PMO Doctor, replay smoke, report regeneration, and conformance checks",
       "goal": "Add operator-facing checks that prove schema, registry, graph, replay, report, hash, redaction, fixture, and adapter conformance health.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1b",
         "priorityId": "p1"
@@ -848,9 +913,29 @@
           "replay",
           "conformance",
           "ci"
-        ]
+        ],
+        "files_touched": [
+          "control-plane/packages/program-manager/package.json",
+          "control-plane/packages/program-manager/scripts/pmo-check-common.mjs",
+          "control-plane/packages/program-manager/scripts/pmo-doctor.mjs",
+          "control-plane/packages/program-manager/scripts/pmo-replay-smoke.mjs",
+          "control-plane/packages/program-manager/scripts/pmo-report-regenerate.mjs",
+          "control-plane/packages/program-manager/scripts/pmo-adapter-conformance.mjs",
+          "control-plane/packages/program-manager/fixtures/pmo-doctor-fixture.example.json"
+        ],
+        "verification": [
+          "TPF_LLM_TOOL=codex tpf npm run pmo:doctor",
+          "TPF_LLM_TOOL=codex tpf npm run pmo:replay-smoke",
+          "TPF_LLM_TOOL=codex tpf npm run pmo:report-regenerate",
+          "TPF_LLM_TOOL=codex tpf npm run pmo:adapter-conformance",
+          "TPF_LLM_TOOL=codex tpf npm test",
+          "TPF_LLM_TOOL=codex tpf npm run typecheck"
+        ],
+        "notes": "pmo:doctor, replay-smoke, report-regenerate, adapter-conformance, full tests, and typecheck all passed."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-202 and pmo-203 first."
+      "comment": "Completed Phase 1B PMO Doctor, replay smoke, report regeneration, and conformance checks. Added package check scripts for pmo:doctor, pmo:replay-smoke, pmo:report-regenerate, and pmo:adapter-conformance plus shared check utilities and fixture parity data. Default checks avoid live mutation-capable services.",
+      "assignee": "codex-spark-doctor-worker",
+      "blocker_reason": null
     },
     {
       "dependencies": [
@@ -861,7 +946,7 @@
       "id": "pmo-206",
       "title": "Phase 1B acceptance proof",
       "goal": "Close Phase 1B by proving context packets, reports, audit trail, adapter health, evidence freshness, and anchor behavior satisfy the blueprint.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-1b",
         "priorityId": "p1"
@@ -888,9 +973,24 @@
           "acceptance",
           "evidence",
           "phase-1b"
-        ]
+        ],
+        "files_touched": [
+          "docs/phase-1b/acceptance-proof.md"
+        ],
+        "verification": [
+          "TPF_LLM_TOOL=codex tpf npm run pmo:doctor",
+          "TPF_LLM_TOOL=codex tpf npm run pmo:replay-smoke",
+          "TPF_LLM_TOOL=codex tpf npm run pmo:report-regenerate",
+          "TPF_LLM_TOOL=codex tpf npm run pmo:adapter-conformance",
+          "TPF_LLM_TOOL=codex tpf npm run typecheck",
+          "TPF_LLM_TOOL=codex tpf npm test",
+          "TPF_LLM_TOOL=codex tpf node --test control-plane/packages/program-manager/tests/program-tools.test.js control-plane/packages/program-manager/tests/program-tool-authz.test.js control-plane/packages/program-manager/tests/program-manager-schemas.test.js"
+        ],
+        "notes": "Phase 1B is complete. Full package test: 43 pass, 0 fail, 1 env-gated Neo4j hook skipped. Focused acceptance tests: 17 pass."
       },
-      "comment": "Dependency-only sequencing blocker: complete pmo-201, pmo-204, and pmo-205 first."
+      "comment": "Completed Phase 1B acceptance proof. Added docs/phase-1b/acceptance-proof.md with command evidence, deterministic report/evidence-envelope artifact refs, and acceptance mapping for context packets, report regeneration, audit trail, adapter health/circuit/stale cursor behavior, evidence freshness, and context anchors.",
+      "assignee": "codex",
+      "blocker_reason": null
     },
     {
       "dependencies": [

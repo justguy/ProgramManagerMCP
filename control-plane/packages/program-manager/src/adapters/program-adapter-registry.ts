@@ -1,5 +1,10 @@
-export type AdapterHealthStatus = "healthy" | "degraded" | "unavailable" | "circuit_open";
-export type AdapterManifestStatus = "healthy" | "degraded" | "unavailable" | "circuit_open";
+export type AdapterHealthStatus = "healthy" | "degraded" | "stale" | "unavailable" | "circuit_open";
+export type AdapterManifestStatus =
+  | "healthy"
+  | "degraded"
+  | "stale"
+  | "unavailable"
+  | "circuit_open";
 
 export type AdapterMethods = {
   reconcileState: boolean;
@@ -131,6 +136,12 @@ export type AdapterScope = {
   projectIds?: string[];
 };
 
+type AdapterReadCircuitState = {
+  failures: number;
+  openUntil: number | null;
+  lastFailureAt: number | null;
+};
+
 export type ProgramAdapter = {
   manifest: AdapterManifest;
   describeCapabilities(): Promise<AdapterManifest>;
@@ -139,7 +150,7 @@ export type ProgramAdapter = {
   assessImpact(request: AdapterImpactRequest): Promise<AdapterImpactResult>;
   reconcileState(scope: AdapterScope): Promise<AdapterReadStateResult>;
   produceEvidenceRefs(input: AdapterReadStateResult | AdapterImpactResult): Promise<string[]>;
-  getSourceCursor(scope: AdapterScope): Promise<AdapterCursor>;
+  getSourceCursor(scope: AdapterScope, now?: string): Promise<AdapterCursor>;
   getHealth(scope: AdapterScope, now?: string): Promise<AdapterHealthResult>;
 };
 
@@ -302,19 +313,23 @@ class ReadOnlyProgramAdapter implements ProgramAdapter {
     return sortedUnique(input.evidenceRefs);
   }
 
-  async getSourceCursor(scope: AdapterScope): Promise<AdapterCursor> {
+  async getSourceCursor(scope: AdapterScope, now?: string): Promise<AdapterCursor> {
+    const nowDate = nowOrFallback(now).valueOf();
+    const observedAt = new Date(this.#cursor.observedAt).valueOf();
+    const ageSeconds = Math.max(0, Math.floor((nowDate - observedAt) / 1000));
+
     return {
       adapterId: this.#adapterManifest.adapterId,
       portfolioId: scope.portfolioId,
       cursor: this.#cursor.cursor,
       observedAt: this.#cursor.observedAt,
       sourceRevisionHash: this.#cursor.sourceRevisionHash,
-      status: "current"
+      status: ageSeconds > this.#adapterManifest.maxStaleCursorSeconds ? "stale" : "current"
     };
   }
 
   async getHealth(scope: AdapterScope, now?: string): Promise<AdapterHealthResult> {
-    const cursor = await this.getSourceCursor(scope);
+    const cursor = await this.getSourceCursor(scope, now);
     const nowDate = nowOrFallback(now);
     const observedAt = new Date(cursor.observedAt);
     const ageSeconds = Math.max(0, Math.floor((nowDate.valueOf() - observedAt.valueOf()) / 1000));
@@ -323,7 +338,7 @@ class ReadOnlyProgramAdapter implements ProgramAdapter {
     let status: AdapterHealthStatus = "healthy";
 
     if (ageSeconds > this.#adapterManifest.maxStaleCursorSeconds) {
-      status = "unavailable";
+      status = "stale";
       reasons.push(`source cursor stale beyond max age of ${this.#adapterManifest.maxStaleCursorSeconds} seconds`);
     } else if (ageSeconds > Math.max(60, Math.floor(this.#adapterManifest.maxStaleCursorSeconds / 2))) {
       status = "degraded";
@@ -379,6 +394,7 @@ export class HoplonAdapterStub extends ReadOnlyProgramAdapter {
           statuses: [
             "circuit_open",
             "degraded",
+            "stale",
             "healthy",
             "unavailable"
           ]
@@ -558,6 +574,7 @@ export class TrackerAdapterStub extends ReadOnlyProgramAdapter {
           statuses: [
             "circuit_open",
             "degraded",
+            "stale",
             "healthy",
             "unavailable"
           ]
@@ -680,8 +697,29 @@ function buildRegistryAdapters() {
   return [new HoplonAdapterStub(), new TrackerAdapterStub()];
 }
 
+function normalizeHealthStatusForManifest(
+  manifest: AdapterManifest,
+  status: AdapterHealthStatus
+): AdapterHealthStatus {
+  const allowed = new Set(manifest.healthModel.statuses);
+  if (allowed.has(status)) {
+    return status;
+  }
+  if (status === "unavailable" && allowed.has("unavailable")) {
+    return "unavailable";
+  }
+  if (status === "stale" && allowed.has("stale")) {
+    return "stale";
+  }
+  if (status === "degraded" && allowed.has("degraded")) {
+    return "degraded";
+  }
+  return allowed.has("unavailable") ? "unavailable" : "degraded";
+}
+
 export class AdapterRegistry {
   #adapters = new Map<string, ProgramAdapter>();
+  #readStateCircuit: Map<string, AdapterReadCircuitState> = new Map();
 
   constructor(adapters: ProgramAdapter[] = buildRegistryAdapters()) {
     for (const adapter of adapters) {
@@ -749,6 +787,133 @@ export class AdapterRegistry {
     }
   }
 
+  #readStateCircuitState(adapterId: string): AdapterReadCircuitState {
+    const state = this.#readStateCircuit.get(adapterId);
+    if (state) {
+      return state;
+    }
+    const fresh = {
+      failures: 0,
+      openUntil: null,
+      lastFailureAt: null
+    };
+    this.#readStateCircuit.set(adapterId, fresh);
+    return fresh;
+  }
+
+  #clearStaleCircuitState(adapterId: string, now: Date): void {
+    const state = this.#readStateCircuit.get(adapterId);
+    if (!state) {
+      return;
+    }
+    if (state.openUntil && state.openUntil <= now.valueOf()) {
+      state.openUntil = null;
+      state.failures = 0;
+      state.lastFailureAt = null;
+    }
+  }
+
+  #registerReadFailure(adapterId: string, now: Date, manifest: AdapterManifest): void {
+    const state = this.#readStateCircuitState(adapterId);
+    state.failures += 1;
+    state.lastFailureAt = now.valueOf();
+
+    if (
+      manifest.healthModel.circuitOpenAfterFailures > 0 &&
+      state.failures >= manifest.healthModel.circuitOpenAfterFailures
+    ) {
+      state.openUntil = now.valueOf() + manifest.healthModel.circuitOpenSeconds * 1000;
+    }
+  }
+
+  #resetReadState(adapterId: string): void {
+    const state = this.#readStateCircuit.get(adapterId);
+    if (!state) {
+      return;
+    }
+    state.failures = 0;
+    state.openUntil = null;
+    state.lastFailureAt = null;
+  }
+
+  #isReadCircuitOpen(adapterId: string, now: Date, manifest: AdapterManifest): AdapterHealthStatus | null {
+    const state = this.#readStateCircuitState(adapterId);
+    if (!state.openUntil || manifest.healthModel.circuitOpenAfterFailures <= 0) {
+      return null;
+    }
+    if (state.openUntil <= now.valueOf()) {
+      state.openUntil = null;
+      return null;
+    }
+
+    return normalizeHealthStatusForManifest(manifest, "circuit_open");
+  }
+
+  #deriveHealth(
+    adapter: ProgramAdapter,
+    health: AdapterHealthResult,
+    now: Date
+  ): AdapterHealthResult {
+    const manifest = adapter.manifest;
+    const state = this.#readStateCircuitState(adapter.manifest.adapterId);
+    this.#clearStaleCircuitState(adapter.manifest.adapterId, now);
+
+    const circuitStatus = this.#isReadCircuitOpen(adapter.manifest.adapterId, now, manifest);
+    if (circuitStatus) {
+      return {
+        ...health,
+        status: circuitStatus,
+        reasons: [
+          ...health.reasons,
+          `circuit open for ${manifest.healthModel.circuitOpenSeconds}s after ${state.failures} read failures`
+        ],
+        checkedAt: now.toISOString()
+      };
+    }
+
+    if (state.failures > 0 && health.status === "healthy" && state.failures < manifest.healthModel.circuitOpenAfterFailures) {
+      return {
+        ...health,
+        status: "degraded",
+        reasons: [
+          ...health.reasons,
+          `${state.failures} read failure${state.failures === 1 ? "" : "s"} in recent window`
+        ],
+        checkedAt: now.toISOString()
+      };
+    }
+
+    return {
+      ...health,
+      status: normalizeHealthStatusForManifest(manifest, health.status),
+      checkedAt: now.toISOString()
+    };
+  }
+
+  async #withReadProtectedAdapter<T>(
+    adapterId: string,
+    now: string | undefined,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    const adapter = await this.withAdapter(adapterId, (found) => Promise.resolve(found));
+    const manifest = adapter.manifest;
+    const nowDate = nowOrFallback(now);
+    this.#clearStaleCircuitState(adapterId, nowDate);
+    const circuitStatus = this.#isReadCircuitOpen(adapterId, nowDate, manifest);
+    if (circuitStatus) {
+      throw new Error(`Adapter ${adapterId} read path is circuit-open`);
+    }
+
+    try {
+      const result = await operation();
+      this.#resetReadState(adapterId);
+      return result;
+    } catch (error) {
+      this.#registerReadFailure(adapterId, nowDate, manifest);
+      throw error;
+    }
+  }
+
   async withAdapter<T>(
     adapterId: string,
     callback: (adapter: ProgramAdapter) => Promise<T> | T
@@ -760,20 +925,32 @@ export class AdapterRegistry {
     return callback(adapter);
   }
 
-  async readState(adapterId: string, request: AdapterReadStateRequest): Promise<AdapterReadStateResult> {
-    return this.withAdapter(adapterId, (adapter) => adapter.readState(request));
+  async readState(adapterId: string, request: AdapterReadStateRequest, now?: string): Promise<AdapterReadStateResult> {
+    return this.#withReadProtectedAdapter(adapterId, now, async () => {
+      return this.withAdapter(adapterId, (adapter) => adapter.readState(request));
+    });
   }
 
-  async assessImpact(adapterId: string, request: AdapterImpactRequest): Promise<AdapterImpactResult> {
-    return this.withAdapter(adapterId, (adapter) => adapter.assessImpact(request));
+  async assessImpact(
+    adapterId: string,
+    request: AdapterImpactRequest,
+    now?: string
+  ): Promise<AdapterImpactResult> {
+    return this.#withReadProtectedAdapter(adapterId, now, async () => {
+      return this.withAdapter(adapterId, (adapter) => adapter.assessImpact(request));
+    });
   }
 
   async getHealth(adapterId: string, scope: AdapterScope, now?: string): Promise<AdapterHealthResult> {
-    return this.withAdapter(adapterId, (adapter) => adapter.getHealth(scope, now));
+    const adapter = await this.withAdapter(adapterId, (found) => Promise.resolve(found));
+    const nowDate = nowOrFallback(now);
+    const health = await adapter.getHealth(scope, now);
+    this.#clearStaleCircuitState(adapterId, nowDate);
+    return this.#deriveHealth(adapter, health, nowDate);
   }
 
-  async getSourceCursor(adapterId: string, scope: AdapterScope): Promise<AdapterCursor> {
-    return this.withAdapter(adapterId, (adapter) => adapter.getSourceCursor(scope));
+  async getSourceCursor(adapterId: string, scope: AdapterScope, now?: string): Promise<AdapterCursor> {
+    return this.withAdapter(adapterId, (adapter) => adapter.getSourceCursor(scope, now));
   }
 }
 

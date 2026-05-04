@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  generateProgramUpdateResultSchema,
+  getProgramAuditTrailResultSchema,
   listProgramCapabilitiesResultSchema,
   queryProgramContextResultSchema
 } from "../../../../shared/schemas/program-manager.ts";
@@ -62,6 +64,39 @@ test("authz denies cross-portfolio reads with a blocked standard envelope", asyn
   assert.equal(result.status, "blocked");
   assert.equal(result.warnings[0].warningId, "authz-denied");
   assert.match(result.warnings[0].summary, /Cross-portfolio read denied/);
+});
+
+test("authz denies cross-portfolio audit and report reads", async () => {
+  const gateway = buildGateway();
+  const actor = buildActor();
+
+  const auditResult = await gateway.callTool(
+    "get_program_audit_trail",
+    {
+      portfolioId: "portfolio://other",
+      programId: "program://agentic-os",
+      traceId: "trace://audit-cross-portfolio",
+      correlationId: "corr://audit-cross-portfolio"
+    },
+    actor
+  );
+  assert.deepEqual(getProgramAuditTrailResultSchema.parse(auditResult), auditResult);
+  assert.equal(auditResult.status, "blocked");
+  assert.equal(auditResult.warnings[0].warningId, "authz-denied");
+
+  const reportResult = await gateway.callTool(
+    "generate_program_update",
+    {
+      portfolioId: "portfolio://other",
+      programId: "program://agentic-os",
+      traceId: "trace://report-cross-portfolio",
+      correlationId: "corr://report-cross-portfolio"
+    },
+    actor
+  );
+  assert.deepEqual(generateProgramUpdateResultSchema.parse(reportResult), reportResult);
+  assert.equal(reportResult.status, "blocked");
+  assert.equal(reportResult.warnings[0].warningId, "authz-denied");
 });
 
 test("authz denies unauthorized actor scope for project-bearing context reads", async () => {

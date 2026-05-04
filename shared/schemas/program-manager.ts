@@ -421,9 +421,45 @@ export const queryProgramContextRequestSchema = programToolRequestContextSchema
   })
   .strict();
 
+const contextPaneItemSchema = z
+  .object({
+    evidenceRefs: sortedStringArraySchema("contextPaneItem evidenceRefs"),
+    inclusionReason: z.string().min(1),
+    kind: z.string().min(1),
+    recordedAt: isoDateTimeSchema,
+    ref: pointerRefSchema,
+    status: z.string().min(1),
+    summary: z.string().min(1)
+  })
+  .strict();
+
+const recommendedActionSchema = z
+  .object({
+    actionId: pointerRefSchema,
+    actionType: z.string().min(1),
+    evidenceRefs: sortedStringArraySchema("recommendedAction evidenceRefs"),
+    inclusionReason: z.string().min(1),
+    summary: z.string().min(1),
+    targetRefs: sortedStringArraySchema("recommendedAction targetRefs")
+  })
+  .strict();
+
 export const queryProgramContextCoreSchema = z
   .object({
     contextAnchor: programContextAnchorSchema,
+    contextPanes: z
+      .object({
+        applicableDecisions: z.array(contextPaneItemSchema),
+        blockingDependencies: z.array(contextPaneItemSchema),
+        currentState: z.array(contextPaneItemSchema),
+        discardedDecisions: z.array(contextPaneItemSchema),
+        futureDecisions: z.array(contextPaneItemSchema),
+        recommendedActions: z.array(recommendedActionSchema),
+        staleEvidence: z.array(contextPaneItemSchema),
+        supersededDecisions: z.array(contextPaneItemSchema)
+      })
+      .strict()
+      .optional(),
     matchedRefs: z.array(
       z
         .object({
@@ -441,6 +477,71 @@ export const queryProgramContextCoreSchema = z
     omittedRefCount: z.number().int().nonnegative()
   })
   .strict();
+
+const generateProgramUpdateSectionSchema = z
+  .object({
+    sectionId: z.string().min(1),
+    summary: z.string().min(1),
+    title: z.string().min(1),
+    refs: sortedStringArraySchema("generateProgramUpdateSection refs")
+  })
+  .strict();
+
+const generateProgramUpdateEvidenceEnvelopeSchema = z
+  .object({
+    artifactRefs: sortedStringArraySchema("generateProgramUpdateEvidenceEnvelope artifactRefs"),
+    evidenceRefs: sortedStringArraySchema("generateProgramUpdateEvidenceEnvelope evidenceRefs"),
+    generatedAt: isoDateTimeSchema,
+    inputRefs: sortedStringArraySchema("generateProgramUpdateEvidenceEnvelope inputRefs"),
+    sectionRefs: sortedStringArraySchema("generateProgramUpdateEvidenceEnvelope sectionRefs"),
+    stateVersionHash: sha256DigestSchema,
+    templateVersion: z.string().min(1)
+  })
+  .strict();
+
+export const generateProgramUpdateRequestSchema = programToolRequestContextSchema
+  .extend({
+    maxSections: z.number().int().positive().optional(),
+    reportAudience: z.enum(["execution", "governance", "leadership"]).optional(),
+    templateVersion: z.string().min(1).optional()
+  })
+  .strict();
+
+export const generateProgramUpdateCoreSchema = z
+  .object({
+    evidenceEnvelope: generateProgramUpdateEvidenceEnvelopeSchema,
+    evidenceEnvelopeRef: pointerRefSchema,
+    inputRefs: sortedStringArraySchema("generateProgramUpdate inputRefs"),
+    reportAudience: z.enum(["execution", "governance", "leadership"]),
+    reportMarkdownRef: pointerRefSchema,
+    sectionRefs: sortedStringArraySchema("generateProgramUpdate sectionRefs"),
+    sections: z.array(generateProgramUpdateSectionSchema),
+    templateVersion: z.string().min(1)
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    try {
+      enforceSorted(
+        value.sections,
+        (left, right) => left.sectionId.localeCompare(right.sectionId),
+        "sections must be sorted by sectionId"
+      );
+      const sortedSectionRefs = [...value.sectionRefs].sort((left, right) =>
+        left.localeCompare(right)
+      );
+      if (!value.sectionRefs.every((sectionRef, index) => sectionRef === sortedSectionRefs[index])) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "sectionRefs must be lexicographically sorted"
+        });
+      }
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "generate_program_update core validation failed"
+      });
+    }
+  });
 
 export const assessProgramImpactRequestSchema = programToolRequestContextSchema
   .extend({
@@ -517,6 +618,61 @@ export const queryProgramContextResultSchema = programToolResultEnvelopeSchema(
 
 export const assessProgramImpactResultSchema = programToolResultEnvelopeSchema(
   assessProgramImpactCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+);
+
+export const generateProgramUpdateResultSchema = programToolResultEnvelopeSchema(
+  generateProgramUpdateCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+);
+
+export const getProgramAuditTrailRequestSchema = programToolRequestContextSchema
+  .extend({
+    eventTypes: z.array(z.string().min(1)).optional(),
+    limit: z.number().int().positive().optional(),
+    since: isoDateTimeSchema.optional(),
+    targetRefs: sortedStringArraySchema("audit targetRefs").optional(),
+    until: isoDateTimeSchema.optional()
+  })
+  .strict();
+
+const auditTrailEntrySchema = z
+  .object({
+    artifactRefs: sortedStringArraySchema("auditEntry artifactRefs"),
+    contextAnchor: programContextAnchorSchema.optional(),
+    eventId: pointerRefSchema,
+    eventType: z.string().min(1),
+    evidenceRefs: sortedStringArraySchema("auditEntry evidenceRefs"),
+    inclusionReason: z.string().min(1),
+    recordedAt: isoDateTimeSchema
+  })
+  .strict();
+
+export const getProgramAuditTrailCoreSchema = z
+  .object({
+    auditEntries: z.array(auditTrailEntrySchema),
+    omittedEntryCount: z.number().int().nonnegative()
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    try {
+      enforceSorted(
+        value.auditEntries,
+        (left, right) =>
+          right.recordedAt.localeCompare(left.recordedAt) ||
+          left.eventId.localeCompare(right.eventId),
+        "auditEntries must be sorted by recordedAt descending then eventId"
+      );
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "audit trail ordering validation failed"
+      });
+    }
+  });
+
+export const getProgramAuditTrailResultSchema = programToolResultEnvelopeSchema(
+  getProgramAuditTrailCoreSchema,
   z.object({ summary: z.string().min(1) }).strict()
 );
 
@@ -725,7 +881,7 @@ export const adapterManifestSchema = z
         circuitOpenAfterFailures: z.number().int().nonnegative(),
         circuitOpenSeconds: z.number().int().nonnegative(),
         statuses: z
-          .array(z.enum(["circuit_open", "degraded", "healthy", "unavailable"]))
+          .array(z.enum(["circuit_open", "degraded", "stale", "healthy", "unavailable"]))
           .min(1)
       })
       .strict(),
@@ -833,6 +989,12 @@ export const programManagerSchemaBundleSchema = z
     dependencyRelationshipProps: dependencyRelationshipPropsSchema,
     evidencePolicy: evidencePolicySchema,
     evidenceRef: evidenceRefSchema,
+    generateProgramUpdateCore: generateProgramUpdateCoreSchema,
+    generateProgramUpdateRequest: generateProgramUpdateRequestSchema,
+    generateProgramUpdateResult: generateProgramUpdateResultSchema,
+    getProgramAuditTrailCore: getProgramAuditTrailCoreSchema,
+    getProgramAuditTrailRequest: getProgramAuditTrailRequestSchema,
+    getProgramAuditTrailResult: getProgramAuditTrailResultSchema,
     getProgramDocumentationCore: getProgramDocumentationCoreSchema,
     getProgramDocumentationRequest: getProgramDocumentationRequestSchema,
     getProgramDocumentationResult: getProgramDocumentationResultSchema,

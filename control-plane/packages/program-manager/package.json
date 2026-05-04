@@ -14,7 +14,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/*.test.js",
     "test:neo4j": "node --test tests/program-manager-graph-neo4j.test.js",
-    "smoke:neo4j": "node scripts/run-neo4j-smoke.mjs"
+    "smoke:neo4j": "node scripts/run-neo4j-smoke.mjs",
+    "pmo:doctor": "node scripts/pmo-doctor.mjs",
+    "pmo:replay-smoke": "node scripts/pmo-replay-smoke.mjs",
+    "pmo:report-regenerate": "node scripts/pmo-report-regenerate.mjs",
+    "pmo:adapter-conformance": "node scripts/pmo-adapter-conformance.mjs"
   },
   "dependencies": {
     "neo4j-driver": "^5.28.1",

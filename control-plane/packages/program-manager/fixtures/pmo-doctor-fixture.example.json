@@ -1,0 +1,81 @@
+{
+  "suite": "pmo-doctor",
+  "requestContext": {
+    "portfolioId": "portfolio://default",
+    "programId": "program://agentic-os",
+    "contextAnchor": {
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "asOf": "2026-05-03T12:00:00Z"
+    },
+    "reportAudience": "execution"
+  },
+  "report": {
+    "stateVersionHash": "sha256:20b80a793608a78b549c9420dbaeef14d77a776621c2d4f1d9224b939f223b60",
+    "evidenceEnvelopeRef": "artifact://pmo/reports/alignment-envelope/template%3A%2F%2Fpmo-alignment-report%2Fv1/evidence-envelope@sha256:abf233c6ca766ebf22e13f5949b5fc706da3d796db2ad6cb44cfb3e19bd8c727",
+    "reportMarkdownRef": "artifact://pmo/reports/alignment/template%3A%2F%2Fpmo-alignment-report%2Fv1/report@sha256:70f5d65c0db5b1381fb3a6f7524ab074aacee1318f60d68ec60c4191ccdc8357",
+    "sectionIds": [
+      "decisions",
+      "dependencies",
+      "evidence",
+      "metadata",
+      "scope"
+    ],
+    "sectionRefs": [
+      "artifact://pmo/reports/alignment/template%3A%2F%2Fpmo-alignment-report%2Fv1/sections/decisions",
+      "artifact://pmo/reports/alignment/template%3A%2F%2Fpmo-alignment-report%2Fv1/sections/dependencies",
+      "artifact://pmo/reports/alignment/template%3A%2F%2Fpmo-alignment-report%2Fv1/sections/evidence",
+      "artifact://pmo/reports/alignment/template%3A%2F%2Fpmo-alignment-report%2Fv1/sections/metadata",
+      "artifact://pmo/reports/alignment/template%3A%2F%2Fpmo-alignment-report%2Fv1/sections/scope"
+    ],
+    "evidenceRefs": [
+      "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence://guardrail/runtime-controls/missing-current-snapshot",
+      "tracker://program-manager-mcp/PMO-001"
+    ],
+    "artifactRefs": [
+      "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "cursor://guardrail-local/cursor://guardrail/runtime-controls/missing",
+      "cursor://hoplon-local/snapshot:s-2026-05-03",
+      "cursor://tracker-local/rev:12"
+    ],
+    "inputRefs": [
+      "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "contract://semantix/readiness-spec@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "cursor://guardrail-local/cursor://guardrail/runtime-controls/missing",
+      "cursor://hoplon-local/snapshot:s-2026-05-03",
+      "cursor://tracker-local/rev:12",
+      "decision://agentic-os/hoplon-authz-tier1-approval",
+      "dependency://dep-guardrail-runtime-controls",
+      "dependency://dep-hoplon-authz",
+      "dependency://dep-semantix-readiness",
+      "dependency://dep-tracker-evidence-freshness",
+      "evidence://guardrail/runtime-controls/missing-current-snapshot",
+      "portfolio://default",
+      "program://agentic-os",
+      "project://phalanx",
+      "project://program-manager-mcp",
+      "tracker://program-manager-mcp/PMO-001"
+    ]
+  },
+  "replay": {
+    "query": {
+      "queryKind": "program_summary",
+      "targetRefs": [
+        "project://phalanx",
+        "tracker://program-manager-mcp/PMO-001"
+      ]
+    },
+    "impact": {
+      "changeRef": "change://program-manager-mcp/c0-hoplon-authz-contract-update",
+      "changeKind": "contract_update",
+      "traversalBudgetRef": "budget://phase-1a/default",
+      "targetRefs": [
+        "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "tracker://program-manager-mcp/PMO-001"
+      ]
+    }
+  }
+}

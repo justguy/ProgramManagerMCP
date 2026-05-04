@@ -87,20 +87,27 @@ test("stub assessImpact exposes deterministic findings without mutation authorit
 });
 
 test("stub health reflects cursor age and includes cursor fields", async () => {
-  const trackerHealthy = await tracker.getHealth(
+  const trackerFresh = await tracker.getHealth(
     { portfolioId: "portfolio://default" },
     "2026-05-03T12:00:00Z"
   );
-  assert.equal(trackerHealthy.status, "healthy");
-  assert.equal(trackerHealthy.cursor, "rev:12");
-  assert.equal(trackerHealthy.maxStaleCursorSeconds, 300);
+  assert.equal(trackerFresh.status, "healthy");
+  assert.equal(trackerFresh.cursor, "rev:12");
+  assert.equal(trackerFresh.maxStaleCursorSeconds, 300);
 
-  const trackerUnavailable = await tracker.getHealth(
+  const trackerDegraded = await tracker.getHealth(
+    { portfolioId: "portfolio://default" },
+    "2026-05-03T12:03:00Z"
+  );
+  assert.equal(trackerDegraded.status, "degraded");
+  assert.ok(trackerDegraded.reasons.length > 0);
+
+  const trackerStale = await tracker.getHealth(
     { portfolioId: "portfolio://default" },
     "2026-05-03T13:00:00Z"
   );
-  assert.equal(trackerUnavailable.status, "unavailable");
-  assert.ok(trackerUnavailable.reasons.length > 0);
+  assert.equal(trackerStale.status, "stale");
+  assert.ok(trackerStale.reasons.length > 0);
 
   const hoplonHealthy = await hoplon.getHealth(
     { portfolioId: "portfolio://default" },

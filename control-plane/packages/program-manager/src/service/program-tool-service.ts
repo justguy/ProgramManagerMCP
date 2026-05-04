@@ -1,6 +1,11 @@
 import {
   assessProgramImpactRequestSchema,
   assessProgramImpactResultSchema,
+  generateProgramUpdateCoreSchema,
+  generateProgramUpdateRequestSchema,
+  generateProgramUpdateResultSchema,
+  getProgramAuditTrailRequestSchema,
+  getProgramAuditTrailResultSchema,
   getProgramDocumentationRequestSchema,
   getProgramDocumentationResultSchema,
   listProgramCapabilitiesRequestSchema,
@@ -17,7 +22,7 @@ import type {
   ProgramCapabilityListing
 } from "../adapters/index.js";
 import type { ProgramManagerRepository } from "../repository/program-manager-repository.js";
-import { stateVersionHashFromInput } from "../hash/state-version-hash.js";
+import type { ContextAnchor, DecisionRecord, GraphRelationship, ProgramEvent } from "../types/domain.js";
 import {
   assertReadAuthorized,
   inferScopedProjectIds,
@@ -30,12 +35,15 @@ import {
   mergeRedactionSummaries,
   sanitizePointerPayload
 } from "../redaction/program-tool-redaction.ts";
+import { sha256ForInput, stateVersionHashFromInput } from "../hash/state-version-hash.js";
 
 type ToolName =
   | "list_program_capabilities"
   | "get_program_documentation"
   | "query_program_context"
-  | "assess_program_impact";
+  | "assess_program_impact"
+  | "generate_program_update"
+  | "get_program_audit_trail";
 
 type ToolWarning = {
   warningId: string;
@@ -53,12 +61,65 @@ type DocumentationSection = {
   evidenceRefs: string[];
 };
 
+type SanitizedAdapterReadState = ReturnType<typeof sanitizePointerPayload<AdapterReadStateResult>>;
+type SanitizedAdapterImpactState = ReturnType<
+  typeof sanitizePointerPayload<AdapterImpactResult>
+>;
+
+type AdapterReadAttempt = {
+  adapterId: string;
+  health: AdapterHealthResult;
+  result?: SanitizedAdapterReadState;
+  errorSummary?: ToolWarning;
+};
+
+type AdapterImpactAttempt = {
+  adapterId: string;
+  health: AdapterHealthResult;
+  result?: SanitizedAdapterImpactState;
+  errorSummary?: ToolWarning;
+};
+
 type DocumentationCatalog = Record<string, DocumentationSection[]>;
+
+type ContextMatch = {
+  ref: string;
+  kind: string;
+  status: string;
+  reason: string;
+  validFrom?: string;
+  validTo?: string;
+  recordedAt: string;
+  evidenceRefs: string[];
+};
+
+type ContextPaneItem = {
+  ref: string;
+  kind: string;
+  status: string;
+  summary: string;
+  inclusionReason: string;
+  recordedAt: string;
+  evidenceRefs: string[];
+};
+
+type RecommendedContextAction = {
+  actionId: string;
+  actionType: string;
+  summary: string;
+  inclusionReason: string;
+  targetRefs: string[];
+  evidenceRefs: string[];
+};
 
 type ProgramToolServiceDependencies = {
   adapterRegistry: {
     assertNoMutationAuthority(): Promise<void>;
-    assessImpact(adapterId: string, request: Record<string, unknown>): Promise<AdapterImpactResult>;
+    assessImpact(
+      adapterId: string,
+      request: Record<string, unknown>,
+      now?: string
+    ): Promise<AdapterImpactResult>;
     getHealth(
       adapterId: string,
       scope: { portfolioId: string; programId?: string; projectIds?: string[] },
@@ -70,7 +131,11 @@ type ProgramToolServiceDependencies = {
     ): Promise<AdapterCursor>;
     listCapabilities(capabilityDomain?: string): Promise<ProgramCapabilityListing[]>;
     listManifests(): AdapterManifest[];
-    readState(adapterId: string, request: Record<string, unknown>): Promise<AdapterReadStateResult>;
+    readState(
+      adapterId: string,
+      request: Record<string, unknown>,
+      now?: string
+    ): Promise<AdapterReadStateResult>;
   };
   repository: ProgramManagerRepository;
   now?: () => string;
@@ -81,7 +146,9 @@ const TOOL_NEXT_RECOMMENDATION: Record<ToolName, ToolName> = {
   list_program_capabilities: "get_program_documentation",
   get_program_documentation: "query_program_context",
   query_program_context: "assess_program_impact",
-  assess_program_impact: "query_program_context"
+  assess_program_impact: "query_program_context",
+  generate_program_update: "get_program_audit_trail",
+  get_program_audit_trail: "query_program_context"
 };
 
 const STATUS_RANK = new Map([
@@ -270,11 +337,226 @@ function compareMatchedRefs(
   );
 }
 
+function compareContextPaneItems(left: ContextPaneItem, right: ContextPaneItem): number {
+  return (
+    left.kind.localeCompare(right.kind) ||
+    left.ref.localeCompare(right.ref) ||
+    left.recordedAt.localeCompare(right.recordedAt)
+  );
+}
+
+function compareRecommendedActions(
+  left: RecommendedContextAction,
+  right: RecommendedContextAction
+): number {
+  return left.actionId.localeCompare(right.actionId);
+}
+
 function compareCapabilities(
   left: { capabilityId: string },
   right: { capabilityId: string }
 ): number {
   return left.capabilityId.localeCompare(right.capabilityId);
+}
+
+const DEFAULT_REPORT_TEMPLATE_VERSION = "template://pmo-alignment-report/v1";
+
+type ProgramUpdateSection = {
+  sectionId: string;
+  title: string;
+  summary: string;
+  refs: string[];
+};
+
+function sortUniqueRefs(values: string[]): string[] {
+  return [...new Set(values)]
+    .filter((value) => value.length > 0)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function makeReportMarkdownRef(reportTemplateVersion: string, digest: string) {
+  return `artifact://pmo/reports/alignment/${encodeURIComponent(
+    reportTemplateVersion
+  )}/report@${digest}`;
+}
+
+function makeEvidenceEnvelopeRef(reportTemplateVersion: string, digest: string) {
+  return `artifact://pmo/reports/alignment-envelope/${encodeURIComponent(
+    reportTemplateVersion
+  )}/evidence-envelope@${digest}`;
+}
+
+function makeProgramUpdateSectionRef(reportTemplateVersion: string, sectionId: string) {
+  return `artifact://pmo/reports/alignment/${encodeURIComponent(
+    reportTemplateVersion
+  )}/sections/${encodeURIComponent(sectionId)}`;
+}
+
+function buildInputRefs(
+  request: { portfolioId: string; programId?: string; projectIds?: string[] },
+  scope: { portfolioId: string; programId?: string; projectIds?: string[] },
+  programs: { programId?: string }[],
+  projects: { projectId?: string }[],
+  decisions: { decisionId: string }[],
+  relationships: {
+    dependencyId: string;
+    fromRef: string;
+    toRef: string;
+    contractRef?: string;
+    evidenceRefs?: string[];
+    policyRefs?: string[];
+  }[],
+  evidenceRefs: string[],
+  artifactRefs: string[]
+): string[] {
+  return sortUniqueRefs([
+    request.portfolioId,
+    ...(request.programId ? [request.programId] : []),
+    ...(request.projectIds ?? []),
+    ...(scope.projectIds ?? []),
+    ...programs.flatMap((program) => (program.programId ? [program.programId] : [])),
+    ...projects.flatMap((project) => (project.projectId ? [project.projectId] : [])),
+    ...decisions.map((decision) => decision.decisionId),
+    ...relationships.flatMap((relationship) => [
+      dependencyPointer(relationship.dependencyId),
+      relationship.fromRef,
+      relationship.toRef,
+      ...(relationship.contractRef ? [relationship.contractRef] : []),
+      ...(relationship.evidenceRefs ?? []),
+      ...(relationship.policyRefs ?? [])
+    ]),
+    ...evidenceRefs,
+    ...artifactRefs
+  ]);
+}
+
+function buildProgramUpdateSections(input: {
+  decisions: { decisionId: string; status: string; recordedAt: string }[];
+  evidenceRefs: string[];
+  artifactRefs: string[];
+  portfolioIds: string[];
+  programIds: string[];
+  projectIds: string[];
+  relationships: { dependencyId: string; fromRef: string; toRef: string; status: string }[];
+  reportAudience: string;
+  reportTemplateVersion: string;
+}): ProgramUpdateSection[] {
+  const scopeSummary = [
+    ...input.portfolioIds,
+    ...input.programIds,
+    ...input.projectIds
+  ];
+
+  return [
+    {
+      sectionId: "decisions",
+      title: "Decision Set",
+      summary: `${input.decisions.length} decision facts loaded in scope.`,
+      refs: sortUniqueRefs(input.decisions.map((decision) => decision.decisionId))
+    },
+    {
+      sectionId: "dependencies",
+      title: "Dependency Surface",
+      summary: `${input.relationships.length} dependency relationships loaded in scope.`,
+      refs: sortUniqueRefs(
+        input.relationships.flatMap((relationship) => [
+          relationship.fromRef,
+          relationship.toRef,
+          `dependency://${relationship.dependencyId}`
+        ])
+      )
+    },
+    {
+      sectionId: "evidence",
+      title: "Evidence Inputs",
+      summary: `${input.evidenceRefs.length} evidence refs available for report reconstruction.`,
+      refs: sortUniqueRefs(input.evidenceRefs)
+    },
+    {
+      sectionId: "metadata",
+      title: "Metadata",
+      summary: `Template ${input.reportTemplateVersion} generated for ${input.reportAudience} audience.`,
+      refs: sortUniqueRefs([...input.artifactRefs, ...scopeSummary])
+    },
+    {
+      sectionId: "scope",
+      title: "PMO Scope",
+      summary: `${scopeSummary.length} scoped PMO refs in this report.`,
+      refs: sortUniqueRefs(scopeSummary)
+    }
+  ].sort((left, right) => left.sectionId.localeCompare(right.sectionId));
+}
+
+function buildReportMarkdown(input: {
+  templateVersion: string;
+  reportAudience: string;
+  sections: ProgramUpdateSection[];
+  stateVersionHash: string;
+}): string {
+  const header = [
+    "# PMO Program Update",
+    `templateVersion: ${input.templateVersion}`,
+    `audience: ${input.reportAudience}`,
+    `stateVersionHash: ${input.stateVersionHash}`
+  ];
+
+  const details = input.sections
+    .map(
+      (section) =>
+        [
+          `## ${section.title}`,
+          `id: ${section.sectionId}`,
+          `summary: ${section.summary}`,
+          ...section.refs.map((entry) => `- ${entry}`)
+        ].join("\n")
+    )
+    .join("\n\n");
+
+  return [...header, "", details].join("\n");
+}
+
+function compareAuditEvents(left: ProgramEvent, right: ProgramEvent): number {
+  return right.recordedAt.localeCompare(left.recordedAt) || left.eventId.localeCompare(right.eventId);
+}
+
+function contextAnchorRefs(contextAnchor: ContextAnchor | undefined): string[] {
+  if (!contextAnchor) {
+    return [];
+  }
+
+  return sortUniqueRefs(
+    [
+      contextAnchor.portfolioId,
+      contextAnchor.programId,
+      contextAnchor.projectId,
+      contextAnchor.repoId,
+      contextAnchor.hoplonSnapshotRef
+    ].filter((value): value is string => Boolean(value))
+  );
+}
+
+function eventMatchesTargetRefs(event: ProgramEvent, targetRefs: string[] | undefined): boolean {
+  if (!targetRefs?.length) {
+    return true;
+  }
+
+  const eventRefs = new Set([
+    event.eventId,
+    ...event.evidenceRefs,
+    ...event.artifactRefs,
+    ...contextAnchorRefs(event.contextAnchor)
+  ]);
+  return targetRefs.some((targetRef) => eventRefs.has(targetRef));
+}
+
+function eventMatchesWindow(event: ProgramEvent, since?: string, until?: string): boolean {
+  if (since && event.recordedAt < since) {
+    return false;
+  }
+  if (until && event.recordedAt > until) {
+    return false;
+  }
+  return true;
 }
 
 function statusFromValues(values: string[]): "ok" | "warning" | "blocked" | "error" | "degraded" {
@@ -302,6 +584,23 @@ function summarizeHealthStatus(health: AdapterHealthResult): ToolWarning | undef
   };
 }
 
+function isBlockingHealthStatus(status: AdapterHealthResult["status"]): boolean {
+  return status === "stale" || status === "unavailable" || status === "circuit_open";
+}
+
+function readLimitForHealth(baseLimit: number | undefined, status: AdapterHealthResult["status"]): number | undefined {
+  const normalized = baseLimit ?? 10;
+  return status === "degraded" ? Math.min(normalized, 1) : normalized;
+}
+
+function capFindingsForHealth<T>(
+  values: T[],
+  status: AdapterHealthResult["status"],
+  cap: number
+): T[] {
+  return status === "degraded" ? values.slice(0, cap) : values;
+}
+
 function defaultContextAnchor(request: {
   portfolioId: string;
   programId?: string;
@@ -326,6 +625,158 @@ function collectArtifactRefsFromEvidence(
   return sortUnique(
     evidenceRefs.flatMap((evidenceRef) => (evidenceRef.artifactRef ? [evidenceRef.artifactRef] : []))
   );
+}
+
+function dependencyPointer(dependencyId: string): string {
+  return `dependency://${dependencyId.replace(/[^A-Za-z0-9._~:-]/g, "-")}`;
+}
+
+function contextPaneItemFromMatch(match: ContextMatch, inclusionReason: string): ContextPaneItem {
+  return {
+    ref: match.ref,
+    kind: match.kind,
+    status: match.status,
+    summary: match.reason,
+    inclusionReason,
+    recordedAt: match.recordedAt,
+    evidenceRefs: sortUnique(match.evidenceRefs)
+  };
+}
+
+function contextPaneItemFromDecision(
+  decision: DecisionRecord,
+  inclusionReason: string
+): ContextPaneItem {
+  return {
+    ref: decision.decisionId,
+    kind: "decision",
+    status: decision.status,
+    summary: decision.summary,
+    inclusionReason,
+    recordedAt: decision.recordedAt,
+    evidenceRefs: sortUnique(decision.evidenceRefs)
+  };
+}
+
+function contextPaneItemFromRelationship(
+  relationship: GraphRelationship,
+  inclusionReason: string
+): ContextPaneItem {
+  return {
+    ref: dependencyPointer(relationship.dependencyId),
+    kind: "dependency",
+    status: relationship.status,
+    summary: `${relationship.fromRef} ${relationship.dependencyType} ${relationship.toRef}`,
+    inclusionReason,
+    recordedAt: relationship.recordedAt,
+    evidenceRefs: sortUnique(relationship.evidenceRefs)
+  };
+}
+
+function intersectsTargetRefs(relationship: GraphRelationship, targetRefs: string[]): boolean {
+  if (targetRefs.length === 0) {
+    return true;
+  }
+
+  return targetRefs.some(
+    (targetRef) =>
+      relationship.fromRef === targetRef ||
+      relationship.toRef === targetRef ||
+      relationship.contractRef === targetRef ||
+      relationship.evidenceRefs.includes(targetRef) ||
+      relationship.policyRefs?.includes(targetRef)
+  );
+}
+
+function buildContextPanes(input: {
+  matchedRefs: ContextMatch[];
+  relationships: GraphRelationship[];
+  decisions: DecisionRecord[];
+  targetRefs: string[];
+  limit?: number;
+}): {
+  currentState: ContextPaneItem[];
+  blockingDependencies: ContextPaneItem[];
+  applicableDecisions: ContextPaneItem[];
+  supersededDecisions: ContextPaneItem[];
+  discardedDecisions: ContextPaneItem[];
+  futureDecisions: ContextPaneItem[];
+  staleEvidence: ContextPaneItem[];
+  recommendedActions: RecommendedContextAction[];
+} {
+  const limit = input.limit ?? 10;
+  const currentState = input.matchedRefs
+    .filter((match) => match.status !== "stale")
+    .map((match) => contextPaneItemFromMatch(match, "matched by repository or read-only adapter"))
+    .sort(compareContextPaneItems)
+    .slice(0, limit);
+  const blockingDependencies = input.relationships
+    .filter((relationship) => ["blocked", "pending", "stale"].includes(relationship.status))
+    .filter((relationship) => intersectsTargetRefs(relationship, input.targetRefs))
+    .map((relationship) =>
+      contextPaneItemFromRelationship(
+        relationship,
+        `${relationship.status} dependency intersects the requested context target`
+      )
+    )
+    .sort(compareContextPaneItems)
+    .slice(0, limit);
+  const staleEvidence = [
+    ...input.matchedRefs
+      .filter((match) => match.status === "stale")
+      .map((match) =>
+        contextPaneItemFromMatch(match, "stale observed state must remain pointer-only")
+      ),
+    ...input.relationships
+      .filter((relationship) => relationship.status === "stale")
+      .filter((relationship) => intersectsTargetRefs(relationship, input.targetRefs))
+      .map((relationship) =>
+        contextPaneItemFromRelationship(
+          relationship,
+          "stale dependency evidence cannot satisfy current read requirements silently"
+        )
+      )
+  ]
+    .sort(compareContextPaneItems)
+    .slice(0, limit);
+  const decisionsByStatus = (status: DecisionRecord["status"], inclusionReason: string) =>
+    input.decisions
+      .filter((decision) => decision.status === status)
+      .map((decision) => contextPaneItemFromDecision(decision, inclusionReason))
+      .sort(compareContextPaneItems)
+      .slice(0, limit);
+  const recommendedActions: RecommendedContextAction[] = [
+    ...staleEvidence.map((item, index) => ({
+      actionId: `action://query-program-context/review-stale-evidence/${index + 1}`,
+      actionType: "review_stale_evidence",
+      summary: `Refresh or verify stale evidence for ${item.ref}.`,
+      inclusionReason: "stale evidence pane item requires an explicit downstream refresh or verification decision",
+      targetRefs: [item.ref],
+      evidenceRefs: sortUnique(item.evidenceRefs)
+    })),
+    ...blockingDependencies.map((item, index) => ({
+      actionId: `action://query-program-context/resolve-blocking-dependency/${index + 1}`,
+      actionType: "resolve_blocking_dependency",
+      summary: `Resolve or reclassify ${item.status} dependency ${item.ref}.`,
+      inclusionReason: "blocking dependency pane item affects execution readiness",
+      targetRefs: [item.ref],
+      evidenceRefs: sortUnique(item.evidenceRefs)
+    }))
+  ].sort(compareRecommendedActions);
+
+  return {
+    currentState,
+    blockingDependencies,
+    applicableDecisions: decisionsByStatus("applicable", "decision applies to the requested anchor"),
+    supersededDecisions: decisionsByStatus("superseded", "decision is superseded for the requested anchor"),
+    discardedDecisions: decisionsByStatus("discarded", "decision was discarded and must not be treated as applicable"),
+    futureDecisions: decisionsByStatus(
+      "future_not_applicable",
+      "decision is recorded but not yet applicable to the requested anchor"
+    ),
+    staleEvidence,
+    recommendedActions
+  };
 }
 
 function makeWarning(
@@ -510,20 +961,300 @@ export class ProgramToolService {
       ...(request.programId ? { programId: request.programId } : {}),
       ...(request.projectIds ? { projectIds: request.projectIds } : {}),
       deterministicCore,
-      evidenceRefs,
-      artifactRefs,
-      redactionSummary,
+        evidenceRefs,
+        artifactRefs,
+        redactionSummary,
       warnings: [],
       nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.get_program_documentation,
       traceId: request.traceId,
       correlationId: request.correlationId,
-      stateVersionHash: stateVersionHashFromInput({
-        request: {
-          topic: request.topic,
-          format: request.format ?? "json_summary",
-          portfolioId: request.portfolioId,
+        stateVersionHash: stateVersionHashFromInput({
+          request: {
+            topic: request.topic,
+            format: request.format ?? "json_summary",
+            portfolioId: request.portfolioId,
           programId: request.programId,
           projectIds: request.projectIds
+        },
+        deterministicCore,
+          evidenceRefs,
+          artifactRefs
+        })
+      });
+  }
+
+  async generateProgramUpdate(requestInput: unknown, actor: ProgramToolActor) {
+    const request = generateProgramUpdateRequestSchema.parse(requestInput);
+
+    try {
+      assertReadAuthorized(
+        actor,
+        {
+          ...request,
+          projectIds: inferScopedProjectIds({
+            ...request,
+            projectIds: request.projectIds
+          })
+        },
+        this.#now()
+      );
+      await this.#adapterRegistry.assertNoMutationAuthority();
+    } catch (error) {
+      return generateProgramUpdateResultSchema.parse(
+        this.#blockedEnvelope("generate_program_update", request, error)
+      );
+    }
+
+    const scope = {
+      portfolioId: request.portfolioId,
+      programId: request.programId,
+      projectIds: inferScopedProjectIds({
+        ...request,
+        projectIds: request.projectIds
+      })
+    };
+    const reportAudience = request.reportAudience ?? "execution";
+    const templateVersion = request.templateVersion ?? DEFAULT_REPORT_TEMPLATE_VERSION;
+    const [
+      programs,
+      projects,
+      relationships,
+      decisions,
+      cursors,
+      allEvidenceRefs
+    ] = await Promise.all([
+      this.#repository.listPrograms(scope),
+      this.#repository.listProjects(scope),
+      this.#repository.listRelationships(scope),
+      this.#repository.listDecisions({
+        scope,
+        contextAnchor: request.contextAnchor
+      }),
+      this.#repository.getSyncCursors(scope),
+      this.#repository.listEvidenceRefs(scope)
+    ]);
+
+    const evidenceRefs = sortUniqueRefs([
+      ...decisions.flatMap((decision) => decision.evidenceRefs),
+      ...relationships.flatMap((relationship) => [
+        ...relationship.evidenceRefs,
+        ...(relationship.contractRef ? [relationship.contractRef] : []),
+        ...(relationship.policyRefs ?? [])
+      ]),
+      ...allEvidenceRefs.map((entry) => entry.evidenceRef)
+    ]);
+    const matchedEvidenceRefs = await this.#repository.listEvidenceRefs(scope, evidenceRefs);
+    const resolvedArtifactRefs = await this.#repository.listArtifactRefs(
+      scope,
+      collectArtifactRefsFromEvidence(matchedEvidenceRefs)
+    );
+    const artifactRefs = sortUniqueRefs([
+      ...resolvedArtifactRefs.map((artifactRef) => artifactRef.artifactRef),
+      ...cursors.map((cursor) => pointerFromCursor(cursor.adapterId, cursor.cursor))
+    ]);
+    const programIds = sortUnique(programs.map((program) => program.programId));
+    const projectIds = sortUnique(projects.map((project) => project.projectId));
+    const sections = buildProgramUpdateSections({
+      decisions,
+      evidenceRefs,
+      artifactRefs,
+      portfolioIds: [request.portfolioId],
+      programIds,
+      projectIds,
+      relationships,
+      reportAudience,
+      reportTemplateVersion: templateVersion
+    });
+    const appliedSections = request.maxSections
+      ? sections.slice(0, request.maxSections)
+      : sections;
+    const sectionRefs = appliedSections.map((section) =>
+      makeProgramUpdateSectionRef(templateVersion, section.sectionId)
+    );
+    const inputRefs = buildInputRefs(
+      request,
+      scope,
+      programs,
+      projects,
+      decisions,
+      relationships,
+      evidenceRefs,
+      artifactRefs
+    );
+    const stateVersionHash = stateVersionHashFromInput({
+      request: {
+        maxSections: request.maxSections,
+        portfolioId: request.portfolioId,
+        programId: request.programId,
+        projectIds: scope.projectIds,
+        reportAudience,
+        templateVersion,
+        contextAnchor: request.contextAnchor
+      },
+      sections: appliedSections,
+      sectionRefs,
+      inputRefs,
+      evidenceRefs,
+      artifactRefs
+    });
+    const reportMarkdown = buildReportMarkdown({
+      stateVersionHash,
+      templateVersion,
+      reportAudience,
+      sections: appliedSections
+    });
+    const reportMarkdownRef = makeReportMarkdownRef(
+      templateVersion,
+      sha256ForInput(reportMarkdown)
+    );
+    const evidenceEnvelope = {
+      artifactRefs,
+      evidenceRefs,
+      generatedAt: request.contextAnchor?.asOf ?? this.#now(),
+      inputRefs,
+      sectionRefs,
+      stateVersionHash,
+      templateVersion
+    };
+    const evidenceEnvelopeRef = makeEvidenceEnvelopeRef(
+      templateVersion,
+      sha256ForInput(evidenceEnvelope)
+    );
+    const warnings: ToolWarning[] = [];
+    const deterministicCore = {
+      evidenceEnvelope,
+      evidenceEnvelopeRef,
+      inputRefs,
+      reportAudience,
+      reportMarkdownRef,
+      sectionRefs,
+      sections: appliedSections,
+      templateVersion
+    };
+
+    return generateProgramUpdateResultSchema.parse({
+      schemaVersion: "1",
+      status: warnings.length > 0 ? "warning" : "ok",
+      toolName: "generate_program_update",
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(scope.projectIds.length > 0 ? { projectIds: scope.projectIds } : {}),
+      deterministicCore,
+      evidenceRefs,
+      artifactRefs,
+      redactionSummary: buildRedactionSummary({
+        policyRefs: DEFAULT_REDACTION_POLICY_REFS
+      }),
+      warnings,
+      nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.generate_program_update,
+      traceId: request.traceId,
+      correlationId: request.correlationId,
+      stateVersionHash
+    });
+  }
+
+  async getProgramAuditTrail(requestInput: unknown, actor: ProgramToolActor) {
+    const request = getProgramAuditTrailRequestSchema.parse(requestInput);
+
+    try {
+      assertReadAuthorized(
+        actor,
+        {
+          ...request,
+          projectIds: inferScopedProjectIds({
+            ...request,
+            projectIds: request.projectIds,
+            targetRefs: request.targetRefs ?? []
+          })
+        },
+        this.#now()
+      );
+      await this.#adapterRegistry.assertNoMutationAuthority();
+    } catch (error) {
+      return getProgramAuditTrailResultSchema.parse(
+        this.#blockedEnvelope("get_program_audit_trail", request, error)
+      );
+    }
+
+    const scope = {
+      portfolioId: request.portfolioId,
+      programId: request.programId,
+      projectIds: inferScopedProjectIds({
+        ...request,
+        projectIds: request.projectIds,
+        targetRefs: request.targetRefs ?? []
+      })
+    };
+    const events = await this.#repository.listEvents(scope);
+    const eventTypeSet = request.eventTypes ? new Set(request.eventTypes) : undefined;
+    const filteredEvents = events
+      .filter((event) => !eventTypeSet || eventTypeSet.has(event.eventType))
+      .filter((event) => eventMatchesWindow(event, request.since, request.until))
+      .filter((event) => eventMatchesTargetRefs(event, request.targetRefs))
+      .sort(compareAuditEvents);
+    const limit = request.limit ?? filteredEvents.length;
+    const selectedEvents = filteredEvents.slice(0, limit);
+    const omittedEntryCount = Math.max(0, filteredEvents.length - selectedEvents.length);
+    const auditEntries = selectedEvents.map((event) => ({
+      artifactRefs: sortUniqueRefs(event.artifactRefs),
+      ...(event.contextAnchor ? { contextAnchor: event.contextAnchor } : {}),
+      eventId: event.eventId,
+      eventType: event.eventType,
+      evidenceRefs: sortUniqueRefs(event.evidenceRefs),
+      inclusionReason: "event matched requested portfolio/program/project/audit filters",
+      recordedAt: event.recordedAt
+    }));
+    const evidenceRefs = sortUniqueRefs(auditEntries.flatMap((entry) => entry.evidenceRefs));
+    const matchedEvidenceRefs = await this.#repository.listEvidenceRefs(scope, evidenceRefs);
+    const artifactRefs = sortUniqueRefs([
+      ...auditEntries.flatMap((entry) => entry.artifactRefs),
+      ...collectArtifactRefsFromEvidence(matchedEvidenceRefs)
+    ]);
+    const deterministicCore = {
+      auditEntries,
+      omittedEntryCount
+    };
+
+    return getProgramAuditTrailResultSchema.parse({
+      schemaVersion: "1",
+      status: omittedEntryCount > 0 ? "warning" : "ok",
+      toolName: "get_program_audit_trail",
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(scope.projectIds.length > 0 ? { projectIds: scope.projectIds } : {}),
+      deterministicCore,
+      evidenceRefs,
+      artifactRefs,
+      redactionSummary: buildRedactionSummary({
+        redacted: true,
+        omittedKinds: ["audit_log_body"],
+        policyRefs: DEFAULT_REDACTION_POLICY_REFS
+      }),
+      warnings:
+        omittedEntryCount > 0
+          ? [
+              makeWarning(
+                "audit-trail-bounded",
+                "medium",
+                `${omittedEntryCount} audit entries were omitted by the requested limit.`,
+                evidenceRefs
+              )
+            ]
+          : [],
+      nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.get_program_audit_trail,
+      traceId: request.traceId,
+      correlationId: request.correlationId,
+      stateVersionHash: stateVersionHashFromInput({
+        request: {
+          eventTypes: request.eventTypes,
+          limit: request.limit,
+          portfolioId: request.portfolioId,
+          programId: request.programId,
+          projectIds: scope.projectIds,
+          since: request.since,
+          targetRefs: request.targetRefs,
+          until: request.until,
+          contextAnchor: request.contextAnchor
         },
         deterministicCore,
         evidenceRefs,
@@ -580,20 +1311,76 @@ export class ProgramToolService {
           manifest.capabilityDomains.includes(domain)
         )
       );
-    const adapterReads = await Promise.all(
-      manifests.map((manifest) =>
-        this.#adapterRegistry.readState(manifest.adapterId, {
-          requestId: `${request.correlationId}:${manifest.adapterId}`,
-          portfolioId: request.portfolioId,
-          programId: request.programId,
-          projectIds: scope.projectIds,
-          targetRefs: request.targetRefs,
-          limit: request.limit,
-          contextAnchor: request.contextAnchor
-        })
-      )
+    const now = this.#now();
+    const healths = await Promise.all(
+      manifests.map((manifest) => this.#adapterRegistry.getHealth(manifest.adapterId, scope, now))
     );
-    const sanitizedAdapterReads = adapterReads.map((result) => sanitizePointerPayload(result));
+    const healthByAdapterId = new Map(healths.map((health) => [health.adapterId, health]));
+    const adapterReadAttempts = await Promise.all(
+      manifests.map(async (manifest) => {
+        const health = healthByAdapterId.get(manifest.adapterId);
+        if (!health || isBlockingHealthStatus(health.status)) {
+          return { adapterId: manifest.adapterId, health } as AdapterReadAttempt;
+        }
+
+        try {
+          const result = await this.#adapterRegistry.readState(manifest.adapterId, {
+            requestId: `${request.correlationId}:${manifest.adapterId}`,
+            portfolioId: request.portfolioId,
+            programId: request.programId,
+            projectIds: scope.projectIds,
+            targetRefs: request.targetRefs,
+            limit: readLimitForHealth(request.limit, health.status),
+            contextAnchor: request.contextAnchor
+          }, now);
+          return {
+            adapterId: manifest.adapterId,
+            health,
+            result: sanitizePointerPayload(result)
+          } as AdapterReadAttempt;
+        } catch {
+          return {
+            adapterId: manifest.adapterId,
+            health,
+            errorSummary: makeWarning(
+              `adapter-read-${manifest.adapterId}-error`,
+              "high",
+              `${manifest.adapterId} readState failed`,
+              [`evidence://adapter-health/${manifest.adapterId}/unavailable`]
+            )
+          } as AdapterReadAttempt;
+        }
+      })
+    );
+    const adapterReadValues = adapterReadAttempts.filter(
+      (attempt): attempt is AdapterReadAttempt & { result: SanitizedAdapterReadState } =>
+        attempt.result !== undefined
+    );
+    const adapterReadErrors = adapterReadAttempts.filter(
+      (attempt): attempt is AdapterReadAttempt => attempt.errorSummary !== undefined
+    );
+    const sanitizedAdapterReads = adapterReadValues.map((attempt) => attempt.result);
+    const readWarnings = adapterReadValues
+      .filter(({ result }) => result.value.truncated || result.value.omittedRefCount > 0)
+      .map(({ result }) =>
+        makeWarning(
+          `adapter-read-${result.value.adapterId}-bounded`,
+          "medium",
+          `${result.value.adapterId} returned a bounded context window with ${result.value.omittedRefCount} omitted refs.`,
+          result.value.evidenceRefs
+        )
+      );
+    const errorWarnings = adapterReadErrors
+      .map((attempt) => attempt.errorSummary)
+      .filter((warning): warning is ToolWarning => warning !== undefined);
+    const healthWarnings = healths
+      .map((health) => summarizeHealthStatus(health))
+      .filter((warning): warning is ToolWarning => Boolean(warning));
+    const warnings = [
+      ...healthWarnings,
+      ...readWarnings,
+      ...errorWarnings
+    ];
     const adapterMatches = sanitizedAdapterReads.flatMap(({ value }) =>
       value.observations.map((observation) => ({
         ref: observation.ref,
@@ -616,9 +1403,18 @@ export class ProgramToolService {
       .sort(compareMatchedRefs);
     const evidenceRefs = sortUnique([
       ...combinedMatches.flatMap((match) => match.evidenceRefs),
-      ...sanitizedAdapterReads.flatMap(({ value }) => value.evidenceRefs)
+      ...sanitizedAdapterReads.flatMap(({ value }) => value.evidenceRefs),
+      ...healths.map((health) => `evidence://adapter-health/${health.adapterId}/${health.status}`)
     ]);
-    const matchedEvidenceRefs = await this.#repository.listEvidenceRefs(scope, evidenceRefs);
+    const [matchedEvidenceRefs, relationships, decisions] = await Promise.all([
+      this.#repository.listEvidenceRefs(scope, evidenceRefs),
+      this.#repository.listRelationships(scope),
+      this.#repository.listDecisions({
+        scope,
+        contextAnchor: request.contextAnchor,
+        targetRefs: request.targetRefs
+      })
+    ]);
     const resolvedArtifactRefs = await this.#repository.listArtifactRefs(
       scope,
       collectArtifactRefsFromEvidence(matchedEvidenceRefs)
@@ -626,25 +1422,20 @@ export class ProgramToolService {
     const cursors = await this.#repository.getSyncCursors(scope);
     const redactionSummary = mergeRedactionSummaries(
       repoContext.redactionSummary,
-      ...sanitizedAdapterReads.map((entry) => entry.redactionSummary),
-      ...adapterReads.map((entry) => entry.redactionSummary)
+      ...sanitizedAdapterReads.map((entry) => entry.redactionSummary)
     );
-    const warnings = sanitizedAdapterReads
-      .filter(({ value }) => value.truncated || value.omittedRefCount > 0)
-      .map(({ value }) =>
-        makeWarning(
-          `adapter-read-${value.adapterId}-bounded`,
-          "medium",
-          `${value.adapterId} returned a bounded context window with ${value.omittedRefCount} omitted refs.`,
-          value.evidenceRefs
-        )
-      )
-      .sort(compareWarnings);
     const deterministicCore = {
       contextAnchor: {
         ...defaultContextAnchor(request),
         ...(repoContext.value.contextAnchor ?? {})
       },
+      contextPanes: buildContextPanes({
+        matchedRefs: combinedMatches,
+        relationships,
+        decisions,
+        targetRefs: request.targetRefs,
+        limit: request.limit
+      }),
       matchedRefs: combinedMatches,
       omittedRefCount:
         repoContext.value.omittedRefCount +
@@ -667,7 +1458,7 @@ export class ProgramToolService {
       evidenceRefs,
       artifactRefs,
       redactionSummary,
-      warnings,
+      warnings: warnings.sort(compareWarnings),
       nextRecommendedTool: TOOL_NEXT_RECOMMENDATION.query_program_context,
       traceId: request.traceId,
       correlationId: request.correlationId,
@@ -732,21 +1523,70 @@ export class ProgramToolService {
     });
     const repoImpact = sanitizePointerPayload(repoImpactResult);
     const manifests = this.#adapterRegistry.listManifests();
-    const adapterImpacts = await Promise.all(
-      manifests.map((manifest) =>
-        this.#adapterRegistry.assessImpact(manifest.adapterId, {
-          requestId: `${request.correlationId}:${manifest.adapterId}`,
-          portfolioId: request.portfolioId,
-          programId: request.programId,
-          changeRef: request.changeRef,
-          changeKind: request.changeKind,
-          targetRefs: request.targetRefs,
-          traversalBudgetRef: request.traversalBudgetRef,
-          contextAnchor: request.contextAnchor
-        })
-      )
+    const now = this.#now();
+    const healths = await Promise.all(
+      manifests.map((manifest) => this.#adapterRegistry.getHealth(manifest.adapterId, scope, now))
     );
-    const sanitizedAdapterImpacts = adapterImpacts.map((result) => sanitizePointerPayload(result));
+    const healthByAdapterId = new Map(healths.map((health) => [health.adapterId, health]));
+    const adapterImpactAttempts = await Promise.all(
+      manifests.map(async (manifest) => {
+        const health = healthByAdapterId.get(manifest.adapterId);
+        if (!health || isBlockingHealthStatus(health.status)) {
+          return { adapterId: manifest.adapterId, health } as AdapterImpactAttempt;
+        }
+
+        try {
+          const result = await this.#adapterRegistry.assessImpact(
+            manifest.adapterId,
+            {
+              requestId: `${request.correlationId}:${manifest.adapterId}`,
+              portfolioId: request.portfolioId,
+              programId: request.programId,
+              changeRef: request.changeRef,
+              changeKind: request.changeKind,
+              targetRefs: request.targetRefs,
+              traversalBudgetRef: request.traversalBudgetRef,
+              contextAnchor: request.contextAnchor
+            },
+            now
+          );
+          return {
+            adapterId: manifest.adapterId,
+            health,
+            result: sanitizePointerPayload(result)
+          } as AdapterImpactAttempt;
+        } catch {
+          return {
+            adapterId: manifest.adapterId,
+            health,
+            errorSummary: makeWarning(
+              `adapter-impact-${manifest.adapterId}-error`,
+              "high",
+              `${manifest.adapterId} assessImpact failed`,
+              [`evidence://adapter-health/${manifest.adapterId}/unavailable`]
+            )
+          } as AdapterImpactAttempt;
+        }
+      })
+    );
+    const adapterImpactValues = adapterImpactAttempts.filter(
+      (attempt): attempt is AdapterImpactAttempt & { result: SanitizedAdapterImpactState } =>
+        attempt.result !== undefined
+    );
+    const adapterImpactErrors = adapterImpactAttempts.filter(
+      (attempt): attempt is AdapterImpactAttempt => attempt.errorSummary !== undefined
+    );
+    const sanitizedAdapterImpacts = adapterImpactValues.map((attempt) => {
+      const cap = attempt.health.status === "degraded" ? 1 : Number.MAX_SAFE_INTEGER;
+      return {
+        ...attempt.result,
+        value: {
+          ...attempt.result.value,
+          affectedRefs: capFindingsForHealth(attempt.result.value.affectedRefs, attempt.health.status, cap),
+          findings: capFindingsForHealth(attempt.result.value.findings, attempt.health.status, cap)
+        }
+      } as SanitizedAdapterImpactState;
+    });
     const affectedRefs = sortUnique(
       [
         ...repoImpact.value.affectedRefs,
@@ -770,7 +1610,8 @@ export class ProgramToolService {
       .sort(compareFindings);
     const evidenceRefs = sortUnique([
       ...findings.flatMap((finding) => finding.evidenceRefs),
-      ...sanitizedAdapterImpacts.flatMap(({ value }) => value.evidenceRefs)
+      ...sanitizedAdapterImpacts.flatMap(({ value }) => value.evidenceRefs),
+      ...healths.map((health) => `evidence://adapter-health/${health.adapterId}/${health.status}`)
     ]);
     const matchedEvidenceRefs = await this.#repository.listEvidenceRefs(scope, evidenceRefs);
     const resolvedArtifactRefs = await this.#repository.listArtifactRefs(
@@ -780,7 +1621,10 @@ export class ProgramToolService {
     const adapterCursors = await Promise.all(
       manifests.map((manifest) => this.#adapterRegistry.getSourceCursor(manifest.adapterId, scope))
     );
-    const warnings = sanitizedAdapterImpacts
+    const healthWarnings = healths
+      .map((health) => summarizeHealthStatus(health))
+      .filter((warning): warning is ToolWarning => Boolean(warning));
+    const impactWarnings = sanitizedAdapterImpacts
       .filter(({ value }) => value.status !== "ok")
       .map(({ value }) =>
         makeWarning(
@@ -789,11 +1633,17 @@ export class ProgramToolService {
           `${value.adapterId} reported ${value.status} impact status.`,
           value.evidenceRefs
         )
-      )
-      .sort(compareWarnings);
+      );
+    const errorWarnings = adapterImpactErrors
+      .map((attempt) => attempt.errorSummary)
+      .filter((warning): warning is ToolWarning => warning !== undefined);
+    const warnings = [
+      ...healthWarnings,
+      ...impactWarnings,
+      ...errorWarnings
+    ].sort(compareWarnings);
     const redactionSummary = mergeRedactionSummaries(
       repoImpact.redactionSummary,
-      ...adapterImpacts.map((entry) => entry.redactionSummary),
       ...sanitizedAdapterImpacts.map((entry) => entry.redactionSummary)
     );
     const deterministicCore = {
@@ -817,7 +1667,8 @@ export class ProgramToolService {
     ]);
     const status = statusFromValues([
       warnings.length > 0 ? "warning" : "ok",
-      ...adapterImpacts.map((impact) => impact.status)
+      ...healths.map((health) => (health.status === "healthy" ? "ok" : "warning")),
+      ...adapterImpactValues.map((impact) => impact.result.value.status)
     ]);
 
     return assessProgramImpactResultSchema.parse({

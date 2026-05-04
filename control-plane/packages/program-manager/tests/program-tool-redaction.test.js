@@ -79,6 +79,12 @@ test("query_program_context merges adapter redaction summaries and omits prohibi
         }
       ];
     },
+    async listRelationships() {
+      return [];
+    },
+    async listDecisions() {
+      return [];
+    },
     async assessImpact() {
       return {
         affectedRefs: [],

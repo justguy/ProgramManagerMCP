@@ -1,21 +1,116 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import path from "node:path";
 import {
   AdapterRegistry,
   HoplonAdapterStub,
   TrackerAdapterStub
 } from "../src/adapters/program-adapter-registry.ts";
 
-const repoRoot = path.resolve(process.cwd(), "..", "..", "..");
-
 async function readFixture() {
-  const raw = await readFile(
-    path.join(repoRoot, "docs/phase-0/fixtures/adapter-contract-fixtures.example.json"),
-    "utf8"
-  );
+  const fixturePath = new URL("../../../../docs/phase-0/fixtures/adapter-contract-fixtures.example.json", import.meta.url);
+  const raw = await readFile(fixturePath, "utf8");
   return JSON.parse(raw);
+}
+
+function buildCircuitProbeAdapter() {
+  let readStateFailureCount = 0;
+
+  const manifest = {
+    adapterId: "probe-circuit",
+    adapterVersion: "1.0.0",
+    authScopes: ["portfolio:default:read"],
+    capabilityDomains: ["code_context"],
+    displayName: "Probe Circuit Adapter",
+    evidenceTypes: ["probe_snapshot"],
+    healthModel: {
+      circuitOpenAfterFailures: 2,
+      circuitOpenSeconds: 60,
+      statuses: ["circuit_open", "degraded", "healthy", "unavailable"]
+    },
+    maxStaleCursorSeconds: 300,
+    methods: {
+      assessImpact: true,
+      describeCapabilities: true,
+      getHealth: true,
+      getObservationSchema: true,
+      getSourceCursor: true,
+      produceEvidenceRefs: true,
+      readState: true,
+      reconcileState: false
+    },
+    phase1aEnabled: true,
+    redactionPolicyRefs: ["policy://redaction/pointer-only-v1"],
+    sideEffectPosture: "read_only",
+    supportedProjects: ["project://default"]
+  };
+
+  return {
+    manifest,
+    describeCapabilities: async () => manifest,
+    getObservationSchema: async () => ({
+      schemaVersion: "1",
+      domain: "probe",
+      observationType: "test"
+    }),
+    readState: async () => {
+      readStateFailureCount += 1;
+      if (readStateFailureCount <= 2) {
+        throw new Error(`Transient read failure #${readStateFailureCount}`);
+      }
+
+      return {
+        adapterId: "probe-circuit",
+        sourceCursor: "cursor://probe-circuit/current",
+        observedAt: "2026-05-03T12:00:00Z",
+        observations: [],
+        artifactRefs: [],
+        evidenceRefs: [],
+        truncated: false,
+        omittedRefCount: 0,
+        omittedRefs: [],
+        redactionSummary: {
+          redacted: false,
+          omittedKinds: [],
+          policyRefs: ["policy://redaction/pointer-only-v1"]
+        }
+      };
+    },
+    assessImpact: async () => ({
+      adapterId: "probe-circuit",
+      status: "ok",
+      sourceCursor: "cursor://probe-circuit/current",
+      affectedRefs: [],
+      findings: [],
+      evidenceRefs: [],
+      artifactRefs: [],
+      redactionSummary: {
+        redacted: false,
+        omittedKinds: [],
+        policyRefs: ["policy://redaction/pointer-only-v1"]
+      },
+      requestId: "probe"
+    }),
+    produceEvidenceRefs: async (input) =>
+      [...input.evidenceRefs],
+    getSourceCursor: async () => ({
+      adapterId: "probe-circuit",
+      portfolioId: "portfolio://default",
+      cursor: "cursor://probe-circuit/current",
+      observedAt: "2026-05-03T12:00:00Z",
+      sourceRevisionHash: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      status: "current"
+    }),
+    getHealth: async () => ({
+      adapterId: "probe-circuit",
+      status: "healthy",
+      reasons: [],
+      cursor: "cursor://probe-circuit/current",
+      observedAt: "2026-05-03T12:00:00Z",
+      checkedAt: "2026-05-03T12:00:00Z",
+      maxStaleCursorSeconds: 300
+    })
+  };
 }
 
 test("adapter manifest registry includes both LLM Tracker and Hoplon stubs", async () => {
@@ -40,6 +135,35 @@ test("adapter manifest registry includes both LLM Tracker and Hoplon stubs", asy
   assert.ok(tracker);
   assert.equal(hoplon?.sideEffectPosture, "mutation_capable_not_exposed");
   assert.equal(tracker?.sideEffectPosture, "read_only");
+});
+
+test("read failures open and recover the adapter circuit after backoff", async () => {
+  const probe = buildCircuitProbeAdapter();
+  const registry = new AdapterRegistry([probe]);
+  const scope = { portfolioId: "portfolio://default" };
+  const request = {
+    requestId: "circuit-probe-request",
+    portfolioId: "portfolio://default",
+    targetRefs: ["probe://target-1"],
+    limit: 10
+  };
+
+  await assert.rejects(() => registry.readState("probe-circuit", request, "2026-05-03T12:00:00Z"));
+  await assert.rejects(() => registry.readState("probe-circuit", request, "2026-05-03T12:00:00Z"));
+  await assert.rejects(() => registry.readState("probe-circuit", request, "2026-05-03T12:00:00Z"));
+  const openHealth = await registry.getHealth("probe-circuit", scope, "2026-05-03T12:00:00Z");
+  assert.equal(openHealth.status, "circuit_open");
+  assert.ok(openHealth.reasons.some((reason) => reason.includes("circuit open")));
+
+  const recovered = await registry.readState("probe-circuit", request, "2026-05-03T12:02:00Z");
+  assert.equal(recovered.sourceCursor, "cursor://probe-circuit/current");
+
+  const healthyAfterRecovery = await registry.getHealth(
+    "probe-circuit",
+    scope,
+    "2026-05-03T12:02:00Z"
+  );
+  assert.equal(healthyAfterRecovery.status, "healthy");
 });
 
 test("PMO capability listing surfaces adapter manifests", async () => {
