@@ -50,6 +50,19 @@ function sortedStringArraySchema(label: string) {
   });
 }
 
+function sortedStringListSchema(label: string) {
+  return z.array(z.string().min(1)).superRefine((values, ctx) => {
+    try {
+      enforceSorted(values, (left, right) => left.localeCompare(right), `${label} must be sorted`);
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : `${label} must be sorted`
+      });
+    }
+  });
+}
+
 export const contentHashSchema = z
   .object({
     algorithm: z.literal("sha256"),
@@ -80,6 +93,98 @@ export const projectSchema = z
     programIds: sortedStringArraySchema("programIds").optional(),
     projectId: pointerRefSchema,
     repoRefs: sortedStringArraySchema("repoRefs").optional()
+  })
+  .strict();
+
+export const pmoScopedFactFieldsSchema = z
+  .object({
+    branchName: z.string().min(1).optional(),
+    contractRef: pointerRefSchema.optional(),
+    evidenceRefs: sortedStringArraySchema("pmoScopedFact evidenceRefs"),
+    evidenceStatus: z.enum(["supported", "unevidenced", "advisory", "needs_review"]),
+    gitCommit: gitCommitSchema.optional(),
+    id: pointerRefSchema,
+    integrationPointId: pointerRefSchema.optional(),
+    portfolioId: pointerRefSchema,
+    programId: pointerRefSchema.optional(),
+    projectId: pointerRefSchema.optional(),
+    recordedAt: isoDateTimeSchema,
+    repoId: pointerRefSchema.optional(),
+    schemaVersion: z.literal("1"),
+    sourceAdapterId: z.string().min(1),
+    sourceCursor: z.string().min(1).optional(),
+    supersededBy: pointerRefSchema.optional(),
+    trackerRev: z.number().int().nonnegative().optional(),
+    trackerSlug: z.string().min(1).optional(),
+    validFrom: isoDateTimeSchema,
+    validTo: isoDateTimeSchema.optional()
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.evidenceStatus === "supported" && value.evidenceRefs.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "supported PMO facts require evidenceRefs"
+      });
+    }
+  });
+
+export const pmoTaskSchema = pmoScopedFactFieldsSchema
+  .safeExtend({
+    assigneeRefs: sortedStringArraySchema("pmoTask assigneeRefs"),
+    blockerRefs: sortedStringArraySchema("pmoTask blockerRefs").optional(),
+    objectType: z.literal("task"),
+    priority: z.enum(["p0", "p1", "p2", "p3"]),
+    status: z.enum(["not_started", "in_progress", "blocked", "complete", "deferred"]),
+    taskRef: pointerRefSchema,
+    title: z.string().min(1)
+  })
+  .strict();
+
+export const pmoBlockerSchema = pmoScopedFactFieldsSchema
+  .safeExtend({
+    blockedRefs: sortedStringArraySchema("pmoBlocker blockedRefs"),
+    blockerRef: pointerRefSchema,
+    objectType: z.literal("blocker"),
+    ownerRefs: sortedStringArraySchema("pmoBlocker ownerRefs"),
+    severity: z.enum(["low", "medium", "high", "critical"]),
+    status: z.enum(["open", "mitigated", "resolved", "superseded"]),
+    summary: z.string().min(1)
+  })
+  .strict();
+
+export const pmoContractSchema = pmoScopedFactFieldsSchema
+  .safeExtend({
+    consumerRefs: sortedStringArraySchema("pmoContract consumerRefs"),
+    contractRef: pointerRefSchema,
+    criticality: z.enum(["tier_0", "tier_1", "tier_2", "tier_3"]),
+    objectType: z.literal("contract"),
+    producerRef: pointerRefSchema,
+    status: z.enum(["draft", "active", "deprecated", "superseded"]),
+    summary: z.string().min(1)
+  })
+  .strict();
+
+export const pmoDependencyEdgeSchema = pmoScopedFactFieldsSchema
+  .safeExtend({
+    dependencyRef: pointerRefSchema,
+    dependencyType: z.string().min(1),
+    fromRef: pointerRefSchema,
+    objectType: z.literal("dependency_edge"),
+    policyRefs: sortedStringArraySchema("pmoDependencyEdge policyRefs"),
+    status: z.enum(["active", "pending", "satisfied", "blocked", "stale", "superseded"]),
+    toRef: pointerRefSchema
+  })
+  .strict();
+
+export const pmoRunbookSchema = pmoScopedFactFieldsSchema
+  .safeExtend({
+    actionRefs: sortedStringArraySchema("pmoRunbook actionRefs"),
+    objectType: z.literal("runbook"),
+    ownerRefs: sortedStringArraySchema("pmoRunbook ownerRefs"),
+    runbookRef: pointerRefSchema,
+    status: z.enum(["draft", "active", "archived"]),
+    title: z.string().min(1)
   })
   .strict();
 
@@ -1454,6 +1559,276 @@ export const analyzeProgramIntelligenceResultSchema = programToolResultEnvelopeS
   z.object({ summary: z.string().min(1) }).strict()
 );
 
+export const pmoMacroDefinitionSchema = z
+  .object({
+    description: z.string().min(1),
+    enabled: z.boolean(),
+    inputSchemaRef: pointerRefSchema,
+    macroId: pointerRefSchema,
+    macroName: z.enum([
+      "analyze_blockers",
+      "catch_me_up",
+      "describe_macro",
+      "discover_macros",
+      "simulate_impact",
+      "detect_drift",
+      "export_registry",
+      "object_type_docs",
+      "propose_unblock_plan",
+      "registry_help",
+      "validate_macro"
+    ]),
+    outputSchemaRef: pointerRefSchema,
+    registryEntryRef: pointerRefSchema,
+    requiredRoleRefs: sortedStringArraySchema("pmoMacroDefinition requiredRoleRefs"),
+    sideEffectPosture: z.enum(["read_only", "pmo_internal_write", "describes_actions_only"]),
+    title: z.string().min(1),
+    version: z.string().min(1)
+  })
+  .strict();
+
+export const pmoMacroRegistrySchema = z
+  .object({
+    artifactRefs: sortedStringArraySchema("pmoMacroRegistry artifactRefs"),
+    evidenceRefs: sortedStringArraySchema("pmoMacroRegistry evidenceRefs"),
+    macros: z.array(pmoMacroDefinitionSchema),
+    portfolioId: pointerRefSchema,
+    recordedAt: isoDateTimeSchema,
+    registryRef: pointerRefSchema,
+    registryVersion: z.string().min(1),
+    schemaVersion: z.literal("1")
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    try {
+      enforceSorted(
+        value.macros,
+        (left, right) => left.macroId.localeCompare(right.macroId),
+        "pmo macro registry entries must be sorted by macroId"
+      );
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "pmo macro registry ordering failed"
+      });
+    }
+  });
+
+export const pmoMacroRequestSchema = programToolRequestContextSchema
+  .extend({
+    action: z.enum(["help", "list", "describe", "validate", "invoke", "edit_registry"]),
+    dryRun: z.boolean().optional(),
+    input: z.record(z.string(), z.unknown()).optional(),
+    macroId: pointerRefSchema.optional(),
+    macroVersion: z.string().min(1).optional(),
+    registryPatchRef: pointerRefSchema.optional()
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (["describe", "validate", "invoke"].includes(value.action) && !value.macroId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "macroId is required for describe, validate, and invoke actions"
+      });
+    }
+    if (value.action === "edit_registry" && !value.registryPatchRef) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "registryPatchRef is required for edit_registry actions"
+      });
+    }
+  });
+
+const pmoMacroHashRequestSchema = z
+  .object({
+    action: z.enum(["help", "list", "describe", "validate", "invoke", "edit_registry"]),
+    contextAnchor: programContextAnchorSchema.optional(),
+    dryRun: z.boolean().optional(),
+    input: z.record(z.string(), z.unknown()).optional(),
+    macroId: pointerRefSchema.optional(),
+    macroVersion: z.string().min(1).optional(),
+    portfolioId: pointerRefSchema,
+    programId: pointerRefSchema.optional(),
+    projectIds: sortedStringArraySchema("projectIds").optional(),
+    registryPatchRef: pointerRefSchema.optional()
+  })
+  .strict();
+
+const pmoMacroInvocationSummarySchema = z
+  .object({
+    artifactRefs: sortedStringArraySchema("pmoMacroInvocationSummary artifactRefs"),
+    deterministicCoreRef: pointerRefSchema.optional(),
+    evidenceRefs: sortedStringArraySchema("pmoMacroInvocationSummary evidenceRefs"),
+    macroId: pointerRefSchema,
+    macroVersion: z.string().min(1),
+    stateVersionHash: sha256DigestSchema.optional(),
+    status: z.enum(["ok", "warning", "blocked", "error", "degraded"])
+  })
+  .strict();
+
+export const pmoMacroCoreSchema = z
+  .object({
+    action: z.enum(["help", "list", "describe", "validate", "invoke", "edit_registry"]),
+    contextAnchor: programContextAnchorSchema.optional(),
+    deterministicCoreRef: pointerRefSchema.optional(),
+    invocation: pmoMacroInvocationSummarySchema.optional(),
+    macro: pmoMacroDefinitionSchema.optional(),
+    objectModelRefs: sortedStringArraySchema("pmoMacroCore objectModelRefs"),
+    registry: pmoMacroRegistrySchema.optional(),
+    registryVersion: z.string().min(1)
+  })
+  .strict();
+
+export const pmoMacroResultSchema = programToolResultEnvelopeSchema(
+  pmoMacroCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+).safeExtend({
+  toolName: z.literal("pmo_macro")
+}).superRefine((value, ctx) => {
+  const deterministicAction = value.deterministicCore?.action;
+  if (
+    deterministicAction &&
+    ["invoke", "validate", "edit_registry"].includes(deterministicAction) &&
+    !value.stateVersionHash
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "stateVersionHash is required for deterministic pmo_macro actions"
+    });
+  }
+});
+
+export const pmoMacroHashInputSchema = z
+  .object({
+    artifactRefs: z.array(
+      z
+        .object({
+          artifactId: pointerRefSchema,
+          contentHash: sha256DigestSchema
+        })
+        .strict()
+    ),
+    contextAnchor: programContextAnchorSchema,
+    deterministicCore: pmoMacroCoreSchema,
+    evidenceRefs: z.array(
+      z
+        .object({
+          contentHash: sha256DigestSchema,
+          ref: pointerRefSchema
+        })
+        .strict()
+    ),
+    macroId: pointerRefSchema,
+    macroVersion: z.string().min(1),
+    redactionSummary: redactionSummarySchema,
+    registryVersion: z.string().min(1),
+    request: pmoMacroHashRequestSchema,
+    schemaVersion: z.literal("1.0.0")
+  })
+  .strict();
+
+export const pmoMacroObjectModelDocumentSchema = z
+  .object({
+    examples: z.object({
+      blocker: pmoBlockerSchema,
+      contract: pmoContractSchema,
+      dependencyEdge: pmoDependencyEdgeSchema,
+      macroRegistry: pmoMacroRegistrySchema,
+      runbook: pmoRunbookSchema,
+      task: pmoTaskSchema
+    }).strict(),
+    schemaVersion: z.literal("1.0.0"),
+    validationContract: z.object({
+      deterministicOrdering: z.literal(true),
+      portfolioScoped: z.literal(true),
+      prohibitedInlineKinds: z.array(z.enum(prohibitedInlineKinds)).min(1),
+      scopedFactFieldsRequired: z.literal(true)
+    }).strict()
+  })
+  .strict();
+
+export const pmoMacroToolContractsDocumentSchema = z
+  .object({
+    examples: z.object({
+      pmo_macro: z.object({
+        request: pmoMacroRequestSchema,
+        result: pmoMacroResultSchema
+      }).strict()
+    }).strict(),
+    schemaVersion: z.literal("1.0.0"),
+    validationContract: z.object({
+      advisoryExcludedFromDeterministicHash: z.literal(true),
+      envelopeSchemaVersion: z.literal("1"),
+      pointerOnly: z.literal(true),
+      prohibitedInlineKinds: z.array(z.enum(prohibitedInlineKinds)).min(1)
+    }).strict()
+  })
+  .strict();
+
+const pmoMacroScenarioSchema = z
+  .object({
+    expectedArtifactRefs: sortedStringArraySchema("pmoMacroScenario expectedArtifactRefs"),
+    expectedEvidenceRefs: sortedStringArraySchema("pmoMacroScenario expectedEvidenceRefs"),
+    expectedStateVersionHash: sha256DigestSchema,
+    macroName: z.enum(["analyze_blockers", "catch_me_up", "simulate_impact", "detect_drift"]),
+    request: pmoMacroRequestSchema,
+    result: pmoMacroResultSchema,
+    scenarioId: z.string().min(1)
+  })
+  .strict();
+
+export const pmoMacroFixtureUniverseDocumentSchema = z
+  .object({
+    goldenScenarios: z.array(pmoMacroScenarioSchema),
+    schemaVersion: z.literal("1.0.0"),
+    seedGraph: z.object({
+      blockers: z.array(pmoBlockerSchema),
+      contracts: z.array(pmoContractSchema),
+      dependencyEdges: z.array(pmoDependencyEdgeSchema),
+      portfolios: z.array(portfolioSchema),
+      programs: z.array(programSchema),
+      projects: z.array(projectSchema),
+      runbooks: z.array(pmoRunbookSchema),
+      tasks: z.array(pmoTaskSchema)
+    }).strict(),
+    validationContract: z.object({
+      deterministicOrdering: z.literal(true),
+      goldenOutputsExact: z.literal(true),
+      pointerOnly: z.literal(true),
+      prohibitedInlineKinds: z.array(z.enum(prohibitedInlineKinds)).min(1)
+    }).strict()
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    try {
+      enforceSorted(
+        value.goldenScenarios,
+        (left, right) => left.scenarioId.localeCompare(right.scenarioId),
+        "goldenScenarios must be sorted by scenarioId"
+      );
+      enforceSorted(
+        value.seedGraph.tasks,
+        (left, right) => left.taskRef.localeCompare(right.taskRef),
+        "seedGraph.tasks must be sorted by taskRef"
+      );
+      enforceSorted(
+        value.seedGraph.blockers,
+        (left, right) => left.blockerRef.localeCompare(right.blockerRef),
+        "seedGraph.blockers must be sorted by blockerRef"
+      );
+      enforceSorted(
+        value.seedGraph.dependencyEdges,
+        (left, right) => left.dependencyRef.localeCompare(right.dependencyRef),
+        "seedGraph.dependencyEdges must be sorted by dependencyRef"
+      );
+    } catch (error) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error instanceof Error ? error.message : "pmo macro fixture universe ordering failed"
+      });
+    }
+  });
+
 export const phase1aToolExamplesSchema = z
   .object({
     assess_program_impact: z
@@ -1535,6 +1910,8 @@ export const schemaExamplesDocumentSchema = z
         dependencyRelationshipProps: dependencyRelationshipPropsSchema,
         evidencePolicy: evidencePolicySchema,
         evidenceRef: evidenceRefSchema,
+        pmoMacroRegistry: pmoMacroRegistrySchema.optional(),
+        pmoMacroRequest: pmoMacroRequestSchema.optional(),
         programIntelligenceRecord: programIntelligenceRecordSchema.optional(),
         portfolio: portfolioSchema,
         program: programSchema,
@@ -1821,6 +2198,19 @@ export const programManagerSchemaBundleSchema = z
     planProgramActionRequest: planProgramActionRequestSchema,
     planProgramActionResult: planProgramActionResultSchema,
     observedReceipt: observedReceiptSchema,
+    pmoBlocker: pmoBlockerSchema,
+    pmoContract: pmoContractSchema,
+    pmoDependencyEdge: pmoDependencyEdgeSchema,
+    pmoMacroCore: pmoMacroCoreSchema,
+    pmoMacroDefinition: pmoMacroDefinitionSchema,
+    pmoMacroFixtureUniverse: pmoMacroFixtureUniverseDocumentSchema,
+    pmoMacroHashInput: pmoMacroHashInputSchema,
+    pmoMacroRegistry: pmoMacroRegistrySchema,
+    pmoMacroRequest: pmoMacroRequestSchema,
+    pmoMacroResult: pmoMacroResultSchema,
+    pmoRunbook: pmoRunbookSchema,
+    pmoScopedFactFields: pmoScopedFactFieldsSchema,
+    pmoTask: pmoTaskSchema,
     portfolio: portfolioSchema,
     programIntelligenceRecord: programIntelligenceRecordSchema,
     program: programSchema,
@@ -1849,6 +2239,9 @@ export const programManagerSchemaBundleSchema = z
 export const programManagerSchemaRegistry = {
   "adapter-contract-fixtures.schema.json": adapterContractFixturesDocumentSchema,
   "golden-fixture-backbone.schema.json": goldenFixtureBackboneSchema,
+  "pmo-macro-fixture-universe.schema.json": pmoMacroFixtureUniverseDocumentSchema,
+  "pmo-macro-object-model.schema.json": pmoMacroObjectModelDocumentSchema,
+  "pmo-macro-tool-contracts.schema.json": pmoMacroToolContractsDocumentSchema,
   "program-manager.schema.json": programManagerSchemaBundleSchema,
   "schema-examples.schema.json": schemaExamplesDocumentSchema,
   "tool-contracts.schema.json": toolContractsDocumentSchema

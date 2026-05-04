@@ -23,6 +23,16 @@ export {
   mergeRedactionSummaries,
   sanitizePointerPayload
 } from "./redaction/program-tool-redaction.ts";
+export {
+  BUILT_IN_MACRO_REGISTRY_REF,
+  BUILT_IN_MACRO_REGISTRY_VERSION,
+  PMO_MACRO_OPERATOR_ROLE,
+  PMO_MACRO_REGISTRY_ADMIN_ROLE,
+  applyAndPersistMacroRegistryEdit,
+  applyMacroRegistryEdit,
+  createBuiltInMacroRegistry,
+  normalizeMacroRegistry
+} from "./macros/pmo-macro-registry.ts";
 export { ProgramToolService } from "./service/program-tool-service.ts";
 export {
   PROGRAM_MANAGER_MCP_TOOLS,

@@ -16,6 +16,8 @@ import {
   listProgramCapabilitiesResultSchema,
   planProgramActionRequestSchema,
   planProgramActionResultSchema,
+  pmoMacroRequestSchema,
+  pmoMacroResultSchema,
   queryProgramContextRequestSchema,
   queryProgramContextResultSchema,
   recordProgramReceiptRequestSchema,
@@ -53,6 +55,12 @@ import {
   type ProgramToolActor
 } from "../authz/program-tool-authz.ts";
 import {
+  PMO_MACRO_OPERATOR_ROLE,
+  PMO_MACRO_REGISTRY_ADMIN_ROLE,
+  applyAndPersistMacroRegistryEdit,
+  createBuiltInMacroRegistry
+} from "../macros/pmo-macro-registry.ts";
+import {
   buildRedactionSummary,
   DEFAULT_REDACTION_POLICY_REFS,
   mergeRedactionSummaries,
@@ -72,7 +80,8 @@ type ToolName =
   | "record_program_receipt"
   | "reconcile_program_state"
   | "get_agentic_os_context_packet"
-  | "submit_agentic_os_receipt";
+  | "submit_agentic_os_receipt"
+  | "pmo_macro";
 
 type ToolWarning = {
   warningId: string;
@@ -256,7 +265,8 @@ const TOOL_NEXT_RECOMMENDATION: Record<ToolName, ToolName> = {
   record_program_receipt: "get_program_audit_trail",
   reconcile_program_state: "plan_program_action",
   get_agentic_os_context_packet: "record_program_receipt",
-  submit_agentic_os_receipt: "reconcile_program_state"
+  submit_agentic_os_receipt: "reconcile_program_state",
+  pmo_macro: "get_program_documentation"
 };
 
 const STATUS_RANK = new Map([
@@ -1221,6 +1231,19 @@ function makeWarning(
   };
 }
 
+function isRegistryPatch(value: unknown): value is {
+  macroId: string;
+  set: Record<string, unknown>;
+} {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    typeof (value as { macroId?: unknown }).macroId === "string" &&
+    Boolean((value as { set?: unknown }).set) &&
+    typeof (value as { set?: unknown }).set === "object"
+  );
+}
+
 export class ProgramToolService {
   #adapterRegistry: ProgramToolServiceDependencies["adapterRegistry"];
   #documentationCatalog: DocumentationCatalog;
@@ -1232,6 +1255,485 @@ export class ProgramToolService {
     this.#documentationCatalog = dependencies.documentationCatalog ?? DOCUMENTATION_CATALOG;
     this.#now = dependencies.now ?? (() => "2026-05-03T12:00:00Z");
     this.#repository = dependencies.repository;
+  }
+
+  async pmoMacro(requestInput: unknown, actor: ProgramToolActor) {
+    const fallback = requestInput && typeof requestInput === "object" ? requestInput as Record<string, unknown> : {};
+    const parsed = pmoMacroRequestSchema.safeParse(requestInput);
+    if (!parsed.success) {
+      const deterministicCore = {
+        action: "validate" as const,
+        objectModelRefs: [],
+        registryVersion: "unknown"
+      };
+      return pmoMacroResultSchema.parse({
+        schemaVersion: "1",
+        status: "blocked",
+        toolName: "pmo_macro",
+        portfolioId: String(fallback.portfolioId ?? "portfolio://unknown"),
+        evidenceRefs: ["evidence://schema/pmo-macro-request/validation-failed"],
+        artifactRefs: [],
+        redactionSummary: buildRedactionSummary({
+          omittedKinds: ["invalid_request_payload"],
+          policyRefs: DEFAULT_REDACTION_POLICY_REFS
+        }),
+        warnings: [
+          makeWarning(
+            "pmo-macro-request-invalid",
+            "high",
+            parsed.error.issues.map((issue) => issue.message).join("; "),
+            ["evidence://schema/pmo-macro-request/validation-failed"]
+          )
+        ],
+        deterministicCore,
+        stateVersionHash: stateVersionHashFromInput({
+          deterministicCore,
+          validationError: parsed.error.issues.map((issue) => issue.message).sort()
+        }),
+        nextRecommendedTool: "pmo_macro",
+        traceId: String(fallback.traceId ?? "trace://pmo-macro/invalid-request"),
+        correlationId: String(fallback.correlationId ?? "corr://pmo-macro/invalid-request")
+      });
+    }
+
+    const request = parsed.data;
+    try {
+      assertReadAuthorized(actor, request, this.#now());
+    } catch (error) {
+      return pmoMacroResultSchema.parse(this.#blockedEnvelope("pmo_macro", request, error));
+    }
+
+    const currentRegistry =
+      (await this.#repository.getMacroRegistry({ portfolioId: request.portfolioId })) ??
+      createBuiltInMacroRegistry(request.portfolioId, this.#now());
+    const requestedMacro = request.macroId
+      ? currentRegistry.macros.find((entry) => entry.macroId === request.macroId)
+      : undefined;
+    const baseCore = {
+      action: request.action,
+      contextAnchor: request.contextAnchor,
+      objectModelRefs: sortUniqueRefs([request.macroId ?? "", request.registryPatchRef ?? ""]),
+      registryVersion: currentRegistry.registryVersion
+    };
+    const artifactRefs = sortUniqueRefs([
+      ...(currentRegistry.artifactRefs ?? []),
+      ...(request.action === "list" ? ["artifact://pmo/macro/registry-export/built-in"] : [])
+    ]);
+    const evidenceRefs = sortUniqueRefs(currentRegistry.evidenceRefs);
+
+    if (request.action === "edit_registry") {
+      const editResult = await applyAndPersistMacroRegistryEdit(
+        this.#repository,
+        request.portfolioId,
+        isRegistryPatch(request.input?.patch)
+          ? request.input.patch
+          : { macroId: request.macroId ?? "", set: {} },
+        {
+          actorId: actor.actorId,
+          portfolioIds: actor.portfolioGrants,
+          roleRefs:
+            actor.actorRole === "program_manager_agent"
+              ? [PMO_MACRO_OPERATOR_ROLE, PMO_MACRO_REGISTRY_ADMIN_ROLE]
+              : [PMO_MACRO_OPERATOR_ROLE]
+        },
+        this.#now()
+      );
+      const deterministicCore = {
+        ...baseCore,
+        registry: editResult.accepted ? editResult.registry : currentRegistry
+      };
+      const status = editResult.accepted ? "ok" : "blocked";
+      return pmoMacroResultSchema.parse({
+        schemaVersion: "1",
+        status,
+        toolName: "pmo_macro",
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(request.projectIds ? { projectIds: sortUniqueRefs(request.projectIds) } : {}),
+        evidenceRefs: sortUniqueRefs(editResult.evidenceRefs),
+        artifactRefs,
+        redactionSummary: buildRedactionSummary({
+          policyRefs: DEFAULT_REDACTION_POLICY_REFS
+        }),
+        warnings: editResult.accepted
+          ? []
+          : [makeWarning(editResult.errorCode, "high", editResult.summary, editResult.evidenceRefs)],
+        deterministicCore,
+        stateVersionHash: stateVersionHashFromInput({ deterministicCore, status }),
+        nextRecommendedTool: "pmo_macro",
+        traceId: request.traceId,
+        correlationId: request.correlationId
+      });
+    }
+
+    if (request.action === "invoke" && requestedMacro?.macroName === "catch_me_up") {
+      const targetRefs = Array.isArray(request.input?.targetRefs)
+        ? request.input.targetRefs.filter((ref): ref is string => typeof ref === "string")
+        : [];
+      const scope = {
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(request.projectIds ? { projectIds: sortUniqueRefs(request.projectIds) } : {})
+      };
+      const [context, facts] = await Promise.all([
+        this.#repository.getProgramContext({
+          scope,
+          contextAnchor: request.contextAnchor,
+          targetRefs,
+          limit: 12,
+          includeSuperseded: false,
+          includeFutureNotApplicable: false
+        }),
+        this.#repository.listMacroFacts({
+          scope,
+          contextAnchor: request.contextAnchor,
+          targetRefs,
+          limit: 12
+        })
+      ]);
+      const objectModelRefs = sortUniqueRefs([
+        ...targetRefs,
+        ...context.matchedRefs.map((match) => match.ref),
+        ...facts.tasks.map((task) => task.taskRef),
+        ...facts.blockers.map((blocker) => blocker.blockerRef),
+        ...facts.contracts.map((contract) => contract.contractRef),
+        ...facts.dependencyEdges.map((edge) => edge.dependencyRef),
+        ...facts.runbooks.map((runbook) => runbook.runbookRef)
+      ]);
+      const deterministicCore = {
+        ...baseCore,
+        macro: requestedMacro,
+        objectModelRefs
+      };
+      const stateVersionHash = stateVersionHashFromInput({
+        deterministicCore,
+        evidenceRefs,
+        status: "ok"
+      });
+      return pmoMacroResultSchema.parse({
+        schemaVersion: "1",
+        status: "ok",
+        toolName: "pmo_macro",
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(request.projectIds ? { projectIds: sortUniqueRefs(request.projectIds) } : {}),
+        evidenceRefs,
+        artifactRefs: [`artifact://pmo/macro/catch-me-up/context@${stateVersionHash}`],
+        redactionSummary: buildRedactionSummary({
+          omittedKinds: ["raw_database_rows", "logs", "provider_transcripts", "scratchpads"],
+          policyRefs: DEFAULT_REDACTION_POLICY_REFS
+        }),
+        warnings: [],
+        deterministicCore,
+        advisoryPane: {
+          content: {
+            summary: `Bounded catch-me-up context includes ${objectModelRefs.length} pointer refs and omits ${context.omittedRefCount} overflow refs.`
+          },
+          excludedFromDeterministicHash: true,
+          modelAssisted: false
+        },
+        stateVersionHash,
+        nextRecommendedTool: "pmo_macro",
+        traceId: request.traceId,
+        correlationId: request.correlationId
+      });
+    }
+
+    if (request.action === "invoke" && requestedMacro?.macroName === "simulate_impact") {
+      const targetRefs = Array.isArray(request.input?.targetRefs)
+        ? request.input.targetRefs.filter((ref): ref is string => typeof ref === "string")
+        : [];
+      const changeRef = typeof request.input?.changeRef === "string" ? request.input.changeRef : request.macroId;
+      const scope = {
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(request.projectIds ? { projectIds: sortUniqueRefs(request.projectIds) } : {})
+      };
+      const impact = await this.#repository.assessImpact({
+        scope,
+        changeRef: changeRef ?? "change://pmo/simulate-impact/unspecified",
+        changeKind: typeof request.input?.changeKind === "string" ? request.input.changeKind : "hypothetical",
+        targetRefs,
+        traversalBudgetRef:
+          typeof request.input?.traversalBudgetRef === "string"
+            ? request.input.traversalBudgetRef
+            : "budget://pmo/macro/simulate-impact/default",
+        contextAnchor: request.contextAnchor
+      });
+      const objectModelRefs = sortUniqueRefs([
+        changeRef ?? "",
+        ...targetRefs,
+        ...impact.affectedRefs.map((ref) => ref.ref),
+        ...impact.findings.map((finding) => `finding://pmo/${encodeURIComponent(finding.findingId)}`),
+        ...impact.requiredApprovals.map((approval) => approval.authorityRef),
+        ...impact.evidenceObligations.map((obligation) => obligation.targetRef)
+      ]);
+      const deterministicCore = {
+        ...baseCore,
+        macro: requestedMacro,
+        objectModelRefs
+      };
+      const stateVersionHash = stateVersionHashFromInput({
+        deterministicCore,
+        nonPersistentSimulation: true,
+        status: "warning"
+      });
+      return pmoMacroResultSchema.parse({
+        schemaVersion: "1",
+        status: impact.findings.length > 0 ? "warning" : "ok",
+        toolName: "pmo_macro",
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(request.projectIds ? { projectIds: sortUniqueRefs(request.projectIds) } : {}),
+        evidenceRefs,
+        artifactRefs: [`artifact://pmo/macro/simulate-impact/report@${stateVersionHash}`],
+        redactionSummary: buildRedactionSummary({
+          omittedKinds: ["raw_database_rows", "provider_transcripts", "scratchpads"],
+          policyRefs: DEFAULT_REDACTION_POLICY_REFS
+        }),
+        warnings: [
+          makeWarning(
+            "pmo-macro-simulation-non-persistent",
+            "low",
+            "Simulation is non-persistent and did not update canonical PMO truth.",
+            evidenceRefs
+          )
+        ],
+        deterministicCore,
+        advisoryPane: {
+          content: {
+            summary: `Non-persistent impact simulation found ${impact.affectedRefs.length} affected refs, ${impact.findings.length} findings, ${impact.requiredApprovals.length} approvals, and ${impact.evidenceObligations.length} evidence obligations.`
+          },
+          excludedFromDeterministicHash: true,
+          modelAssisted: false
+        },
+        stateVersionHash,
+        nextRecommendedTool: "pmo_macro",
+        traceId: request.traceId,
+        correlationId: request.correlationId
+      });
+    }
+
+    if (
+      request.action === "invoke" &&
+      (requestedMacro?.macroName === "analyze_blockers" ||
+        requestedMacro?.macroName === "propose_unblock_plan")
+    ) {
+      const targetRefs = Array.isArray(request.input?.targetRefs)
+        ? request.input.targetRefs.filter((ref): ref is string => typeof ref === "string")
+        : [];
+      const scope = {
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(request.projectIds ? { projectIds: sortUniqueRefs(request.projectIds) } : {})
+      };
+      const facts = await this.#repository.listMacroFacts({
+        scope,
+        contextAnchor: request.contextAnchor,
+        targetRefs,
+        limit: 20
+      });
+      const openBlockers = facts.blockers.filter((blocker) => blocker.status === "open");
+      const blockedRefs = sortUniqueRefs(openBlockers.flatMap((blocker) => blocker.blockedRefs));
+      const runbookRefs = facts.runbooks.map((runbook) => runbook.runbookRef);
+      const proposedActionRefs = sortUniqueRefs([
+        ...openBlockers.map((blocker) => `action://pmo/unblock/${encodeURIComponent(blocker.blockerRef)}`),
+        ...facts.contracts.map((contract) => `action://pmo/request-approval/${encodeURIComponent(contract.contractRef)}`),
+        ...facts.dependencyEdges
+          .filter((edge) => edge.evidenceStatus !== "supported" || edge.status !== "active")
+          .map((edge) => `action://pmo/refresh-evidence/${encodeURIComponent(edge.dependencyRef)}`),
+        ...facts.tasks
+          .filter((task) => task.status === "blocked" || task.blockerRefs?.length)
+          .map((task) => `action://pmo/request-receipt/${encodeURIComponent(task.taskRef)}`)
+      ]).slice(0, 8);
+      const expectedReceiptRefs = proposedActionRefs.map(
+        (ref) => `receipt://pmo/expected/${encodeURIComponent(ref)}`
+      );
+      const objectModelRefs = sortUniqueRefs([
+        ...targetRefs,
+        ...openBlockers.map((blocker) => blocker.blockerRef),
+        ...blockedRefs,
+        ...runbookRefs,
+        ...facts.tasks.map((task) => task.taskRef),
+        ...facts.contracts.map((contract) => contract.contractRef),
+        ...facts.dependencyEdges.map((edge) => edge.dependencyRef),
+        ...proposedActionRefs,
+        ...expectedReceiptRefs
+      ]);
+      const deterministicCore = {
+        ...baseCore,
+        macro: requestedMacro,
+        objectModelRefs
+      };
+      const stateVersionHash = stateVersionHashFromInput({
+        deterministicCore,
+        proposedOnly: true,
+        status: proposedActionRefs.length > 0 ? "warning" : "ok"
+      });
+      return pmoMacroResultSchema.parse({
+        schemaVersion: "1",
+        status: proposedActionRefs.length > 0 ? "warning" : "ok",
+        toolName: "pmo_macro",
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(request.projectIds ? { projectIds: sortUniqueRefs(request.projectIds) } : {}),
+        evidenceRefs: sortUniqueRefs([
+          ...evidenceRefs,
+          ...facts.blockers.flatMap((blocker) => blocker.evidenceRefs),
+          ...facts.tasks.flatMap((task) => task.evidenceRefs),
+          ...facts.contracts.flatMap((contract) => contract.evidenceRefs),
+          ...facts.dependencyEdges.flatMap((edge) => edge.evidenceRefs)
+        ]),
+        artifactRefs: [`artifact://pmo/macro/unblock-plan/report@${stateVersionHash}`],
+        redactionSummary: buildRedactionSummary({
+          omittedKinds: ["raw_database_rows", "logs", "provider_transcripts", "scratchpads"],
+          policyRefs: DEFAULT_REDACTION_POLICY_REFS
+        }),
+        warnings: [
+          makeWarning(
+            "pmo-macro-proposed-actions-only",
+            "low",
+            "PMO produced proposed external actions and expected receipts only; it did not execute downstream work.",
+            evidenceRefs
+          )
+        ],
+        deterministicCore,
+        advisoryPane: {
+          content: {
+            summary: `Classified ${openBlockers.length} open blockers and proposed ${proposedActionRefs.length} external actions with ${expectedReceiptRefs.length} expected receipts.`
+          },
+          excludedFromDeterministicHash: true,
+          modelAssisted: false
+        },
+        stateVersionHash,
+        nextRecommendedTool: "record_program_receipt",
+        traceId: request.traceId,
+        correlationId: request.correlationId
+      });
+    }
+
+    if (request.action === "invoke" && requestedMacro?.macroName === "detect_drift") {
+      const targetRefs = Array.isArray(request.input?.targetRefs)
+        ? request.input.targetRefs.filter((ref): ref is string => typeof ref === "string")
+        : [];
+      const scope = {
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(request.projectIds ? { projectIds: sortUniqueRefs(request.projectIds) } : {})
+      };
+      const [facts, ledger, cursors] = await Promise.all([
+        this.#repository.listMacroFacts({ scope, contextAnchor: request.contextAnchor, targetRefs, limit: 24 }),
+        this.#repository.listReceiptLedger({ scope, limit: 24 }),
+        this.#repository.getSyncCursors(scope)
+      ]);
+      const unevidencedRefs = sortUniqueRefs([
+        ...facts.tasks.filter((fact) => fact.evidenceStatus !== "supported").map((fact) => fact.taskRef),
+        ...facts.blockers.filter((fact) => fact.evidenceStatus !== "supported").map((fact) => fact.blockerRef),
+        ...facts.contracts.filter((fact) => fact.evidenceStatus !== "supported").map((fact) => fact.contractRef),
+        ...facts.dependencyEdges.filter((fact) => fact.evidenceStatus !== "supported").map((fact) => fact.dependencyRef),
+        ...facts.runbooks.filter((fact) => fact.evidenceStatus !== "supported").map((fact) => fact.runbookRef)
+      ]);
+      const reconcileRefs = ledger.reconcileStatuses
+        .filter((status) => !["satisfied", "expected", "in_flight"].includes(status.status))
+        .map((status) => `finding://pmo/reconcile/${encodeURIComponent(status.receiptRequirementId)}`);
+      const cursorRefs = cursors.map((cursor) => `cursor://${encodeURIComponent(cursor.adapterId)}/${encodeURIComponent(cursor.cursor)}`);
+      const remediationRefs = unevidencedRefs.map((ref) => `action://pmo/remediate-drift/${encodeURIComponent(ref)}`);
+      const objectModelRefs = sortUniqueRefs([
+        ...targetRefs,
+        ...unevidencedRefs,
+        ...reconcileRefs,
+        ...cursorRefs,
+        ...remediationRefs,
+        ...ledger.expectedReceipts.map((receipt) => receipt.receiptRequirementId),
+        ...ledger.observedReceipts.map((receipt) => receipt.observedReceiptId)
+      ]);
+      const deterministicCore = {
+        ...baseCore,
+        macro: requestedMacro,
+        objectModelRefs
+      };
+      const degraded = unevidencedRefs.length > 0 || reconcileRefs.length > 0;
+      const stateVersionHash = stateVersionHashFromInput({
+        deterministicCore,
+        degraded,
+        status: degraded ? "degraded" : "ok"
+      });
+      return pmoMacroResultSchema.parse({
+        schemaVersion: "1",
+        status: degraded ? "degraded" : "ok",
+        toolName: "pmo_macro",
+        portfolioId: request.portfolioId,
+        ...(request.programId ? { programId: request.programId } : {}),
+        ...(request.projectIds ? { projectIds: sortUniqueRefs(request.projectIds) } : {}),
+        evidenceRefs: sortUniqueRefs([
+          ...evidenceRefs,
+          ...facts.tasks.flatMap((fact) => fact.evidenceRefs),
+          ...facts.blockers.flatMap((fact) => fact.evidenceRefs),
+          ...facts.contracts.flatMap((fact) => fact.evidenceRefs),
+          ...facts.dependencyEdges.flatMap((fact) => fact.evidenceRefs),
+          ...ledger.expectedReceipts.flatMap((receipt) => receipt.requiredEvidenceRefs),
+          ...ledger.observedReceipts.flatMap((receipt) => receipt.evidenceRefs)
+        ]),
+        artifactRefs: [`artifact://pmo/macro/detect-drift/report@${stateVersionHash}`],
+        redactionSummary: buildRedactionSummary({
+          omittedKinds: ["raw_database_rows", "provider_transcripts", "scratchpads"],
+          policyRefs: DEFAULT_REDACTION_POLICY_REFS
+        }),
+        warnings: degraded
+          ? [
+              makeWarning(
+                "pmo-macro-drift-detected",
+                "high",
+                "Drift detection found missing, stale, conflicting, or unevidenced PMO state.",
+                evidenceRefs
+              )
+            ]
+          : [],
+        deterministicCore,
+        advisoryPane: {
+          content: {
+            summary: `Drift check found ${unevidencedRefs.length} unevidenced refs, ${reconcileRefs.length} reconciliation findings, and ${cursors.length} source cursors.`
+          },
+          excludedFromDeterministicHash: true,
+          modelAssisted: false
+        },
+        stateVersionHash,
+        nextRecommendedTool: "pmo_macro",
+        traceId: request.traceId,
+        correlationId: request.correlationId
+      });
+    }
+
+    const warningForMissingMacro =
+      request.macroId && !requestedMacro
+        ? [makeWarning("pmo-macro-not-found", "high", "Requested macro was not found.", evidenceRefs)]
+        : [];
+    const deterministicCore = {
+      ...baseCore,
+      ...(requestedMacro ? { macro: requestedMacro } : {}),
+      ...(["help", "list"].includes(request.action) ? { registry: currentRegistry } : {})
+    };
+    const status = warningForMissingMacro.length > 0 ? "blocked" : "ok";
+    const needsStateHash = ["validate", "invoke"].includes(request.action);
+    return pmoMacroResultSchema.parse({
+      schemaVersion: "1",
+      status,
+      toolName: "pmo_macro",
+      portfolioId: request.portfolioId,
+      ...(request.programId ? { programId: request.programId } : {}),
+      ...(request.projectIds ? { projectIds: sortUniqueRefs(request.projectIds) } : {}),
+      evidenceRefs,
+      artifactRefs,
+      redactionSummary: buildRedactionSummary({
+        policyRefs: DEFAULT_REDACTION_POLICY_REFS
+      }),
+      warnings: warningForMissingMacro,
+      deterministicCore,
+      ...(needsStateHash ? { stateVersionHash: stateVersionHashFromInput({ deterministicCore, status }) } : {}),
+      nextRecommendedTool: request.action === "help" ? "pmo_macro" : "get_program_documentation",
+      traceId: request.traceId,
+      correlationId: request.correlationId
+    });
   }
 
   async listProgramCapabilities(requestInput: unknown, actor: ProgramToolActor) {

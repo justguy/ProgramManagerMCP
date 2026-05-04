@@ -7,6 +7,12 @@ import type {
   GraphRelationship,
   ActionLedgerEntry,
   ObservedReceipt,
+  PmoBlocker,
+  PmoContract,
+  PmoDependencyEdge,
+  PmoMacroRegistry,
+  PmoRunbook,
+  PmoTask,
   ProgramEvent,
   ProgramIntelligenceRecord,
   ProgramRef,
@@ -18,6 +24,8 @@ import type {
   DecisionQuery,
   ImpactAssessmentQuery,
   ImpactAssessmentResult,
+  MacroFactQuery,
+  MacroFactSet,
   ProgramContextQuery,
   ProgramIntelligenceQuery,
   ProgramManagerRepository,
@@ -35,10 +43,15 @@ import {
   compareExpectedReceipts,
   compareIntegrationPoints,
   compareIntelligenceRecords,
+  compareMacroBlockers,
+  compareMacroDependencyEdges,
+  compareMacroRunbooks,
+  compareMacroTasks,
   compareMemberships,
   compareObservedReceipts,
   comparePrograms,
   compareProjects,
+  comparePmoContracts,
   compareReceiptReconcileRecords,
   compareRelationships,
   compareSyncCursors,
@@ -73,7 +86,11 @@ function sortStrings(values: string[]): string[] {
 }
 
 function uniqueSortedStrings(values: Iterable<string>): string[] {
-  return [...new Set(values)].sort(compareStrings);
+  return [...new Set(values)].filter((value) => value.length > 0).sort(compareStrings);
+}
+
+function applyLimit<T>(values: T[], limit?: number): T[] {
+  return typeof limit === "number" ? values.slice(0, limit) : values;
 }
 
 function defaultScopeAnchor(scope: RepositoryScope): ContextAnchor {
@@ -204,6 +221,24 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
     for (const cursor of [...(seed.syncCursors ?? [])].sort(compareSyncCursors)) {
       await this.putSyncCursor(cursor);
     }
+    for (const task of [...(seed.macroTasks ?? [])].sort(compareMacroTasks)) {
+      await this.putMacroTask(task);
+    }
+    for (const blocker of [...(seed.macroBlockers ?? [])].sort(compareMacroBlockers)) {
+      await this.putMacroBlocker(blocker);
+    }
+    for (const contract of [...(seed.macroContracts ?? [])].sort(comparePmoContracts)) {
+      await this.putMacroContract(contract);
+    }
+    for (const edge of [...(seed.macroDependencyEdges ?? [])].sort(compareMacroDependencyEdges)) {
+      await this.putMacroDependencyEdge(edge);
+    }
+    for (const runbook of [...(seed.macroRunbooks ?? [])].sort(compareMacroRunbooks)) {
+      await this.putMacroRunbook(runbook);
+    }
+    for (const registry of seed.macroRegistries ?? []) {
+      await this.upsertMacroRegistry(registry);
+    }
   }
 
   async putProgram(program: ProgramRef): Promise<void> {
@@ -285,6 +320,47 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
 
   async putSyncCursor(cursor: SyncCursorRecord): Promise<void> {
     await this.store.upsertSyncCursor(cursor);
+  }
+
+  async putMacroTask(task: PmoTask): Promise<void> {
+    await this.store.upsertMacroTask({
+      ...task,
+      assigneeRefs: uniqueSortedStrings(task.assigneeRefs),
+      blockerRefs: uniqueSortedStrings(task.blockerRefs ?? []),
+      evidenceRefs: uniqueSortedStrings(task.evidenceRefs)
+    });
+  }
+
+  async putMacroBlocker(blocker: PmoBlocker): Promise<void> {
+    await this.store.upsertMacroBlocker({
+      ...blocker,
+      blockedRefs: uniqueSortedStrings(blocker.blockedRefs),
+      evidenceRefs: uniqueSortedStrings(blocker.evidenceRefs),
+      ownerRefs: uniqueSortedStrings(blocker.ownerRefs)
+    });
+  }
+
+  async putMacroContract(contract: PmoContract): Promise<void> {
+    await this.store.upsertMacroContract({
+      ...contract,
+      consumerRefs: uniqueSortedStrings(contract.consumerRefs),
+      evidenceRefs: uniqueSortedStrings(contract.evidenceRefs)
+    });
+  }
+
+  async putMacroDependencyEdge(edge: PmoDependencyEdge): Promise<void> {
+    await this.store.upsertMacroDependencyEdge({
+      ...edge,
+      evidenceRefs: uniqueSortedStrings(edge.evidenceRefs)
+    });
+  }
+
+  async putMacroRunbook(runbook: PmoRunbook): Promise<void> {
+    await this.store.upsertMacroRunbook({
+      ...runbook,
+      actionRefs: uniqueSortedStrings(runbook.actionRefs),
+      evidenceRefs: uniqueSortedStrings(runbook.evidenceRefs)
+    });
   }
 
   async upsertExpectedReceipts(receipts: ExpectedReceipt[], auditEvent?: ProgramEvent): Promise<void> {
@@ -732,6 +808,136 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
       actionLedgerEntries: actionLedgerEntries.sort(compareActionLedgerEntries),
       reconcileStatuses: reconcileStatuses.sort(compareReceiptReconcileRecords)
     };
+  }
+
+  async listMacroFacts(query: MacroFactQuery): Promise<MacroFactSet> {
+    const [tasks, blockers, contracts, dependencyEdges, runbooks] = await Promise.all([
+      this.store.listMacroTasks(query.scope),
+      this.store.listMacroBlockers(query.scope),
+      this.store.listMacroContracts(query.scope),
+      this.store.listMacroDependencyEdges(query.scope),
+      this.store.listMacroRunbooks(query.scope)
+    ]);
+    const targetRefs = new Set(query.targetRefs ?? []);
+    const currentAsOf = query.contextAnchor?.asOf;
+    const isCurrent = (value: { validFrom: string; validTo?: string; supersededBy?: string }): boolean => {
+      if (!query.includeSuperseded && value.supersededBy) {
+        return false;
+      }
+      if (!currentAsOf) {
+        return true;
+      }
+      return value.validFrom <= currentAsOf && (!value.validTo || value.validTo >= currentAsOf);
+    };
+    const matchesTargets = (values: string[]): boolean => {
+      if (targetRefs.size === 0) {
+        return true;
+      }
+      return values.some((value) => targetRefs.has(value));
+    };
+    const limit = query.limit;
+
+    return {
+      tasks: applyLimit(
+        tasks
+          .filter((task) =>
+            isCurrent(task) &&
+            matchesTargets([
+              task.id,
+              task.taskRef,
+              task.projectId ?? "",
+              ...task.assigneeRefs,
+              ...(task.blockerRefs ?? []),
+              ...task.evidenceRefs
+            ])
+          )
+          .sort(compareMacroTasks),
+        limit
+      ),
+      blockers: applyLimit(
+        blockers
+          .filter((blocker) =>
+            isCurrent(blocker) &&
+            matchesTargets([
+              blocker.id,
+              blocker.blockerRef,
+              blocker.projectId ?? "",
+              ...blocker.blockedRefs,
+              ...blocker.ownerRefs,
+              ...blocker.evidenceRefs
+            ])
+          )
+          .sort(compareMacroBlockers),
+        limit
+      ),
+      contracts: applyLimit(
+        contracts
+          .filter((contract) =>
+            isCurrent(contract) &&
+            matchesTargets([
+              contract.id,
+              contract.contractRef,
+              contract.projectId ?? "",
+              contract.producerRef,
+              ...contract.consumerRefs,
+              ...contract.evidenceRefs
+            ])
+          )
+          .sort(comparePmoContracts),
+        limit
+      ),
+      dependencyEdges: applyLimit(
+        dependencyEdges
+          .filter((edge) =>
+            isCurrent(edge) &&
+            matchesTargets([
+              edge.id,
+              edge.dependencyRef,
+              edge.projectId ?? "",
+              edge.fromRef,
+              edge.toRef,
+              ...edge.evidenceRefs
+            ])
+          )
+          .sort(compareMacroDependencyEdges),
+        limit
+      ),
+      runbooks: applyLimit(
+        runbooks
+          .filter((runbook) =>
+            isCurrent(runbook) &&
+            matchesTargets([
+              runbook.id,
+              runbook.runbookRef,
+              runbook.projectId ?? "",
+              ...runbook.actionRefs,
+              ...runbook.evidenceRefs
+            ])
+          )
+          .sort(compareMacroRunbooks),
+        limit
+      )
+    };
+  }
+
+  async getMacroRegistry(scope: RepositoryScope): Promise<PmoMacroRegistry | undefined> {
+    return this.store.getMacroRegistry(scope);
+  }
+
+  async upsertMacroRegistry(registry: PmoMacroRegistry, auditEvent?: ProgramEvent): Promise<void> {
+    await this.store.upsertMacroRegistry({
+      ...registry,
+      evidenceRefs: uniqueSortedStrings(registry.evidenceRefs),
+      macros: registry.macros
+        .map((macro) => ({
+          ...macro,
+          requiredRoleRefs: uniqueSortedStrings(macro.requiredRoleRefs)
+        }))
+        .sort((left, right) => left.macroId.localeCompare(right.macroId))
+    });
+    if (auditEvent) {
+      await this.putEvent(auditEvent);
+    }
   }
 
   async listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]> {

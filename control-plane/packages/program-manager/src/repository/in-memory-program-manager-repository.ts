@@ -7,6 +7,12 @@ import type {
   GraphRelationship,
   ActionLedgerEntry,
   ObservedReceipt,
+  PmoBlocker,
+  PmoContract,
+  PmoDependencyEdge,
+  PmoMacroRegistry,
+  PmoRunbook,
+  PmoTask,
   ProgramEvent,
   ProgramIntelligenceRecord,
   ProgramRef,
@@ -18,6 +24,8 @@ import type {
   DecisionQuery,
   ImpactAssessmentQuery,
   ImpactAssessmentResult,
+  MacroFactQuery,
+  MacroFactSet,
   ProgramContextQuery,
   ProgramIntelligenceQuery,
   ProgramManagerRepository,
@@ -40,6 +48,12 @@ type FixtureData = {
   receiptReconcileStatuses?: ReceiptReconcileRecord[];
   events?: ProgramEvent[];
   syncCursors?: SyncCursor[];
+  macroTasks?: PmoTask[];
+  macroBlockers?: PmoBlocker[];
+  macroContracts?: PmoContract[];
+  macroDependencyEdges?: PmoDependencyEdge[];
+  macroRunbooks?: PmoRunbook[];
+  macroRegistries?: PmoMacroRegistry[];
   contextMatches?: Array<{
     ref: string;
     kind: string;
@@ -68,6 +82,12 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
   private receiptReconcileStatuses: ReceiptReconcileRecord[] = [];
   private events: ProgramEvent[] = [];
   private syncCursors: SyncCursor[] = [];
+  private macroTasks: PmoTask[] = [];
+  private macroBlockers: PmoBlocker[] = [];
+  private macroContracts: PmoContract[] = [];
+  private macroDependencyEdges: PmoDependencyEdge[] = [];
+  private macroRunbooks: PmoRunbook[] = [];
+  private macroRegistries: PmoMacroRegistry[] = [];
   private contextMatches: NonNullable<FixtureData["contextMatches"]> = [];
   private contextAnchor: ContextAnchor | undefined;
   private impact: ImpactAssessmentResult = {
@@ -97,6 +117,12 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
     this.receiptReconcileStatuses = fixture.receiptReconcileStatuses ?? this.receiptReconcileStatuses;
     this.events = fixture.events ?? this.events;
     this.syncCursors = fixture.syncCursors ?? this.syncCursors;
+    this.macroTasks = fixture.macroTasks ?? this.macroTasks;
+    this.macroBlockers = fixture.macroBlockers ?? this.macroBlockers;
+    this.macroContracts = fixture.macroContracts ?? this.macroContracts;
+    this.macroDependencyEdges = fixture.macroDependencyEdges ?? this.macroDependencyEdges;
+    this.macroRunbooks = fixture.macroRunbooks ?? this.macroRunbooks;
+    this.macroRegistries = fixture.macroRegistries ?? this.macroRegistries;
     this.contextMatches = fixture.contextMatches ?? this.contextMatches;
     this.contextAnchor = fixture.contextAnchor ?? this.contextAnchor;
     this.impact = fixture.impact ?? this.impact;
@@ -287,6 +313,142 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
     };
   }
 
+  async listMacroFacts(query: MacroFactQuery): Promise<MacroFactSet> {
+    const targetRefs = new Set(query.targetRefs ?? []);
+    const asOf = query.contextAnchor?.asOf;
+    const current = (value: { validFrom: string; validTo?: string; supersededBy?: string }): boolean => {
+      if (!query.includeSuperseded && value.supersededBy) {
+        return false;
+      }
+      if (!asOf) {
+        return true;
+      }
+      return value.validFrom <= asOf && (!value.validTo || value.validTo >= asOf);
+    };
+    const targetMatch = (values: string[]): boolean => {
+      if (targetRefs.size === 0) {
+        return true;
+      }
+      return values.some((value) => targetRefs.has(value));
+    };
+    const limit = query.limit;
+    return {
+      tasks: applyLimit(
+        this.macroTasks
+          .filter(
+            (task) =>
+              scopeMatches(task.portfolioId, task.programId, task.projectId, query.scope) &&
+              current(task) &&
+              targetMatch([
+                task.id,
+                task.taskRef,
+                task.projectId ?? "",
+                ...task.assigneeRefs,
+                ...(task.blockerRefs ?? []),
+                ...task.evidenceRefs
+              ])
+          )
+          .map(cloneMacroTask)
+          .sort(compareMacroTasks),
+        limit
+      ),
+      blockers: applyLimit(
+        this.macroBlockers
+          .filter(
+            (blocker) =>
+              scopeMatches(blocker.portfolioId, blocker.programId, blocker.projectId, query.scope) &&
+              current(blocker) &&
+              targetMatch([
+                blocker.id,
+                blocker.blockerRef,
+                blocker.projectId ?? "",
+                ...blocker.blockedRefs,
+                ...blocker.ownerRefs,
+                ...blocker.evidenceRefs
+              ])
+          )
+          .map(cloneMacroBlocker)
+          .sort(compareMacroBlockers),
+        limit
+      ),
+      contracts: applyLimit(
+        this.macroContracts
+          .filter(
+            (contract) =>
+              scopeMatches(contract.portfolioId, contract.programId, contract.projectId, query.scope) &&
+              current(contract) &&
+              targetMatch([
+                contract.id,
+                contract.contractRef,
+                contract.projectId ?? "",
+                contract.producerRef,
+                ...contract.consumerRefs,
+                ...contract.evidenceRefs
+              ])
+          )
+          .map(cloneMacroContract)
+          .sort(compareMacroContracts),
+        limit
+      ),
+      dependencyEdges: applyLimit(
+        this.macroDependencyEdges
+          .filter(
+            (edge) =>
+              scopeMatches(edge.portfolioId, edge.programId, edge.projectId, query.scope) &&
+              current(edge) &&
+              targetMatch([
+                edge.id,
+                edge.dependencyRef,
+                edge.projectId ?? "",
+                edge.fromRef,
+                edge.toRef,
+                ...edge.evidenceRefs
+              ])
+          )
+          .map(cloneMacroDependencyEdge)
+          .sort(compareMacroDependencyEdges),
+        limit
+      ),
+      runbooks: applyLimit(
+        this.macroRunbooks
+          .filter(
+            (runbook) =>
+              scopeMatches(runbook.portfolioId, runbook.programId, runbook.projectId, query.scope) &&
+              current(runbook) &&
+              targetMatch([
+                runbook.id,
+                runbook.runbookRef,
+                runbook.projectId ?? "",
+                ...runbook.actionRefs,
+                ...runbook.evidenceRefs
+              ])
+          )
+          .map(cloneMacroRunbook)
+          .sort(compareMacroRunbooks),
+        limit
+      )
+    };
+  }
+
+  async getMacroRegistry(scope: RepositoryScope): Promise<PmoMacroRegistry | undefined> {
+    return this.macroRegistries
+      .filter((registry) => registry.portfolioId === scope.portfolioId)
+      .map(cloneMacroRegistry)
+      .sort((left, right) => compareStrings(right.recordedAt, left.recordedAt) || compareStrings(left.registryRef, right.registryRef))[0];
+  }
+
+  async upsertMacroRegistry(registry: PmoMacroRegistry, auditEvent?: ProgramEvent): Promise<void> {
+    this.macroRegistries = upsertBy(
+      this.macroRegistries,
+      registry,
+      (value) => `${value.portfolioId}::${value.registryRef}`,
+      cloneMacroRegistry
+    );
+    if (auditEvent) {
+      this.events.push(cloneEvent(auditEvent));
+    }
+  }
+
   async listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]> {
     const filtered = this.events
       .filter((item) => item.portfolioId === scope.portfolioId)
@@ -368,6 +530,60 @@ function cloneReceiptReconcileRecord(record: ReceiptReconcileRecord): ReceiptRec
     ...record,
     contractRefs: sortStrings(record.contractRefs),
     evidenceRefs: sortStrings(record.evidenceRefs)
+  };
+}
+
+function cloneMacroTask(task: PmoTask): PmoTask {
+  return {
+    ...task,
+    assigneeRefs: sortStrings(task.assigneeRefs),
+    blockerRefs: task.blockerRefs ? sortStrings(task.blockerRefs) : undefined,
+    evidenceRefs: sortStrings(task.evidenceRefs)
+  };
+}
+
+function cloneMacroBlocker(blocker: PmoBlocker): PmoBlocker {
+  return {
+    ...blocker,
+    blockedRefs: sortStrings(blocker.blockedRefs),
+    evidenceRefs: sortStrings(blocker.evidenceRefs),
+    ownerRefs: sortStrings(blocker.ownerRefs)
+  };
+}
+
+function cloneMacroContract(contract: PmoContract): PmoContract {
+  return {
+    ...contract,
+    consumerRefs: sortStrings(contract.consumerRefs),
+    evidenceRefs: sortStrings(contract.evidenceRefs)
+  };
+}
+
+function cloneMacroDependencyEdge(edge: PmoDependencyEdge): PmoDependencyEdge {
+  return {
+    ...edge,
+    evidenceRefs: sortStrings(edge.evidenceRefs)
+  };
+}
+
+function cloneMacroRunbook(runbook: PmoRunbook): PmoRunbook {
+  return {
+    ...runbook,
+    actionRefs: sortStrings(runbook.actionRefs),
+    evidenceRefs: sortStrings(runbook.evidenceRefs)
+  };
+}
+
+function cloneMacroRegistry(registry: PmoMacroRegistry): PmoMacroRegistry {
+  return {
+    ...registry,
+    evidenceRefs: sortStrings(registry.evidenceRefs),
+    macros: registry.macros
+      .map((macro) => ({
+        ...macro,
+        requiredRoleRefs: sortStrings(macro.requiredRoleRefs)
+      }))
+      .sort((left, right) => compareStrings(left.macroId, right.macroId))
   };
 }
 
@@ -500,6 +716,30 @@ function compareReceiptReconcileRecords(
     compareStrings(left.proposedActionId, right.proposedActionId) ||
     compareStrings(left.receiptRequirementId, right.receiptRequirementId)
   );
+}
+
+function compareMacroTasks(left: PmoTask, right: PmoTask): number {
+  return compareStrings(left.taskRef, right.taskRef) || compareStrings(left.recordedAt, right.recordedAt);
+}
+
+function compareMacroBlockers(left: PmoBlocker, right: PmoBlocker): number {
+  return compareStrings(left.blockerRef, right.blockerRef) || compareStrings(left.recordedAt, right.recordedAt);
+}
+
+function compareMacroContracts(left: PmoContract, right: PmoContract): number {
+  return compareStrings(left.contractRef, right.contractRef) || compareStrings(left.recordedAt, right.recordedAt);
+}
+
+function compareMacroDependencyEdges(left: PmoDependencyEdge, right: PmoDependencyEdge): number {
+  return compareStrings(left.dependencyRef, right.dependencyRef) || compareStrings(left.recordedAt, right.recordedAt);
+}
+
+function compareMacroRunbooks(left: PmoRunbook, right: PmoRunbook): number {
+  return compareStrings(left.runbookRef, right.runbookRef) || compareStrings(left.recordedAt, right.recordedAt);
+}
+
+function applyLimit<T>(values: T[], limit?: number): T[] {
+  return typeof limit === "number" ? values.slice(0, limit) : values;
 }
 
 function compareEventsDescending(left: ProgramEvent, right: ProgramEvent): number {

@@ -1,0 +1,103 @@
+{
+  "canonicalization": "RFC8785-JCS",
+  "hashAlgorithm": "sha256",
+  "input": {
+    "artifactRefs": [
+      {
+        "artifactId": "artifact://pmo/macro/catch-me-up/pmo-701@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "contentHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      }
+    ],
+    "contextAnchor": {
+      "asOf": "2026-05-04T05:00:00Z",
+      "branchName": "main",
+      "gitCommit": "abc123def456",
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "repoId": "repo://ProgramManagerMCP",
+      "trackerRev": 63,
+      "trackerSlug": "program-manager-mcp"
+    },
+    "deterministicCore": {
+      "action": "invoke",
+      "contextAnchor": {
+        "asOf": "2026-05-04T05:00:00Z",
+        "branchName": "main",
+        "gitCommit": "abc123def456",
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "repoId": "repo://ProgramManagerMCP",
+        "trackerRev": 63,
+        "trackerSlug": "program-manager-mcp"
+      },
+      "deterministicCoreRef": "artifact://pmo/macro/catch-me-up/pmo-701@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "invocation": {
+        "artifactRefs": [
+          "artifact://pmo/macro/catch-me-up/pmo-701@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        ],
+        "deterministicCoreRef": "artifact://pmo/macro/catch-me-up/pmo-701@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "evidenceRefs": [
+          "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "macroId": "macro://pmo/catch_me_up",
+        "macroVersion": "1.0.0",
+        "stateVersionHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "status": "ok"
+      },
+      "objectModelRefs": [
+        "schema://program-manager/pmo-macro-object-model/v1"
+      ],
+      "registryVersion": "1.0.0"
+    },
+    "evidenceRefs": [
+      {
+        "contentHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "ref": "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "macroId": "macro://pmo/catch_me_up",
+    "macroVersion": "1.0.0",
+    "redactionSummary": {
+      "omittedKinds": [
+        "logs",
+        "provider_transcripts"
+      ],
+      "policyRefs": [
+        "policy://redaction/pointer-only-v1"
+      ],
+      "redacted": true
+    },
+    "registryVersion": "1.0.0",
+    "request": {
+      "action": "invoke",
+      "contextAnchor": {
+        "asOf": "2026-05-04T05:00:00Z",
+        "branchName": "main",
+        "gitCommit": "abc123def456",
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "repoId": "repo://ProgramManagerMCP",
+        "trackerRev": 63,
+        "trackerSlug": "program-manager-mcp"
+      },
+      "input": {
+        "targetRefs": [
+          "task://agentic-os/pmo-701",
+          "task://agentic-os/pmo-702"
+        ]
+      },
+      "macroId": "macro://pmo/catch_me_up",
+      "macroVersion": "1.0.0",
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectIds": [
+        "project://program-manager-mcp"
+      ]
+    },
+    "schemaVersion": "1.0.0"
+  },
+  "expectedHash": "sha256:1c4b3cd2b7c5c4ff9c566aee85e2c4118a5211fe388c32866f11f50690614935"
+}

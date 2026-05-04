@@ -7,6 +7,12 @@ import type {
   GraphRelationship,
   ActionLedgerEntry,
   ObservedReceipt,
+  PmoBlocker,
+  PmoContract,
+  PmoDependencyEdge,
+  PmoMacroRegistry,
+  PmoRunbook,
+  PmoTask,
   IntelligenceRecordType,
   IntelligenceReviewStatus,
   ProgramEvent,
@@ -100,6 +106,22 @@ export type ReceiptLedgerState = {
   reconcileStatuses: ReceiptReconcileRecord[];
 };
 
+export type MacroFactQuery = {
+  scope: RepositoryScope;
+  contextAnchor?: ContextAnchor;
+  targetRefs?: string[];
+  includeSuperseded?: boolean;
+  limit?: number;
+};
+
+export type MacroFactSet = {
+  tasks: PmoTask[];
+  blockers: PmoBlocker[];
+  contracts: PmoContract[];
+  dependencyEdges: PmoDependencyEdge[];
+  runbooks: PmoRunbook[];
+};
+
 export interface ProgramManagerRepository {
   listPrograms(scope: RepositoryScope): Promise<ProgramRef[]>;
   listProjects(scope: RepositoryScope): Promise<ProjectRef[]>;
@@ -128,6 +150,9 @@ export interface ProgramManagerRepository {
   appendActionLedgerEntry(entry: ActionLedgerEntry): Promise<void>;
   upsertReceiptReconcileStatus(status: ReceiptReconcileRecord, auditEvent?: ProgramEvent): Promise<void>;
   listReceiptLedger(query: ReceiptLedgerQuery): Promise<ReceiptLedgerState>;
+  listMacroFacts(query: MacroFactQuery): Promise<MacroFactSet>;
+  getMacroRegistry(scope: RepositoryScope): Promise<PmoMacroRegistry | undefined>;
+  upsertMacroRegistry(registry: PmoMacroRegistry, auditEvent?: ProgramEvent): Promise<void>;
   listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]>;
   getSyncCursors(scope: RepositoryScope): Promise<SyncCursor[]>;
 }

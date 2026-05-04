@@ -286,3 +286,109 @@ export type ProgramIntelligenceRecord =
   | DiscardedDecision
   | FailurePattern
   | RiskSignal;
+
+export type PmoFactEvidenceStatus = "supported" | "unevidenced" | "advisory" | "needs_review";
+
+export type PmoFactBase = {
+  id: string;
+  objectType: "task" | "blocker" | "contract" | "dependency_edge" | "runbook";
+  portfolioId: string;
+  programId?: string;
+  projectId?: string;
+  schemaVersion: string;
+  sourceAdapterId: string;
+  sourceCursor?: string;
+  recordedAt: string;
+  validFrom: string;
+  validTo?: string;
+  evidenceRefs: string[];
+  evidenceStatus: PmoFactEvidenceStatus;
+  supersededBy?: string;
+};
+
+export type PmoTask = PmoFactBase & {
+  objectType: "task";
+  taskRef: string;
+  title: string;
+  status: "not_started" | "in_progress" | "blocked" | "complete" | "cancelled";
+  priority: "p0" | "p1" | "p2" | "p3";
+  assigneeRefs: string[];
+  blockerRefs?: string[];
+  trackerSlug?: string;
+  trackerRev?: number;
+};
+
+export type PmoBlocker = PmoFactBase & {
+  objectType: "blocker";
+  blockerRef: string;
+  summary: string;
+  status: "open" | "mitigated" | "resolved" | "accepted";
+  severity: "low" | "medium" | "high" | "critical";
+  blockedRefs: string[];
+  ownerRefs: string[];
+};
+
+export type PmoContract = PmoFactBase & {
+  objectType: "contract";
+  contractRef: string;
+  summary: string;
+  status: "active" | "draft" | "stale" | "superseded";
+  criticality: Criticality;
+  producerRef: string;
+  consumerRefs: string[];
+};
+
+export type PmoDependencyEdge = PmoFactBase & {
+  objectType: "dependency_edge";
+  dependencyRef: string;
+  fromRef: string;
+  toRef: string;
+  dependencyType: string;
+  status: DependencyStatus;
+  criticality: Criticality;
+};
+
+export type PmoRunbook = PmoFactBase & {
+  objectType: "runbook";
+  runbookRef: string;
+  title: string;
+  summary: string;
+  status: "active" | "draft" | "stale" | "retired";
+  actionRefs: string[];
+};
+
+export type PmoMacroDefinition = {
+  description: string;
+  enabled: boolean;
+  inputSchemaRef: string;
+  macroId: string;
+  macroName:
+    | "analyze_blockers"
+    | "catch_me_up"
+    | "describe_macro"
+    | "discover_macros"
+    | "simulate_impact"
+    | "detect_drift"
+    | "export_registry"
+    | "object_type_docs"
+    | "propose_unblock_plan"
+    | "registry_help"
+    | "validate_macro";
+  outputSchemaRef: string;
+  registryEntryRef: string;
+  requiredRoleRefs: string[];
+  sideEffectPosture: "read_only" | "pmo_internal_write" | "describes_actions_only";
+  title: string;
+  version: string;
+};
+
+export type PmoMacroRegistry = {
+  artifactRefs?: string[];
+  evidenceRefs: string[];
+  macros: PmoMacroDefinition[];
+  portfolioId: string;
+  recordedAt: string;
+  registryRef: string;
+  registryVersion: string;
+  schemaVersion?: "1";
+};

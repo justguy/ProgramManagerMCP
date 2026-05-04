@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { loadGraphModules } from "./load-graph-modules.js";
 
@@ -591,4 +593,158 @@ test("ProgramManagerGraphRepository returns bounded context and deterministic im
       status: "stale"
     }
   ]);
+});
+
+test("ProgramManagerGraphRepository reads PMO macro facts with stable ordering and portfolio isolation", async () => {
+  const { repositoryModule } = await loadGraphModules();
+  const repository = repositoryModule.ProgramManagerGraphRepository.createInMemory();
+  const fixture = JSON.parse(
+    readFileSync(
+      join(process.cwd(), "../../../docs/phase-5/fixtures/pmo-macro-fixture-universe.example.json"),
+      "utf8"
+    )
+  );
+
+  await repository.seed({
+    macroTasks: fixture.seedGraph.tasks,
+    macroBlockers: fixture.seedGraph.blockers,
+    macroContracts: fixture.seedGraph.contracts,
+    macroDependencyEdges: fixture.seedGraph.dependencyEdges,
+    macroRunbooks: fixture.seedGraph.runbooks
+  });
+
+  const scope = {
+    portfolioId: "portfolio://default",
+    programId: "program://agentic-os"
+  };
+
+  const firstRead = await repository.listMacroFacts({ scope });
+  const secondRead = await repository.listMacroFacts({ scope });
+
+  assert.deepEqual(secondRead, firstRead);
+  assert.deepEqual(
+    firstRead.tasks.map((task) => task.taskRef),
+    [
+      "task://agentic-os/pmo-701",
+      "task://agentic-os/pmo-702",
+      "task://agentic-os/pmo-705"
+    ]
+  );
+  assert.deepEqual(
+    firstRead.blockers.map((blocker) => blocker.blockerRef),
+    [
+      "blocker://agentic-os/macro-dispatcher-awaits-fixtures",
+      "blocker://agentic-os/macro-fixture-evidence-gap"
+    ]
+  );
+  assert.deepEqual(
+    firstRead.contracts.map((contract) => contract.contractRef),
+    [
+      "contract://hoplon/authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "contract://semantix/readiness/control@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    ]
+  );
+  assert.deepEqual(
+    firstRead.dependencyEdges.map((edge) => edge.dependencyRef),
+    [
+      "dependency://agentic-os/guardrail-consumes-semantix-readiness",
+      "dependency://agentic-os/phalanx-consumes-hoplon-authz",
+      "dependency://agentic-os/pmo-701-unblocks-pmo-702"
+    ]
+  );
+  assert.deepEqual(
+    firstRead.runbooks.map((runbook) => runbook.runbookRef),
+    ["runbook://code-review/request-senior-review"]
+  );
+
+  const phalanxFacts = await repository.listMacroFacts({
+    scope,
+    targetRefs: ["project://phalanx"]
+  });
+  assert.deepEqual(
+    phalanxFacts.contracts.map((contract) => contract.contractRef),
+    ["contract://hoplon/authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+  );
+  assert.deepEqual(
+    phalanxFacts.dependencyEdges.map((edge) => edge.dependencyRef),
+    ["dependency://agentic-os/phalanx-consumes-hoplon-authz"]
+  );
+
+  const foreignPortfolio = await repository.listMacroFacts({
+    scope: {
+      portfolioId: "portfolio://other",
+      programId: "program://agentic-os"
+    }
+  });
+  assert.deepEqual(foreignPortfolio, {
+    tasks: [],
+    blockers: [],
+    contracts: [],
+    dependencyEdges: [],
+    runbooks: []
+  });
+});
+
+test("ProgramManagerGraphRepository persists PMO macro registry deterministically", async () => {
+  const { repositoryModule } = await loadGraphModules();
+  const repository = repositoryModule.ProgramManagerGraphRepository.createInMemory();
+  const scope = {
+    portfolioId: "portfolio://default"
+  };
+
+  await repository.upsertMacroRegistry({
+    artifactRefs: [],
+    evidenceRefs: ["evidence://registry"],
+    macros: [
+      {
+        description: "Simulate impact.",
+        enabled: true,
+        inputSchemaRef: "schema://pmo/pmo-macro-request",
+        macroId: "macro://pmo/simulate_impact",
+        macroName: "simulate_impact",
+        outputSchemaRef: "schema://pmo/pmo-macro-result",
+        registryEntryRef: "registry://pmo/macros/simulate_impact",
+        requiredRoleRefs: ["role://pmo/operator", "role://pmo/admin"],
+        sideEffectPosture: "describes_actions_only",
+        title: "Simulate Impact",
+        version: "1.0.0"
+      },
+      {
+        description: "Return context.",
+        enabled: true,
+        inputSchemaRef: "schema://pmo/pmo-macro-request",
+        macroId: "macro://pmo/catch_me_up",
+        macroName: "catch_me_up",
+        outputSchemaRef: "schema://pmo/pmo-macro-result",
+        registryEntryRef: "registry://pmo/macros/catch_me_up",
+        requiredRoleRefs: ["role://pmo/operator"],
+        sideEffectPosture: "read_only",
+        title: "Catch Me Up",
+        version: "1.0.0"
+      }
+    ],
+    portfolioId: "portfolio://default",
+    recordedAt: "2026-05-04T06:00:00Z",
+    registryRef: "registry://pmo/macros",
+    registryVersion: "1.0.0",
+    schemaVersion: "1"
+  });
+
+  const registry = await repository.getMacroRegistry(scope);
+  assert.deepEqual(
+    registry.macros.map((macro) => ({
+      macroId: macro.macroId,
+      requiredRoleRefs: macro.requiredRoleRefs
+    })),
+    [
+      {
+        macroId: "macro://pmo/catch_me_up",
+        requiredRoleRefs: ["role://pmo/operator"]
+      },
+      {
+        macroId: "macro://pmo/simulate_impact",
+        requiredRoleRefs: ["role://pmo/admin", "role://pmo/operator"]
+      }
+    ]
+  );
 });

@@ -13,17 +13,22 @@ test("Neo4j migration files define PMO constraints and dependency indexes", () =
 
   assert.deepEqual(files, [
     "V001__program_manager_constraints.cypher",
-    "V002__program_manager_indexes.cypher"
+    "V002__program_manager_indexes.cypher",
+    "V003__pmo_macro_objects.cypher"
   ]);
 
   const constraints = readFileSync(join(migrationsDir, files[0]), "utf8");
   const indexes = readFileSync(join(migrationsDir, files[1]), "utf8");
+  const macroObjects = readFileSync(join(migrationsDir, files[2]), "utf8");
 
   assert.match(constraints, /CREATE CONSTRAINT pm_program_ref IF NOT EXISTS/);
   assert.match(constraints, /CREATE CONSTRAINT pm_generic_ref IF NOT EXISTS/);
   assert.match(indexes, /CREATE INDEX pm_depends_on_dependency_id IF NOT EXISTS/);
   assert.match(indexes, /CREATE INDEX pm_requires_approval_dependency_id IF NOT EXISTS/);
   assert.match(indexes, /CREATE INDEX pm_requires_evidence_dependency_id IF NOT EXISTS/);
+  assert.match(macroObjects, /CREATE CONSTRAINT pm_macro_fact_ref IF NOT EXISTS/);
+  assert.match(macroObjects, /CREATE CONSTRAINT pm_macro_registry_ref IF NOT EXISTS/);
+  assert.match(macroObjects, /CREATE INDEX pm_macro_task_ref IF NOT EXISTS/);
 });
 
 test("Neo4j graph store issues typed dependency writes and ordered read queries", async () => {
@@ -80,6 +85,84 @@ test("Neo4j graph store issues typed dependency writes and ordered read queries"
 
   assert.match(writes[1].cypher, /MERGE \(fromRef\)-\[dependency:REQUIRES_APPROVAL/);
   assert.match(reads[0].cypher, /ORDER BY dependency.recordedAt, dependency.dependencyId, fromRef.ref, toRef.ref/);
+});
+
+test("Neo4j graph store scopes PMO macro fact and registry queries", async () => {
+  const { neo4jModule } = await loadGraphModules();
+  const { Neo4jProgramManagerGraphStore } = neo4jModule;
+
+  const reads = [];
+  const writes = [];
+  const driver = {
+    session() {
+      return {
+        async executeRead(work) {
+          return work({
+            async run(cypher, params) {
+              reads.push({ cypher, params });
+              return { records: [] };
+            }
+          });
+        },
+        async executeWrite(work) {
+          return work({
+            async run(cypher, params) {
+              writes.push({ cypher, params });
+              return { records: [] };
+            }
+          });
+        },
+        async close() {}
+      };
+    }
+  };
+
+  const store = new Neo4jProgramManagerGraphStore(driver);
+  await store.upsertMacroTask({
+    assigneeRefs: [],
+    evidenceRefs: [],
+    evidenceStatus: "supported",
+    id: "task://agentic-os/pmo-703",
+    objectType: "task",
+    portfolioId: "portfolio://default",
+    priority: "p0",
+    programId: "program://agentic-os",
+    projectId: "project://program-manager-mcp",
+    recordedAt: "2026-05-04T06:00:00Z",
+    schemaVersion: "1",
+    sourceAdapterId: "tracker-local",
+    status: "in_progress",
+    taskRef: "task://agentic-os/pmo-703",
+    title: "Repository support",
+    validFrom: "2026-05-04T06:00:00Z"
+  });
+  await store.upsertMacroRegistry({
+    portfolioId: "portfolio://default",
+    registryRef: "registry://pmo/macros",
+    registryVersion: "1.0.0",
+    recordedAt: "2026-05-04T06:00:00Z",
+    evidenceRefs: [],
+    macros: []
+  });
+  await store.listMacroTasks({
+    portfolioId: "portfolio://default",
+    programId: "program://agentic-os",
+    projectIds: ["project://program-manager-mcp"]
+  });
+  await store.getMacroRegistry({ portfolioId: "portfolio://default" });
+
+  assert.match(writes[0].cypher, /SET fact:PmMacroFact:PmMacroTask/);
+  assert.match(writes[1].cypher, /MERGE \(registry:PmMacroRegistry/);
+  assert.match(reads[0].cypher, /MATCH \(fact:PmMacroFact:PmMacroTask\)/);
+  assert.match(reads[0].cypher, /fact\.portfolioId = \$portfolioId/);
+  assert.match(reads[0].cypher, /fact\.programId = \$programId/);
+  assert.match(reads[0].cypher, /fact\.projectId IN \$projectIds/);
+  assert.match(reads[1].cypher, /MATCH \(registry:PmMacroRegistry\)/);
+  assert.deepEqual(reads[0].params, {
+    portfolioId: "portfolio://default",
+    programId: "program://agentic-os",
+    projectIds: ["project://program-manager-mcp"]
+  });
 });
 
 test(

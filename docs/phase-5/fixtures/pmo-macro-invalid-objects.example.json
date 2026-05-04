@@ -1,0 +1,111 @@
+{
+  "schemaVersion": "1.0.0",
+  "invalidObjects": [
+    {
+      "caseId": "missing-portfolio-scope",
+      "schema": "pmoTask",
+      "value": {
+        "assigneeRefs": [
+          "actor://codex/pmo"
+        ],
+        "evidenceRefs": [
+          "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "evidenceStatus": "supported",
+        "id": "task://agentic-os/pmo-701",
+        "objectType": "task",
+        "priority": "p0",
+        "programId": "program://agentic-os",
+        "recordedAt": "2026-05-04T05:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "tracker-local",
+        "status": "in_progress",
+        "taskRef": "task://agentic-os/pmo-701",
+        "title": "Missing portfolio scope is invalid",
+        "validFrom": "2026-05-04T05:00:00Z"
+      }
+    },
+    {
+      "caseId": "supported-fact-without-evidence",
+      "schema": "pmoBlocker",
+      "value": {
+        "blockedRefs": [
+          "task://agentic-os/pmo-705"
+        ],
+        "blockerRef": "blocker://agentic-os/no-evidence",
+        "evidenceRefs": [],
+        "evidenceStatus": "supported",
+        "id": "blocker://agentic-os/no-evidence",
+        "objectType": "blocker",
+        "ownerRefs": [
+          "actor://codex/pmo"
+        ],
+        "portfolioId": "portfolio://default",
+        "recordedAt": "2026-05-04T05:00:00Z",
+        "schemaVersion": "1",
+        "severity": "high",
+        "sourceAdapterId": "tracker-local",
+        "status": "open",
+        "summary": "Supported facts must cite evidence refs.",
+        "validFrom": "2026-05-04T05:00:00Z"
+      }
+    },
+    {
+      "caseId": "inline-raw-payload-on-envelope",
+      "schema": "pmoMacroResult",
+      "value": {
+        "artifactRefs": [],
+        "correlationId": "corr-inline-payload",
+        "deterministicCore": {
+          "action": "invoke",
+          "objectModelRefs": [
+            "schema://program-manager/pmo-macro-object-model/v1"
+          ],
+          "registryVersion": "1.0.0"
+        },
+        "evidenceRefs": [],
+        "logBody": "raw output is forbidden",
+        "redactionSummary": {
+          "omittedKinds": [],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": false
+        },
+        "schemaVersion": "1",
+        "status": "ok",
+        "toolName": "pmo_macro",
+        "traceId": "trace-inline-payload",
+        "warnings": []
+      }
+    },
+    {
+      "caseId": "deterministic-action-without-state-hash",
+      "schema": "pmoMacroResult",
+      "value": {
+        "artifactRefs": [],
+        "correlationId": "corr-missing-hash",
+        "deterministicCore": {
+          "action": "invoke",
+          "objectModelRefs": [
+            "schema://program-manager/pmo-macro-object-model/v1"
+          ],
+          "registryVersion": "1.0.0"
+        },
+        "evidenceRefs": [],
+        "redactionSummary": {
+          "omittedKinds": [],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": false
+        },
+        "schemaVersion": "1",
+        "status": "ok",
+        "toolName": "pmo_macro",
+        "traceId": "trace-missing-hash",
+        "warnings": []
+      }
+    }
+  ]
+}

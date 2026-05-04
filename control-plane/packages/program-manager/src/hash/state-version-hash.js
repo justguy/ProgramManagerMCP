@@ -6,6 +6,7 @@ const NON_DETERMINISTIC_KEYS = new Set([
   "advisoryText",
   "artifactBody",
   "artifactContent",
+  "correlationId",
   "generatedAt",
   "generatedTimestamp",
   "logBody",
@@ -19,6 +20,7 @@ const NON_DETERMINISTIC_KEYS = new Set([
   "scratchpads",
   "screenshot",
   "screenshotBytes",
+  "traceId",
   "transcript",
   "transcripts"
 ]);

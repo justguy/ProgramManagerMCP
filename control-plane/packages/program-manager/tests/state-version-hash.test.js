@@ -3,6 +3,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  pmoMacroHashInputSchema
+} from "../../../../shared/schemas/program-manager.ts";
+import {
   canonicalizeForStateVersionHash,
   collectNondeterministicHashKeys,
   isSortedByField,
@@ -13,6 +16,15 @@ import { getGoldenFixture } from "../src/fixtures/golden-fixture-backbone.js";
 async function readHashFixture() {
   const hashFixtureURL = new URL(
     "../../../../docs/phase-0/fixtures/state-version-hash-input.example.json",
+    import.meta.url
+  );
+  const raw = await readFile(hashFixtureURL, "utf8");
+  return JSON.parse(raw);
+}
+
+async function readMacroHashFixture() {
+  const hashFixtureURL = new URL(
+    "../../../../docs/phase-5/fixtures/pmo-macro-hash-input.example.json",
     import.meta.url
   );
   const raw = await readFile(hashFixtureURL, "utf8");
@@ -92,5 +104,38 @@ test("state version hash input excludes non-deterministic fields and enforces st
     hashFixture.input.adapterCursors.map((cursor) => cursor.adapterId),
     ["tracker-local", "hoplon-local"],
     "adapter cursor ordering is explicit and stable"
+  );
+});
+
+test("pmo_macro hash input is deterministic and excludes advisory identity noise", async () => {
+  const hashFixture = await readMacroHashFixture();
+  const input = pmoMacroHashInputSchema.parse(hashFixture.input);
+
+  assert.deepEqual(
+    collectNondeterministicHashKeys(input),
+    [],
+    "macro hash input should not contain advisory, raw payload, trace, or correlation fields"
+  );
+
+  assert.equal(stateVersionHashFromInput(input), hashFixture.expectedHash);
+  assert.equal(stateVersionHashFromInput(input), stateVersionHashFromInput(input));
+
+  const withExcludedNoise = {
+    ...input,
+    advisoryPane: {
+      content: { summary: "model-assisted text is excluded" },
+      excludedFromDeterministicHash: true,
+      modelAssisted: true
+    },
+    correlationId: "corr-noise",
+    generatedAt: "2026-05-04T05:30:00Z",
+    rawLog: "raw logs must not enter deterministic hash material",
+    traceId: "trace-noise"
+  };
+
+  assert.equal(
+    stateVersionHashFromInput(input),
+    stateVersionHashFromInput(withExcludedNoise),
+    "advisory, trace, correlation, and raw fields must not affect pmo_macro hashes"
   );
 });

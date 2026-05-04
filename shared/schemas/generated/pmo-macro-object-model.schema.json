@@ -1,0 +1,7 @@
+{
+  "$ref": "#/definitions/pmo-macro-object-model",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "pmo-macro-object-model": {}
+  }
+}

@@ -7,6 +7,7 @@ import {
   getProgramDocumentationRequestSchema,
   listProgramCapabilitiesRequestSchema,
   planProgramActionRequestSchema,
+  pmoMacroRequestSchema,
   queryProgramContextRequestSchema,
   recordProgramReceiptRequestSchema,
   reconcileProgramStateRequestSchema,
@@ -16,6 +17,16 @@ import type { ProgramToolActor } from "../authz/program-tool-authz.ts";
 import { ProgramToolService } from "../service/program-tool-service.ts";
 
 export const PROGRAM_MANAGER_MCP_TOOLS = Object.freeze([
+  {
+    name: "pmo_macro",
+    description:
+      "Single PMO macro omni-tool for help, discovery, validation, invocation, object docs, registry export, and safe registry edits.",
+    requestSchema: pmoMacroRequestSchema
+  },
+  /*
+   * Legacy compatibility contracts remain callable for existing clients and tests, but the listed
+   * public PMO macro surface is pmo_macro.
+   */
   {
     name: "list_program_capabilities",
     description: "List the public PMO capability surface without exposing downstream mutation methods.",
@@ -91,7 +102,7 @@ export class ProgramManagerMcpGateway {
   }
 
   listTools() {
-    return PROGRAM_MANAGER_MCP_TOOLS.map((tool) => ({
+    return PROGRAM_MANAGER_MCP_TOOLS.filter((tool) => tool.name === "pmo_macro").map((tool) => ({
       name: tool.name,
       description: tool.description
     }));
@@ -99,6 +110,8 @@ export class ProgramManagerMcpGateway {
 
   async callTool(toolName: string, request: unknown, actor: ProgramToolActor) {
     switch (toolName) {
+      case "pmo_macro":
+        return this.#service.pmoMacro(request, actor);
       case "list_program_capabilities":
         return this.#service.listProgramCapabilities(request, actor);
       case "get_program_documentation":

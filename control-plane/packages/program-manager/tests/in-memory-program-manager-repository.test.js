@@ -19,6 +19,9 @@ test("InMemoryProgramManagerRepository exposes fixture-based read query methods"
   assert.match(source, /async listEvidenceRefs/);
   assert.match(source, /async listArtifactRefs/);
   assert.match(source, /async listDecisions/);
+  assert.match(source, /async listMacroFacts/);
+  assert.match(source, /async getMacroRegistry/);
+  assert.match(source, /async upsertMacroRegistry/);
   assert.match(source, /async listEvents/);
   assert.match(source, /async getSyncCursors/);
 });

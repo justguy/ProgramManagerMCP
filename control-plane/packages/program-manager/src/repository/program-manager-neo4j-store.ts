@@ -5,6 +5,12 @@ import type {
   GraphRelationship,
   ActionLedgerEntry,
   ObservedReceipt,
+  PmoBlocker,
+  PmoContract,
+  PmoDependencyEdge,
+  PmoMacroRegistry,
+  PmoRunbook,
+  PmoTask,
   ProgramEvent,
   ProgramIntelligenceRecord,
   ProgramRef,
@@ -152,6 +158,10 @@ function compareLedgerValues(
 function parsePayload<T>(record: Neo4jRecordLike, key: string): T {
   const payload = record.get(key);
   return JSON.parse(payload as string) as T;
+}
+
+function macroScopeWhere(scope: RepositoryScope, alias: string): string {
+  return scopeWhere(scope, alias);
 }
 
 async function runWrite(
@@ -587,6 +597,76 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
     );
   }
 
+  async upsertMacroTask(task: PmoTask): Promise<void> {
+    await this.upsertMacroFact("PmMacroTask", task.taskRef, task);
+  }
+
+  async upsertMacroBlocker(blocker: PmoBlocker): Promise<void> {
+    await this.upsertMacroFact("PmMacroBlocker", blocker.blockerRef, blocker);
+  }
+
+  async upsertMacroContract(contract: PmoContract): Promise<void> {
+    await this.upsertMacroFact("PmMacroContract", contract.contractRef, contract);
+  }
+
+  async upsertMacroDependencyEdge(edge: PmoDependencyEdge): Promise<void> {
+    await this.upsertMacroFact("PmMacroDependencyEdge", edge.dependencyRef, edge);
+  }
+
+  async upsertMacroRunbook(runbook: PmoRunbook): Promise<void> {
+    await this.upsertMacroFact("PmMacroRunbook", runbook.runbookRef, runbook);
+  }
+
+  async upsertMacroRegistry(registry: PmoMacroRegistry): Promise<void> {
+    await runWrite(
+      this.driver,
+      `
+        MERGE (registry:PmMacroRegistry {portfolioId: $portfolioId, registryRef: $registryRef})
+        SET registry.registryVersion = $registryVersion,
+            registry.recordedAt = $recordedAt,
+            registry.evidenceRefs = $evidenceRefs,
+            registry.payload = $payload
+      `,
+      {
+        ...registry,
+        payload: JSON.stringify(registry)
+      }
+    );
+  }
+
+  private async upsertMacroFact(
+    label: "PmMacroTask" | "PmMacroBlocker" | "PmMacroContract" | "PmMacroDependencyEdge" | "PmMacroRunbook",
+    ref: string,
+    fact: PmoTask | PmoBlocker | PmoContract | PmoDependencyEdge | PmoRunbook
+  ): Promise<void> {
+    await runWrite(
+      this.driver,
+      `
+        MERGE (fact:PmRef {portfolioId: $portfolioId, ref: $ref})
+        SET fact:PmMacroFact:${label},
+            fact.id = $id,
+            fact.ref = $ref,
+            fact.objectType = $objectType,
+            fact.programId = $programId,
+            fact.projectId = $projectId,
+            fact.recordedAt = $recordedAt,
+            fact.validFrom = $validFrom,
+            fact.validTo = $validTo,
+            fact.evidenceRefs = $evidenceRefs,
+            fact.evidenceStatus = $evidenceStatus,
+            fact.supersededBy = $supersededBy,
+            fact.sourceAdapterId = $sourceAdapterId,
+            fact.sourceCursor = $sourceCursor,
+            fact.payload = $payload
+      `,
+      {
+        ...fact,
+        ref,
+        payload: JSON.stringify(fact)
+      }
+    );
+  }
+
   async listPrograms(scope: RepositoryScope): Promise<ProgramRef[]> {
     return runRead(
       this.driver,
@@ -1002,6 +1082,59 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
       `,
       toScopeParams(scope),
       (record) => mapRecord<SyncCursorRecord>(record, "cursor")
+    );
+  }
+
+  async listMacroTasks(scope: RepositoryScope): Promise<PmoTask[]> {
+    return this.listMacroFactsByLabel<PmoTask>(scope, "PmMacroTask", "taskRef");
+  }
+
+  async listMacroBlockers(scope: RepositoryScope): Promise<PmoBlocker[]> {
+    return this.listMacroFactsByLabel<PmoBlocker>(scope, "PmMacroBlocker", "blockerRef");
+  }
+
+  async listMacroContracts(scope: RepositoryScope): Promise<PmoContract[]> {
+    return this.listMacroFactsByLabel<PmoContract>(scope, "PmMacroContract", "contractRef");
+  }
+
+  async listMacroDependencyEdges(scope: RepositoryScope): Promise<PmoDependencyEdge[]> {
+    return this.listMacroFactsByLabel<PmoDependencyEdge>(scope, "PmMacroDependencyEdge", "dependencyRef");
+  }
+
+  async listMacroRunbooks(scope: RepositoryScope): Promise<PmoRunbook[]> {
+    return this.listMacroFactsByLabel<PmoRunbook>(scope, "PmMacroRunbook", "runbookRef");
+  }
+
+  async getMacroRegistry(scope: RepositoryScope): Promise<PmoMacroRegistry | undefined> {
+    const registries = await runRead(
+      this.driver,
+      `
+        MATCH (registry:PmMacroRegistry)
+        WHERE registry.portfolioId = $portfolioId
+        RETURN registry.payload AS payload
+        ORDER BY registry.recordedAt DESC, registry.registryRef
+      `,
+      toScopeParams(scope),
+      (record) => parsePayload<PmoMacroRegistry>(record, "payload")
+    );
+    return registries[0];
+  }
+
+  private async listMacroFactsByLabel<T>(
+    scope: RepositoryScope,
+    label: "PmMacroTask" | "PmMacroBlocker" | "PmMacroContract" | "PmMacroDependencyEdge" | "PmMacroRunbook",
+    orderProperty: string
+  ): Promise<T[]> {
+    return runRead(
+      this.driver,
+      `
+        MATCH (fact:PmMacroFact:${label})
+        WHERE ${macroScopeWhere(scope, "fact")}
+        RETURN fact.payload AS payload
+        ORDER BY fact.${orderProperty}, fact.recordedAt
+      `,
+      toScopeParams(scope),
+      (record) => parsePayload<T>(record, "payload")
     );
   }
 }

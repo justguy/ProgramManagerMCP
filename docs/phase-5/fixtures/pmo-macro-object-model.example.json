@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "1.0.0",
+  "validationContract": {
+    "deterministicOrdering": true,
+    "portfolioScoped": true,
+    "prohibitedInlineKinds": [
+      "credentials",
+      "logs",
+      "product_rows",
+      "provider_transcripts",
+      "scratchpads",
+      "screenshots",
+      "secrets",
+      "session_data",
+      "traces"
+    ],
+    "scopedFactFieldsRequired": true
+  },
+  "examples": {
+    "blocker": {
+      "blockedRefs": [
+        "task://agentic-os/pmo-705"
+      ],
+      "blockerRef": "blocker://agentic-os/pmo-macro-dispatcher-contract",
+      "branchName": "main",
+      "evidenceRefs": [
+        "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "evidenceStatus": "supported",
+      "gitCommit": "abc123def456",
+      "id": "blocker://agentic-os/pmo-macro-dispatcher-contract",
+      "objectType": "blocker",
+      "ownerRefs": [
+        "actor://codex/pmo"
+      ],
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "recordedAt": "2026-05-04T05:00:00Z",
+      "repoId": "repo://ProgramManagerMCP",
+      "schemaVersion": "1",
+      "severity": "high",
+      "sourceAdapterId": "tracker-local",
+      "sourceCursor": "rev:63",
+      "status": "open",
+      "summary": "pmo_macro dispatcher work is blocked until the object and envelope contract is fixed.",
+      "trackerRev": 63,
+      "trackerSlug": "program-manager-mcp",
+      "validFrom": "2026-05-04T05:00:00Z"
+    },
+    "contract": {
+      "consumerRefs": [
+        "macro://pmo/analyze_blockers",
+        "macro://pmo/catch_me_up"
+      ],
+      "contractRef": "contract://program-manager-mcp/pmo-macro-envelope-v1@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "criticality": "tier_1",
+      "evidenceRefs": [
+        "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "evidenceStatus": "supported",
+      "id": "contract://program-manager-mcp/pmo-macro-envelope-v1@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "objectType": "contract",
+      "portfolioId": "portfolio://default",
+      "producerRef": "project://program-manager-mcp",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "recordedAt": "2026-05-04T05:00:00Z",
+      "schemaVersion": "1",
+      "sourceAdapterId": "program-manager-schema",
+      "status": "active",
+      "summary": "Single pmo_macro tool results use deterministic envelopes with pointer-only refs and advisory exclusion.",
+      "validFrom": "2026-05-04T05:00:00Z"
+    },
+    "dependencyEdge": {
+      "dependencyRef": "dependency://program-manager-mcp/pmo-701-unblocks-pmo-702",
+      "dependencyType": "UNBLOCKS",
+      "evidenceRefs": [
+        "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "evidenceStatus": "supported",
+      "fromRef": "task://agentic-os/pmo-701",
+      "id": "dependency://program-manager-mcp/pmo-701-unblocks-pmo-702",
+      "objectType": "dependency_edge",
+      "policyRefs": [
+        "policy://pmo/passive-planner-boundary-v1"
+      ],
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "recordedAt": "2026-05-04T05:00:00Z",
+      "schemaVersion": "1",
+      "sourceAdapterId": "tracker-local",
+      "sourceCursor": "rev:63",
+      "status": "active",
+      "toRef": "task://agentic-os/pmo-702",
+      "validFrom": "2026-05-04T05:00:00Z"
+    },
+    "macroRegistry": {
+      "artifactRefs": [
+        "artifact://pmo/macro-registry/v1@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      ],
+      "evidenceRefs": [
+        "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "macros": [
+        {
+          "description": "Finds active blockers and proposes PMO-owned unblock plans without executing downstream actions.",
+          "enabled": true,
+          "inputSchemaRef": "schema://program-manager/pmo-macro/analyze-blockers-input/v1",
+          "macroId": "macro://pmo/analyze_blockers",
+          "macroName": "analyze_blockers",
+          "outputSchemaRef": "schema://program-manager/pmo-macro/analyze-blockers-output/v1",
+          "registryEntryRef": "macro-registry://pmo/analyze_blockers/v1",
+          "requiredRoleRefs": [
+            "role://pmo/reader"
+          ],
+          "sideEffectPosture": "describes_actions_only",
+          "title": "Analyze Blockers",
+          "version": "1.0.0"
+        },
+        {
+          "description": "Builds bounded catch-me-up context panes over normalized PMO facts.",
+          "enabled": true,
+          "inputSchemaRef": "schema://program-manager/pmo-macro/catch-me-up-input/v1",
+          "macroId": "macro://pmo/catch_me_up",
+          "macroName": "catch_me_up",
+          "outputSchemaRef": "schema://program-manager/pmo-macro/catch-me-up-output/v1",
+          "registryEntryRef": "macro-registry://pmo/catch_me_up/v1",
+          "requiredRoleRefs": [
+            "role://pmo/reader"
+          ],
+          "sideEffectPosture": "read_only",
+          "title": "Catch Me Up",
+          "version": "1.0.0"
+        }
+      ],
+      "portfolioId": "portfolio://default",
+      "recordedAt": "2026-05-04T05:00:00Z",
+      "registryRef": "macro-registry://pmo/default/v1",
+      "registryVersion": "1.0.0",
+      "schemaVersion": "1"
+    },
+    "runbook": {
+      "actionRefs": [
+        "runbook-action://pmo/request-human-review"
+      ],
+      "evidenceRefs": [],
+      "evidenceStatus": "needs_review",
+      "id": "runbook://code-review/request-senior-review",
+      "objectType": "runbook",
+      "ownerRefs": [
+        "actor://codex/pmo"
+      ],
+      "portfolioId": "portfolio://default",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "recordedAt": "2026-05-04T05:00:00Z",
+      "runbookRef": "runbook://code-review/request-senior-review",
+      "schemaVersion": "1",
+      "sourceAdapterId": "program-manager-schema",
+      "status": "draft",
+      "title": "Request Senior Review",
+      "validFrom": "2026-05-04T05:00:00Z"
+    },
+    "task": {
+      "assigneeRefs": [
+        "actor://codex/pmo"
+      ],
+      "blockerRefs": [
+        "blocker://agentic-os/pmo-macro-dispatcher-contract"
+      ],
+      "branchName": "main",
+      "evidenceRefs": [
+        "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "evidenceStatus": "supported",
+      "gitCommit": "abc123def456",
+      "id": "task://agentic-os/pmo-701",
+      "objectType": "task",
+      "portfolioId": "portfolio://default",
+      "priority": "p0",
+      "programId": "program://agentic-os",
+      "projectId": "project://program-manager-mcp",
+      "recordedAt": "2026-05-04T05:00:00Z",
+      "repoId": "repo://ProgramManagerMCP",
+      "schemaVersion": "1",
+      "sourceAdapterId": "tracker-local",
+      "sourceCursor": "rev:63",
+      "status": "in_progress",
+      "taskRef": "task://agentic-os/pmo-701",
+      "title": "Macro object model and envelope contract alignment",
+      "trackerRev": 63,
+      "trackerSlug": "program-manager-mcp",
+      "validFrom": "2026-05-04T05:00:00Z"
+    }
+  }
+}

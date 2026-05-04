@@ -6,6 +6,12 @@ import type {
   GraphRelationship,
   ActionLedgerEntry,
   ObservedReceipt,
+  PmoBlocker,
+  PmoContract,
+  PmoDependencyEdge,
+  PmoMacroRegistry,
+  PmoRunbook,
+  PmoTask,
   ProgramEvent,
   ProgramIntelligenceRecord,
   ProgramRef,
@@ -79,6 +85,12 @@ export type ProgramManagerGraphSeed = {
   receiptReconcileStatuses?: ReceiptReconcileRecord[];
   events?: ProgramEvent[];
   syncCursors?: SyncCursorRecord[];
+  macroTasks?: PmoTask[];
+  macroBlockers?: PmoBlocker[];
+  macroContracts?: PmoContract[];
+  macroDependencyEdges?: PmoDependencyEdge[];
+  macroRunbooks?: PmoRunbook[];
+  macroRegistries?: PmoMacroRegistry[];
 };
 
 export interface ProgramManagerGraphStore {
@@ -98,6 +110,12 @@ export interface ProgramManagerGraphStore {
   upsertReceiptReconcileStatus(status: ReceiptReconcileRecord): Promise<void>;
   appendEvent(event: ProgramEvent): Promise<void>;
   upsertSyncCursor(cursor: SyncCursorRecord): Promise<void>;
+  upsertMacroTask(task: PmoTask): Promise<void>;
+  upsertMacroBlocker(blocker: PmoBlocker): Promise<void>;
+  upsertMacroContract(contract: PmoContract): Promise<void>;
+  upsertMacroDependencyEdge(edge: PmoDependencyEdge): Promise<void>;
+  upsertMacroRunbook(runbook: PmoRunbook): Promise<void>;
+  upsertMacroRegistry(registry: PmoMacroRegistry): Promise<void>;
   listPrograms(scope: RepositoryScope): Promise<ProgramRef[]>;
   listProjects(scope: RepositoryScope): Promise<ProjectRef[]>;
   listMemberships(scope: RepositoryScope): Promise<ProgramMembership[]>;
@@ -114,6 +132,12 @@ export interface ProgramManagerGraphStore {
   listReceiptReconcileStatuses(query: ReceiptLedgerQuery): Promise<ReceiptReconcileRecord[]>;
   listEvents(scope: RepositoryScope): Promise<ProgramEvent[]>;
   listSyncCursors(scope: RepositoryScope): Promise<SyncCursorRecord[]>;
+  listMacroTasks(scope: RepositoryScope): Promise<PmoTask[]>;
+  listMacroBlockers(scope: RepositoryScope): Promise<PmoBlocker[]>;
+  listMacroContracts(scope: RepositoryScope): Promise<PmoContract[]>;
+  listMacroDependencyEdges(scope: RepositoryScope): Promise<PmoDependencyEdge[]>;
+  listMacroRunbooks(scope: RepositoryScope): Promise<PmoRunbook[]>;
+  getMacroRegistry(scope: RepositoryScope): Promise<PmoMacroRegistry | undefined>;
 }
 
 function compareStrings(left: string, right: string): number {
@@ -249,6 +273,60 @@ function cloneEvent(event: ProgramEvent): ProgramEvent {
 
 function cloneCursor(cursor: SyncCursorRecord): SyncCursorRecord {
   return { ...cursor };
+}
+
+function cloneMacroTask(task: PmoTask): PmoTask {
+  return {
+    ...task,
+    assigneeRefs: [...task.assigneeRefs].sort(compareStrings),
+    blockerRefs: sortStringArray(task.blockerRefs),
+    evidenceRefs: [...task.evidenceRefs].sort(compareStrings)
+  };
+}
+
+function cloneMacroBlocker(blocker: PmoBlocker): PmoBlocker {
+  return {
+    ...blocker,
+    blockedRefs: [...blocker.blockedRefs].sort(compareStrings),
+    evidenceRefs: [...blocker.evidenceRefs].sort(compareStrings),
+    ownerRefs: [...blocker.ownerRefs].sort(compareStrings)
+  };
+}
+
+function clonePmoContract(contract: PmoContract): PmoContract {
+  return {
+    ...contract,
+    consumerRefs: [...contract.consumerRefs].sort(compareStrings),
+    evidenceRefs: [...contract.evidenceRefs].sort(compareStrings)
+  };
+}
+
+function cloneMacroDependencyEdge(edge: PmoDependencyEdge): PmoDependencyEdge {
+  return {
+    ...edge,
+    evidenceRefs: [...edge.evidenceRefs].sort(compareStrings)
+  };
+}
+
+function cloneMacroRunbook(runbook: PmoRunbook): PmoRunbook {
+  return {
+    ...runbook,
+    actionRefs: [...runbook.actionRefs].sort(compareStrings),
+    evidenceRefs: [...runbook.evidenceRefs].sort(compareStrings)
+  };
+}
+
+function cloneMacroRegistry(registry: PmoMacroRegistry): PmoMacroRegistry {
+  return {
+    ...registry,
+    evidenceRefs: [...registry.evidenceRefs].sort(compareStrings),
+    macros: registry.macros
+      .map((macro) => ({
+        ...macro,
+        requiredRoleRefs: [...macro.requiredRoleRefs].sort(compareStrings)
+      }))
+      .sort(compareMacroDefinitions)
+  };
 }
 
 export function normalizeRecordedAt(recordedAt?: string): string {
@@ -396,6 +474,36 @@ export function compareSyncCursors(left: SyncCursorRecord, right: SyncCursorReco
   );
 }
 
+export function compareMacroTasks(left: PmoTask, right: PmoTask): number {
+  return compareStrings(left.taskRef, right.taskRef) || compareStrings(left.recordedAt, right.recordedAt);
+}
+
+export function compareMacroBlockers(left: PmoBlocker, right: PmoBlocker): number {
+  return compareStrings(left.blockerRef, right.blockerRef) || compareStrings(left.recordedAt, right.recordedAt);
+}
+
+export function comparePmoContracts(left: PmoContract, right: PmoContract): number {
+  return compareStrings(left.contractRef, right.contractRef) || compareStrings(left.recordedAt, right.recordedAt);
+}
+
+export function compareMacroDependencyEdges(
+  left: PmoDependencyEdge,
+  right: PmoDependencyEdge
+): number {
+  return compareStrings(left.dependencyRef, right.dependencyRef) || compareStrings(left.recordedAt, right.recordedAt);
+}
+
+export function compareMacroRunbooks(left: PmoRunbook, right: PmoRunbook): number {
+  return compareStrings(left.runbookRef, right.runbookRef) || compareStrings(left.recordedAt, right.recordedAt);
+}
+
+export function compareMacroDefinitions(
+  left: PmoMacroRegistry["macros"][number],
+  right: PmoMacroRegistry["macros"][number]
+): number {
+  return compareStrings(left.macroId, right.macroId);
+}
+
 function inScope(
   portfolioId: string,
   programId: string | undefined,
@@ -495,6 +603,12 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
   private readonly receiptReconcileStatuses: ReceiptReconcileRecord[] = [];
   private readonly events: ProgramEvent[] = [];
   private readonly syncCursors: SyncCursorRecord[] = [];
+  private readonly macroTasks: PmoTask[] = [];
+  private readonly macroBlockers: PmoBlocker[] = [];
+  private readonly macroContracts: PmoContract[] = [];
+  private readonly macroDependencyEdges: PmoDependencyEdge[] = [];
+  private readonly macroRunbooks: PmoRunbook[] = [];
+  private readonly macroRegistries: PmoMacroRegistry[] = [];
 
   async seed(seed: ProgramManagerGraphSeed): Promise<void> {
     for (const program of seed.programs ?? []) {
@@ -544,6 +658,24 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
     }
     for (const cursor of seed.syncCursors ?? []) {
       await this.upsertSyncCursor(cursor);
+    }
+    for (const task of seed.macroTasks ?? []) {
+      await this.upsertMacroTask(task);
+    }
+    for (const blocker of seed.macroBlockers ?? []) {
+      await this.upsertMacroBlocker(blocker);
+    }
+    for (const contract of seed.macroContracts ?? []) {
+      await this.upsertMacroContract(contract);
+    }
+    for (const edge of seed.macroDependencyEdges ?? []) {
+      await this.upsertMacroDependencyEdge(edge);
+    }
+    for (const runbook of seed.macroRunbooks ?? []) {
+      await this.upsertMacroRunbook(runbook);
+    }
+    for (const registry of seed.macroRegistries ?? []) {
+      await this.upsertMacroRegistry(registry);
     }
   }
 
@@ -699,6 +831,72 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
         clone: cloneCursor
       },
       cursor
+    );
+  }
+
+  async upsertMacroTask(task: PmoTask): Promise<void> {
+    upsertEntity(
+      {
+        data: this.macroTasks,
+        keyOf: (value) => `${value.portfolioId}::${value.taskRef}`,
+        clone: cloneMacroTask
+      },
+      task
+    );
+  }
+
+  async upsertMacroBlocker(blocker: PmoBlocker): Promise<void> {
+    upsertEntity(
+      {
+        data: this.macroBlockers,
+        keyOf: (value) => `${value.portfolioId}::${value.blockerRef}`,
+        clone: cloneMacroBlocker
+      },
+      blocker
+    );
+  }
+
+  async upsertMacroContract(contract: PmoContract): Promise<void> {
+    upsertEntity(
+      {
+        data: this.macroContracts,
+        keyOf: (value) => `${value.portfolioId}::${value.contractRef}`,
+        clone: clonePmoContract
+      },
+      contract
+    );
+  }
+
+  async upsertMacroDependencyEdge(edge: PmoDependencyEdge): Promise<void> {
+    upsertEntity(
+      {
+        data: this.macroDependencyEdges,
+        keyOf: (value) => `${value.portfolioId}::${value.dependencyRef}`,
+        clone: cloneMacroDependencyEdge
+      },
+      edge
+    );
+  }
+
+  async upsertMacroRunbook(runbook: PmoRunbook): Promise<void> {
+    upsertEntity(
+      {
+        data: this.macroRunbooks,
+        keyOf: (value) => `${value.portfolioId}::${value.runbookRef}`,
+        clone: cloneMacroRunbook
+      },
+      runbook
+    );
+  }
+
+  async upsertMacroRegistry(registry: PmoMacroRegistry): Promise<void> {
+    upsertEntity(
+      {
+        data: this.macroRegistries,
+        keyOf: (value) => `${value.portfolioId}::${value.registryRef}`,
+        clone: cloneMacroRegistry
+      },
+      registry
     );
   }
 
@@ -922,5 +1120,43 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
     return this.syncCursors
       .filter((cursor) => cursor.portfolioId === scope.portfolioId)
       .map(cloneCursor);
+  }
+
+  async listMacroTasks(scope: RepositoryScope): Promise<PmoTask[]> {
+    return this.macroTasks
+      .filter((task) => matchesLedgerScope(task.portfolioId, task.programId, task.projectId, scope))
+      .map(cloneMacroTask);
+  }
+
+  async listMacroBlockers(scope: RepositoryScope): Promise<PmoBlocker[]> {
+    return this.macroBlockers
+      .filter((blocker) => matchesLedgerScope(blocker.portfolioId, blocker.programId, blocker.projectId, scope))
+      .map(cloneMacroBlocker);
+  }
+
+  async listMacroContracts(scope: RepositoryScope): Promise<PmoContract[]> {
+    return this.macroContracts
+      .filter((contract) => matchesLedgerScope(contract.portfolioId, contract.programId, contract.projectId, scope))
+      .map(clonePmoContract);
+  }
+
+  async listMacroDependencyEdges(scope: RepositoryScope): Promise<PmoDependencyEdge[]> {
+    return this.macroDependencyEdges
+      .filter((edge) => matchesLedgerScope(edge.portfolioId, edge.programId, edge.projectId, scope))
+      .map(cloneMacroDependencyEdge);
+  }
+
+  async listMacroRunbooks(scope: RepositoryScope): Promise<PmoRunbook[]> {
+    return this.macroRunbooks
+      .filter((runbook) => matchesLedgerScope(runbook.portfolioId, runbook.programId, runbook.projectId, scope))
+      .map(cloneMacroRunbook);
+  }
+
+  async getMacroRegistry(scope: RepositoryScope): Promise<PmoMacroRegistry | undefined> {
+    const registries = this.macroRegistries
+      .filter((registry) => registry.portfolioId === scope.portfolioId)
+      .map(cloneMacroRegistry)
+      .sort((left, right) => compareStrings(right.recordedAt, left.recordedAt) || compareStrings(left.registryRef, right.registryRef));
+    return registries[0];
   }
 }

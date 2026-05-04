@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   analyzeProgramIntelligenceResultSchema,
@@ -10,6 +12,7 @@ import {
   listProgramCapabilitiesResultSchema,
   generateProgramUpdateResultSchema,
   planProgramActionResultSchema,
+  pmoMacroResultSchema,
   queryProgramContextResultSchema,
   recordProgramReceiptResultSchema,
   reconcileProgramStateResultSchema,
@@ -196,26 +199,375 @@ function buildReceiptRequest(overrides = {}) {
   };
 }
 
-test("gateway lists public Phase 1A/1B MCP tools", () => {
+function getMacroFixtureRepository() {
+  const fixture = JSON.parse(
+    readFileSync(
+      join(process.cwd(), "../../../docs/phase-5/fixtures/pmo-macro-fixture-universe.example.json"),
+      "utf8"
+    )
+  );
+  return InMemoryProgramManagerRepository.fromFixture({
+    macroTasks: fixture.seedGraph.tasks,
+    macroBlockers: fixture.seedGraph.blockers,
+    macroContracts: fixture.seedGraph.contracts,
+    macroDependencyEdges: fixture.seedGraph.dependencyEdges,
+    macroRunbooks: fixture.seedGraph.runbooks
+  });
+}
+
+test("gateway lists pmo_macro as the single public PMO macro surface", () => {
   const gateway = buildGateway();
 
   assert.deepEqual(
     gateway.listTools().map((tool) => tool.name),
-    [
-      "list_program_capabilities",
-      "get_program_documentation",
-      "query_program_context",
-      "assess_program_impact",
-      "generate_program_update",
-      "get_program_audit_trail",
-      "analyze_program_intelligence",
-      "plan_program_action",
-      "record_program_receipt",
-      "reconcile_program_state",
-      "get_agentic_os_context_packet",
-      "submit_agentic_os_receipt"
-    ]
+    ["pmo_macro"]
   );
+});
+
+test("pmo_macro handles help, discovery, validation, and registry edits through one envelope", async () => {
+  const gateway = buildGateway();
+  const actor = buildActor({
+    actorId: "actor://operators/pmo-agent",
+    actorRole: "program_manager_agent",
+    authenticatedAt: "2026-05-04T05:00:00Z",
+    expiresAt: "2026-05-04T08:00:00Z"
+  });
+
+  const help = await gateway.callTool(
+    "pmo_macro",
+    {
+      action: "help",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://pmo-macro/help",
+      correlationId: "corr://pmo-macro/help"
+    },
+    actor
+  );
+  assert.deepEqual(pmoMacroResultSchema.parse(help), help);
+  assert.equal(help.toolName, "pmo_macro");
+  assert.equal(help.stateVersionHash, undefined);
+  assert.ok(help.deterministicCore.registry.macros.length >= 10);
+
+  const list = await gateway.callTool(
+    "pmo_macro",
+    {
+      action: "list",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://pmo-macro/list",
+      correlationId: "corr://pmo-macro/list"
+    },
+    actor
+  );
+  assert.deepEqual(
+    list.deterministicCore.registry.macros.map((entry) => entry.macroId).slice(0, 2),
+    ["macro://pmo/analyze_blockers", "macro://pmo/catch_me_up"]
+  );
+
+  const validation = await gateway.callTool(
+    "pmo_macro",
+    {
+      action: "validate",
+      macroId: "macro://pmo/catch_me_up",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://pmo-macro/validate",
+      correlationId: "corr://pmo-macro/validate"
+    },
+    actor
+  );
+  assert.deepEqual(pmoMacroResultSchema.parse(validation), validation);
+  assert.ok(validation.stateVersionHash.startsWith("sha256:"));
+
+  const edit = await gateway.callTool(
+    "pmo_macro",
+    {
+      action: "edit_registry",
+      input: {
+        patch: {
+          macroId: "macro://pmo/catch_me_up",
+          set: {
+            title: "Catch Me Up"
+          }
+        }
+      },
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      registryPatchRef: "artifact://pmo/macro-registry/patch/catch-me-up-title",
+      traceId: "trace://pmo-macro/edit",
+      correlationId: "corr://pmo-macro/edit"
+    },
+    actor
+  );
+  assert.deepEqual(pmoMacroResultSchema.parse(edit), edit);
+  assert.equal(edit.status, "ok");
+  assert.ok(edit.stateVersionHash.startsWith("sha256:"));
+
+  const unsafeEdit = await gateway.callTool(
+    "pmo_macro",
+    {
+      action: "edit_registry",
+      input: {
+        patch: {
+          macroId: "macro://pmo/catch_me_up",
+          set: {
+            sideEffectPosture: "pmo_internal_write"
+          }
+        }
+      },
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      registryPatchRef: "artifact://pmo/macro-registry/patch/unsafe",
+      traceId: "trace://pmo-macro/edit-denied",
+      correlationId: "corr://pmo-macro/edit-denied"
+    },
+    buildActor()
+  );
+  assert.deepEqual(pmoMacroResultSchema.parse(unsafeEdit), unsafeEdit);
+  assert.equal(unsafeEdit.status, "blocked");
+  assert.equal(unsafeEdit.warnings[0].warningId, "macro-registry-edit-unauthorized");
+});
+
+test("pmo_macro invokes catch_me_up and simulate_impact with bounded deterministic pointer refs", async () => {
+  const repository = InMemoryProgramManagerRepository.fromFixture(getBackboneRepositoryFixture());
+  const adapterRegistry = new AdapterRegistry([new HoplonAdapterStub(), new TrackerAdapterStub()]);
+  const service = new ProgramToolService({
+    repository,
+    adapterRegistry,
+    now: () => "2026-05-03T12:00:00Z"
+  });
+  const gateway = new ProgramManagerMcpGateway(service);
+  const actor = buildActor({
+    actorId: "actor://operators/pmo-agent",
+    actorRole: "program_manager_agent",
+    authenticatedAt: "2026-05-04T05:00:00Z",
+    expiresAt: "2026-05-04T08:00:00Z"
+  });
+
+  const catchMeUpRequest = {
+    action: "invoke",
+    macroId: "macro://pmo/catch_me_up",
+    macroVersion: "1.0.0",
+    input: {
+      targetRefs: [
+        "project://phalanx",
+        "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ]
+    },
+    portfolioId: "portfolio://default",
+    programId: "program://agentic-os",
+    traceId: "trace://pmo-macro/catch-me-up",
+    correlationId: "corr://pmo-macro/catch-me-up"
+  };
+  const catchMeUp = await gateway.callTool("pmo_macro", catchMeUpRequest, actor);
+  const catchMeUpAgain = await gateway.callTool("pmo_macro", catchMeUpRequest, actor);
+
+  assert.deepEqual(pmoMacroResultSchema.parse(catchMeUp), catchMeUp);
+  assert.equal(catchMeUp.stateVersionHash, catchMeUpAgain.stateVersionHash);
+  assert.equal(catchMeUp.redactionSummary.redacted, true);
+  assert.ok(catchMeUp.redactionSummary.omittedKinds.includes("raw_database_rows"));
+  assert.ok(
+    catchMeUp.deterministicCore.objectModelRefs.includes(
+      "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    )
+  );
+  assert.equal(catchMeUp.advisoryPane.excludedFromDeterministicHash, true);
+
+  const beforeEvents = await repository.listEvents({ portfolioId: "portfolio://default" });
+  const simulationRequest = {
+    action: "invoke",
+    macroId: "macro://pmo/simulate_impact",
+    macroVersion: "1.0.0",
+    input: {
+      changeRef: "project://program-manager-mcp",
+      targetRefs: [
+        "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ]
+    },
+    portfolioId: "portfolio://default",
+    programId: "program://agentic-os",
+    traceId: "trace://pmo-macro/simulate-impact",
+    correlationId: "corr://pmo-macro/simulate-impact"
+  };
+  const simulation = await gateway.callTool("pmo_macro", simulationRequest, actor);
+  const afterEvents = await repository.listEvents({ portfolioId: "portfolio://default" });
+
+  assert.deepEqual(pmoMacroResultSchema.parse(simulation), simulation);
+  assert.ok(simulation.stateVersionHash.startsWith("sha256:"));
+  assert.equal(simulation.warnings[0].warningId, "pmo-macro-simulation-non-persistent");
+  assert.ok(simulation.artifactRefs[0].startsWith("artifact://pmo/macro/simulate-impact/report@sha256:"));
+  assert.deepEqual(afterEvents, beforeEvents, "simulation must not persist hypothetical truth");
+});
+
+test("pmo_macro blocker macros produce proposed actions and expected receipts without execution", async () => {
+  const repository = getMacroFixtureRepository();
+  const adapterRegistry = new AdapterRegistry([new HoplonAdapterStub(), new TrackerAdapterStub()]);
+  const gateway = new ProgramManagerMcpGateway(
+    new ProgramToolService({
+      repository,
+      adapterRegistry,
+      now: () => "2026-05-04T06:00:00Z"
+    })
+  );
+  const actor = buildActor({
+    actorId: "actor://operators/pmo-agent",
+    actorRole: "program_manager_agent",
+    authenticatedAt: "2026-05-04T05:00:00Z",
+    expiresAt: "2026-05-04T08:00:00Z"
+  });
+
+  const analyze = await gateway.callTool(
+    "pmo_macro",
+    {
+      action: "invoke",
+      macroId: "macro://pmo/analyze_blockers",
+      macroVersion: "1.0.0",
+      input: {
+        targetRefs: []
+      },
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://pmo-macro/analyze-blockers",
+      correlationId: "corr://pmo-macro/analyze-blockers"
+    },
+    actor
+  );
+
+  assert.deepEqual(pmoMacroResultSchema.parse(analyze), analyze);
+  assert.ok(["ok", "warning"].includes(analyze.status));
+  assert.ok(analyze.stateVersionHash.startsWith("sha256:"));
+  assert.ok(
+    analyze.deterministicCore.objectModelRefs.some((ref) =>
+      ref.startsWith("action://pmo/unblock/")
+    )
+  );
+  assert.ok(
+    analyze.deterministicCore.objectModelRefs.some((ref) =>
+      ref.startsWith("receipt://pmo/expected/")
+    )
+  );
+  assert.equal(analyze.warnings[0].warningId, "pmo-macro-proposed-actions-only");
+
+  const proposedPlan = await gateway.callTool(
+    "pmo_macro",
+    {
+      action: "invoke",
+      macroId: "macro://pmo/propose_unblock_plan",
+      macroVersion: "1.0.0",
+      input: {
+        targetRefs: []
+      },
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://pmo-macro/propose-unblock-plan",
+      correlationId: "corr://pmo-macro/propose-unblock-plan"
+    },
+    actor
+  );
+
+  assert.deepEqual(pmoMacroResultSchema.parse(proposedPlan), proposedPlan);
+  assert.ok(proposedPlan.artifactRefs[0].startsWith("artifact://pmo/macro/unblock-plan/report@sha256:"));
+  assert.equal(
+    (await repository.listEvents({ portfolioId: "portfolio://default" })).length,
+    0,
+    "blocker macros must not execute or ledger downstream work"
+  );
+});
+
+test("pmo_macro detect_drift emits deterministic degraded findings and remediation refs", async () => {
+  const repository = getMacroFixtureRepository();
+  repository.seed({
+    expectedReceipts: [
+      {
+        actorId: "actor://agents/executor-a",
+        contractRefs: ["contract://semantix/readiness/control@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"],
+        correlationId: "corr://drift",
+        evidencePolicyRefs: ["policy://pmo/evidence-required-v1"],
+        expectedReceiptType: "evidence_refresh_receipt",
+        flightPlanHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        flightPlanId: "flightplan://pmo/drift",
+        flightPlanStateVersionHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        idempotencyKey: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        portfolioId: "portfolio://default",
+        programId: "program://agentic-os",
+        projectId: "project://semantix",
+        proposedActionId: "action://pmo/remediate-drift/semantix",
+        receiptRequirementId: "receipt://pmo/drift/semantix",
+        recordedAt: "2026-05-04T06:00:00Z",
+        requiredEvidenceRefs: ["evidence://semantix/readiness/current"],
+        requiredVerifier: "adapter_observed_state",
+        scopeRefs: ["project://semantix"],
+        status: "expected",
+        traceId: "trace://drift"
+      }
+    ],
+    receiptReconcileStatuses: [
+      {
+        acceptedCount: 0,
+        conflictingCount: 0,
+        contractRefs: ["contract://semantix/readiness/control@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"],
+        duplicateCount: 0,
+        evidenceRefs: [],
+        expectedCount: 1,
+        flightPlanHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        flightPlanId: "flightplan://pmo/drift",
+        missingCount: 1,
+        observedCount: 0,
+        portfolioId: "portfolio://default",
+        programId: "program://agentic-os",
+        projectId: "project://semantix",
+        proposedActionId: "action://pmo/remediate-drift/semantix",
+        receiptRequirementId: "receipt://pmo/drift/semantix",
+        status: "late",
+        updatedAt: "2026-05-04T06:05:00Z"
+      }
+    ],
+    syncCursors: [
+      {
+        adapterId: "semantix-local",
+        portfolioId: "portfolio://default",
+        cursor: "cursor://semantix/readiness/stale",
+        recordedAt: "2026-05-04T06:00:00Z",
+        status: "stale"
+      }
+    ]
+  });
+  const gateway = new ProgramManagerMcpGateway(
+    new ProgramToolService({
+      repository,
+      adapterRegistry: new AdapterRegistry([new HoplonAdapterStub(), new TrackerAdapterStub()]),
+      now: () => "2026-05-04T06:10:00Z"
+    })
+  );
+  const actor = buildActor({
+    actorId: "actor://operators/pmo-agent",
+    actorRole: "program_manager_agent",
+    authenticatedAt: "2026-05-04T05:00:00Z",
+    expiresAt: "2026-05-04T08:00:00Z"
+  });
+
+  const request = {
+    action: "invoke",
+    macroId: "macro://pmo/detect_drift",
+    macroVersion: "1.0.0",
+    input: {
+      targetRefs: ["contract://semantix/readiness/control@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"]
+    },
+    portfolioId: "portfolio://default",
+    programId: "program://agentic-os",
+    traceId: "trace://pmo-macro/detect-drift",
+    correlationId: "corr://pmo-macro/detect-drift"
+  };
+  const first = await gateway.callTool("pmo_macro", request, actor);
+  const second = await gateway.callTool("pmo_macro", request, actor);
+
+  assert.deepEqual(pmoMacroResultSchema.parse(first), first);
+  assert.equal(first.status, "degraded");
+  assert.equal(first.stateVersionHash, second.stateVersionHash);
+  assert.equal(first.warnings[0].warningId, "pmo-macro-drift-detected");
+  assert.ok(first.deterministicCore.objectModelRefs.some((ref) => ref.startsWith("action://pmo/remediate-drift/")));
+  assert.ok(first.deterministicCore.objectModelRefs.includes("receipt://pmo/drift/semantix"));
 });
 
 test("all Phase 1A tools return parseable standard envelopes with provenance context", async () => {

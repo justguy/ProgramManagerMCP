@@ -1,0 +1,676 @@
+{
+  "schemaVersion": "1.0.0",
+  "validationContract": {
+    "deterministicOrdering": true,
+    "goldenOutputsExact": true,
+    "pointerOnly": true,
+    "prohibitedInlineKinds": [
+      "credentials",
+      "logs",
+      "product_rows",
+      "provider_transcripts",
+      "scratchpads",
+      "screenshots",
+      "secrets",
+      "session_data",
+      "traces"
+    ]
+  },
+  "seedGraph": {
+    "portfolios": [
+      {
+        "displayName": "Default Portfolio",
+        "portfolioId": "portfolio://default",
+        "tenantId": "tenant://local-dev"
+      }
+    ],
+    "programs": [
+      {
+        "displayName": "Agentic OS",
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os"
+      }
+    ],
+    "projects": [
+      {
+        "displayName": "Guardrail",
+        "portfolioId": "portfolio://default",
+        "programIds": [
+          "program://agentic-os"
+        ],
+        "projectId": "project://guardrail",
+        "repoRefs": [
+          "repo://Guardian"
+        ]
+      },
+      {
+        "displayName": "Hoplon",
+        "portfolioId": "portfolio://default",
+        "programIds": [
+          "program://agentic-os"
+        ],
+        "projectId": "project://hoplon",
+        "repoRefs": [
+          "repo://Hoplon"
+        ]
+      },
+      {
+        "displayName": "Phalanx",
+        "portfolioId": "portfolio://default",
+        "programIds": [
+          "program://agentic-os"
+        ],
+        "projectId": "project://phalanx",
+        "repoRefs": [
+          "repo://Phalanx"
+        ]
+      },
+      {
+        "displayName": "Program Manager MCP",
+        "portfolioId": "portfolio://default",
+        "programIds": [
+          "program://agentic-os"
+        ],
+        "projectId": "project://program-manager-mcp",
+        "repoRefs": [
+          "repo://ProgramManagerMCP"
+        ]
+      },
+      {
+        "displayName": "Semantix",
+        "portfolioId": "portfolio://default",
+        "programIds": [
+          "program://agentic-os"
+        ],
+        "projectId": "project://semantix",
+        "repoRefs": [
+          "repo://Semantix"
+        ]
+      }
+    ],
+    "tasks": [
+      {
+        "assigneeRefs": [
+          "actor://codex/pmo"
+        ],
+        "evidenceRefs": [
+          "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "evidenceStatus": "supported",
+        "id": "task://agentic-os/pmo-701",
+        "objectType": "task",
+        "portfolioId": "portfolio://default",
+        "priority": "p0",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-04T05:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "rev:64",
+        "status": "complete",
+        "taskRef": "task://agentic-os/pmo-701",
+        "title": "Macro object model and envelope contract alignment",
+        "trackerRev": 64,
+        "trackerSlug": "program-manager-mcp",
+        "validFrom": "2026-05-04T05:00:00Z"
+      },
+      {
+        "assigneeRefs": [
+          "actor://codex/pmo"
+        ],
+        "blockerRefs": [
+          "blocker://agentic-os/macro-fixture-evidence-gap"
+        ],
+        "evidenceRefs": [
+          "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "evidenceStatus": "supported",
+        "id": "task://agentic-os/pmo-702",
+        "objectType": "task",
+        "portfolioId": "portfolio://default",
+        "priority": "p0",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-04T06:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "rev:65",
+        "status": "in_progress",
+        "taskRef": "task://agentic-os/pmo-702",
+        "title": "Macro fixture universe and golden scenarios",
+        "trackerRev": 65,
+        "trackerSlug": "program-manager-mcp",
+        "validFrom": "2026-05-04T06:00:00Z"
+      },
+      {
+        "assigneeRefs": [],
+        "evidenceRefs": [],
+        "evidenceStatus": "needs_review",
+        "id": "task://agentic-os/pmo-705",
+        "objectType": "task",
+        "portfolioId": "portfolio://default",
+        "priority": "p0",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-04T06:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "rev:65",
+        "status": "not_started",
+        "taskRef": "task://agentic-os/pmo-705",
+        "title": "Single public pmo_macro dispatcher",
+        "trackerRev": 65,
+        "trackerSlug": "program-manager-mcp",
+        "validFrom": "2026-05-04T06:00:00Z"
+      }
+    ],
+    "blockers": [
+      {
+        "blockedRefs": [
+          "task://agentic-os/pmo-705"
+        ],
+        "blockerRef": "blocker://agentic-os/macro-dispatcher-awaits-fixtures",
+        "evidenceRefs": [
+          "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "evidenceStatus": "supported",
+        "id": "blocker://agentic-os/macro-dispatcher-awaits-fixtures",
+        "objectType": "blocker",
+        "ownerRefs": [
+          "actor://codex/pmo"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-04T06:00:00Z",
+        "schemaVersion": "1",
+        "severity": "high",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "rev:65",
+        "status": "open",
+        "summary": "Dispatcher implementation should wait for golden macro fixtures.",
+        "validFrom": "2026-05-04T06:00:00Z"
+      },
+      {
+        "blockedRefs": [
+          "task://agentic-os/pmo-702"
+        ],
+        "blockerRef": "blocker://agentic-os/macro-fixture-evidence-gap",
+        "evidenceRefs": [],
+        "evidenceStatus": "needs_review",
+        "id": "blocker://agentic-os/macro-fixture-evidence-gap",
+        "objectType": "blocker",
+        "ownerRefs": [
+          "actor://codex/pmo"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-04T06:00:00Z",
+        "schemaVersion": "1",
+        "severity": "medium",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "rev:65",
+        "status": "open",
+        "summary": "One fixture input intentionally models missing evidence for advisory handling.",
+        "validFrom": "2026-05-04T06:00:00Z"
+      }
+    ],
+    "contracts": [
+      {
+        "consumerRefs": [
+          "project://phalanx",
+          "project://program-manager-mcp"
+        ],
+        "contractRef": "contract://hoplon/authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "criticality": "tier_1",
+        "evidenceRefs": [
+          "evidence://hoplon/authz-contract@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        ],
+        "evidenceStatus": "supported",
+        "id": "contract://hoplon/authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "objectType": "contract",
+        "portfolioId": "portfolio://default",
+        "producerRef": "project://hoplon",
+        "programId": "program://agentic-os",
+        "projectId": "project://hoplon",
+        "recordedAt": "2026-05-04T06:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "hoplon-local",
+        "sourceCursor": "snapshot:s-2026-05-04",
+        "status": "active",
+        "summary": "Hoplon escalation grants must be explicit and auditable.",
+        "validFrom": "2026-05-04T06:00:00Z"
+      },
+      {
+        "consumerRefs": [
+          "project://guardrail",
+          "project://semantix"
+        ],
+        "contractRef": "contract://semantix/readiness/control@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "criticality": "tier_2",
+        "evidenceRefs": [],
+        "evidenceStatus": "needs_review",
+        "id": "contract://semantix/readiness/control@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "objectType": "contract",
+        "portfolioId": "portfolio://default",
+        "producerRef": "project://semantix",
+        "programId": "program://agentic-os",
+        "projectId": "project://semantix",
+        "recordedAt": "2026-05-04T06:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "semantix-local",
+        "status": "draft",
+        "summary": "Readiness control contract is present but needs fresh evidence.",
+        "validFrom": "2026-05-04T06:00:00Z"
+      }
+    ],
+    "dependencyEdges": [
+      {
+        "dependencyRef": "dependency://agentic-os/guardrail-consumes-semantix-readiness",
+        "dependencyType": "CONSUMES_CONTRACT",
+        "evidenceRefs": [],
+        "evidenceStatus": "needs_review",
+        "fromRef": "project://guardrail",
+        "id": "dependency://agentic-os/guardrail-consumes-semantix-readiness",
+        "objectType": "dependency_edge",
+        "policyRefs": [
+          "policy://pmo/evidence-required-v1"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://guardrail",
+        "recordedAt": "2026-05-04T06:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "semantix-local",
+        "status": "stale",
+        "toRef": "contract://semantix/readiness/control@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "validFrom": "2026-05-04T06:00:00Z"
+      },
+      {
+        "dependencyRef": "dependency://agentic-os/phalanx-consumes-hoplon-authz",
+        "dependencyType": "CONSUMES_CONTRACT",
+        "evidenceRefs": [
+          "evidence://hoplon/authz-contract@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        ],
+        "evidenceStatus": "supported",
+        "fromRef": "project://phalanx",
+        "id": "dependency://agentic-os/phalanx-consumes-hoplon-authz",
+        "objectType": "dependency_edge",
+        "policyRefs": [
+          "policy://active-adapters/hoplon-authz-tier1"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://phalanx",
+        "recordedAt": "2026-05-04T06:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "hoplon-local",
+        "sourceCursor": "snapshot:s-2026-05-04",
+        "status": "active",
+        "toRef": "contract://hoplon/authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "validFrom": "2026-05-04T06:00:00Z"
+      },
+      {
+        "dependencyRef": "dependency://agentic-os/pmo-701-unblocks-pmo-702",
+        "dependencyType": "UNBLOCKS",
+        "evidenceRefs": [
+          "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "evidenceStatus": "supported",
+        "fromRef": "task://agentic-os/pmo-701",
+        "id": "dependency://agentic-os/pmo-701-unblocks-pmo-702",
+        "objectType": "dependency_edge",
+        "policyRefs": [
+          "policy://pmo/passive-planner-boundary-v1"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-04T06:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "rev:65",
+        "status": "satisfied",
+        "toRef": "task://agentic-os/pmo-702",
+        "validFrom": "2026-05-04T06:00:00Z"
+      }
+    ],
+    "runbooks": [
+      {
+        "actionRefs": [
+          "runbook-action://pmo/request-human-review"
+        ],
+        "evidenceRefs": [],
+        "evidenceStatus": "advisory",
+        "id": "runbook://code-review/request-senior-review",
+        "objectType": "runbook",
+        "ownerRefs": [
+          "actor://codex/pmo"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://program-manager-mcp",
+        "recordedAt": "2026-05-04T06:00:00Z",
+        "runbookRef": "runbook://code-review/request-senior-review",
+        "schemaVersion": "1",
+        "sourceAdapterId": "program-manager-schema",
+        "status": "active",
+        "title": "Request Senior Review",
+        "validFrom": "2026-05-04T06:00:00Z"
+      }
+    ]
+  },
+  "goldenScenarios": [
+    {
+      "scenarioId": "macro-analyze-blockers",
+      "macroName": "analyze_blockers",
+      "expectedStateVersionHash": "sha256:1000000000000000000000000000000000000000000000000000000000000001",
+      "expectedEvidenceRefs": [
+        "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "expectedArtifactRefs": [
+        "artifact://pmo/macro/analyze-blockers/pmo-702@sha256:1000000000000000000000000000000000000000000000000000000000000001"
+      ],
+      "request": {
+        "action": "invoke",
+        "correlationId": "corr-macro-analyze-blockers",
+        "input": {
+          "targetRefs": [
+            "task://agentic-os/pmo-702",
+            "task://agentic-os/pmo-705"
+          ]
+        },
+        "macroId": "macro://pmo/analyze_blockers",
+        "macroVersion": "1.0.0",
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "traceId": "trace-macro-analyze-blockers"
+      },
+      "result": {
+        "artifactRefs": [
+          "artifact://pmo/macro/analyze-blockers/pmo-702@sha256:1000000000000000000000000000000000000000000000000000000000000001"
+        ],
+        "correlationId": "corr-macro-analyze-blockers",
+        "deterministicCore": {
+          "action": "invoke",
+          "deterministicCoreRef": "artifact://pmo/macro/analyze-blockers/pmo-702@sha256:1000000000000000000000000000000000000000000000000000000000000001",
+          "invocation": {
+            "artifactRefs": [
+              "artifact://pmo/macro/analyze-blockers/pmo-702@sha256:1000000000000000000000000000000000000000000000000000000000000001"
+            ],
+            "deterministicCoreRef": "artifact://pmo/macro/analyze-blockers/pmo-702@sha256:1000000000000000000000000000000000000000000000000000000000000001",
+            "evidenceRefs": [
+              "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ],
+            "macroId": "macro://pmo/analyze_blockers",
+            "macroVersion": "1.0.0",
+            "stateVersionHash": "sha256:1000000000000000000000000000000000000000000000000000000000000001",
+            "status": "warning"
+          },
+          "objectModelRefs": [
+            "blocker://agentic-os/macro-dispatcher-awaits-fixtures",
+            "blocker://agentic-os/macro-fixture-evidence-gap"
+          ],
+          "registryVersion": "1.0.0"
+        },
+        "evidenceRefs": [
+          "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "redactionSummary": {
+          "omittedKinds": [
+            "logs"
+          ],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": true
+        },
+        "schemaVersion": "1",
+        "stateVersionHash": "sha256:1000000000000000000000000000000000000000000000000000000000000001",
+        "status": "warning",
+        "toolName": "pmo_macro",
+        "traceId": "trace-macro-analyze-blockers",
+        "warnings": [
+          {
+            "evidenceRefs": [],
+            "severity": "medium",
+            "summary": "One blocker is marked needs_review because evidence is intentionally missing.",
+            "warningId": "warning://pmo/macro-fixture-evidence-gap"
+          }
+        ]
+      }
+    },
+    {
+      "scenarioId": "macro-catch-me-up",
+      "macroName": "catch_me_up",
+      "expectedStateVersionHash": "sha256:2000000000000000000000000000000000000000000000000000000000000002",
+      "expectedEvidenceRefs": [
+        "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "expectedArtifactRefs": [
+        "artifact://pmo/macro/catch-me-up/pmo-702@sha256:2000000000000000000000000000000000000000000000000000000000000002"
+      ],
+      "request": {
+        "action": "invoke",
+        "correlationId": "corr-macro-catch-me-up",
+        "input": {
+          "targetRefs": [
+            "task://agentic-os/pmo-701",
+            "task://agentic-os/pmo-702"
+          ]
+        },
+        "macroId": "macro://pmo/catch_me_up",
+        "macroVersion": "1.0.0",
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "traceId": "trace-macro-catch-me-up"
+      },
+      "result": {
+        "artifactRefs": [
+          "artifact://pmo/macro/catch-me-up/pmo-702@sha256:2000000000000000000000000000000000000000000000000000000000000002"
+        ],
+        "correlationId": "corr-macro-catch-me-up",
+        "deterministicCore": {
+          "action": "invoke",
+          "deterministicCoreRef": "artifact://pmo/macro/catch-me-up/pmo-702@sha256:2000000000000000000000000000000000000000000000000000000000000002",
+          "invocation": {
+            "artifactRefs": [
+              "artifact://pmo/macro/catch-me-up/pmo-702@sha256:2000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "deterministicCoreRef": "artifact://pmo/macro/catch-me-up/pmo-702@sha256:2000000000000000000000000000000000000000000000000000000000000002",
+            "evidenceRefs": [
+              "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ],
+            "macroId": "macro://pmo/catch_me_up",
+            "macroVersion": "1.0.0",
+            "stateVersionHash": "sha256:2000000000000000000000000000000000000000000000000000000000000002",
+            "status": "ok"
+          },
+          "objectModelRefs": [
+            "task://agentic-os/pmo-701",
+            "task://agentic-os/pmo-702"
+          ],
+          "registryVersion": "1.0.0"
+        },
+        "evidenceRefs": [
+          "evidence://program-manager-mcp/phase-5/schema-contract@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "redactionSummary": {
+          "omittedKinds": [],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": false
+        },
+        "schemaVersion": "1",
+        "stateVersionHash": "sha256:2000000000000000000000000000000000000000000000000000000000000002",
+        "status": "ok",
+        "toolName": "pmo_macro",
+        "traceId": "trace-macro-catch-me-up",
+        "warnings": []
+      }
+    },
+    {
+      "scenarioId": "macro-detect-drift",
+      "macroName": "detect_drift",
+      "expectedStateVersionHash": "sha256:3000000000000000000000000000000000000000000000000000000000000003",
+      "expectedEvidenceRefs": [],
+      "expectedArtifactRefs": [
+        "artifact://pmo/macro/detect-drift/semantix-readiness@sha256:3000000000000000000000000000000000000000000000000000000000000003"
+      ],
+      "request": {
+        "action": "invoke",
+        "correlationId": "corr-macro-detect-drift",
+        "input": {
+          "targetRefs": [
+            "contract://semantix/readiness/control@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          ]
+        },
+        "macroId": "macro://pmo/detect_drift",
+        "macroVersion": "1.0.0",
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "traceId": "trace-macro-detect-drift"
+      },
+      "result": {
+        "artifactRefs": [
+          "artifact://pmo/macro/detect-drift/semantix-readiness@sha256:3000000000000000000000000000000000000000000000000000000000000003"
+        ],
+        "correlationId": "corr-macro-detect-drift",
+        "deterministicCore": {
+          "action": "invoke",
+          "deterministicCoreRef": "artifact://pmo/macro/detect-drift/semantix-readiness@sha256:3000000000000000000000000000000000000000000000000000000000000003",
+          "invocation": {
+            "artifactRefs": [
+              "artifact://pmo/macro/detect-drift/semantix-readiness@sha256:3000000000000000000000000000000000000000000000000000000000000003"
+            ],
+            "deterministicCoreRef": "artifact://pmo/macro/detect-drift/semantix-readiness@sha256:3000000000000000000000000000000000000000000000000000000000000003",
+            "evidenceRefs": [],
+            "macroId": "macro://pmo/detect_drift",
+            "macroVersion": "1.0.0",
+            "stateVersionHash": "sha256:3000000000000000000000000000000000000000000000000000000000000003",
+            "status": "degraded"
+          },
+          "objectModelRefs": [
+            "contract://semantix/readiness/control@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "dependency://agentic-os/guardrail-consumes-semantix-readiness"
+          ],
+          "registryVersion": "1.0.0"
+        },
+        "evidenceRefs": [],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "redactionSummary": {
+          "omittedKinds": [
+            "provider_transcripts"
+          ],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": true
+        },
+        "schemaVersion": "1",
+        "stateVersionHash": "sha256:3000000000000000000000000000000000000000000000000000000000000003",
+        "status": "degraded",
+        "toolName": "pmo_macro",
+        "traceId": "trace-macro-detect-drift",
+        "warnings": [
+          {
+            "evidenceRefs": [],
+            "severity": "high",
+            "summary": "Semantix readiness contract has no current evidence and is modeled as degraded.",
+            "warningId": "warning://pmo/semantix-readiness-evidence-missing"
+          }
+        ]
+      }
+    },
+    {
+      "scenarioId": "macro-simulate-impact",
+      "macroName": "simulate_impact",
+      "expectedStateVersionHash": "sha256:4000000000000000000000000000000000000000000000000000000000000004",
+      "expectedEvidenceRefs": [
+        "evidence://hoplon/authz-contract@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "expectedArtifactRefs": [
+        "artifact://pmo/macro/simulate-impact/hoplon-authz@sha256:4000000000000000000000000000000000000000000000000000000000000004"
+      ],
+      "request": {
+        "action": "invoke",
+        "correlationId": "corr-macro-simulate-impact",
+        "input": {
+          "changeRef": "change://hoplon/authz/escalation-grant-contract-update",
+          "targetRefs": [
+            "contract://hoplon/authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        },
+        "macroId": "macro://pmo/simulate_impact",
+        "macroVersion": "1.0.0",
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "traceId": "trace-macro-simulate-impact"
+      },
+      "result": {
+        "artifactRefs": [
+          "artifact://pmo/macro/simulate-impact/hoplon-authz@sha256:4000000000000000000000000000000000000000000000000000000000000004"
+        ],
+        "correlationId": "corr-macro-simulate-impact",
+        "deterministicCore": {
+          "action": "invoke",
+          "deterministicCoreRef": "artifact://pmo/macro/simulate-impact/hoplon-authz@sha256:4000000000000000000000000000000000000000000000000000000000000004",
+          "invocation": {
+            "artifactRefs": [
+              "artifact://pmo/macro/simulate-impact/hoplon-authz@sha256:4000000000000000000000000000000000000000000000000000000000000004"
+            ],
+            "deterministicCoreRef": "artifact://pmo/macro/simulate-impact/hoplon-authz@sha256:4000000000000000000000000000000000000000000000000000000000000004",
+            "evidenceRefs": [
+              "evidence://hoplon/authz-contract@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            ],
+            "macroId": "macro://pmo/simulate_impact",
+            "macroVersion": "1.0.0",
+            "stateVersionHash": "sha256:4000000000000000000000000000000000000000000000000000000000000004",
+            "status": "warning"
+          },
+          "objectModelRefs": [
+            "contract://hoplon/authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "dependency://agentic-os/phalanx-consumes-hoplon-authz"
+          ],
+          "registryVersion": "1.0.0"
+        },
+        "evidenceRefs": [
+          "evidence://hoplon/authz-contract@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "redactionSummary": {
+          "omittedKinds": [
+            "product_rows"
+          ],
+          "policyRefs": [
+            "policy://redaction/pointer-only-v1"
+          ],
+          "redacted": true
+        },
+        "schemaVersion": "1",
+        "stateVersionHash": "sha256:4000000000000000000000000000000000000000000000000000000000000004",
+        "status": "warning",
+        "toolName": "pmo_macro",
+        "traceId": "trace-macro-simulate-impact",
+        "warnings": [
+          {
+            "evidenceRefs": [
+              "evidence://hoplon/authz-contract@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            ],
+            "severity": "high",
+            "summary": "Hoplon authz contract changes affect Phalanx and Program Manager MCP.",
+            "warningId": "warning://pmo/hoplon-authz-cross-domain-impact"
+          }
+        ]
+      }
+    }
+  ]
+}

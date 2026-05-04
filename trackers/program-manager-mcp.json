@@ -54,9 +54,9 @@
         "description": "Single pmo_macro public tool, normalized PMO object model, editable safe macro registry, and deterministic macro implementations for blockers, context, impact simulation, drift, and acceptance proof."
       }
     ],
-    "scratchpad": "Phase 4 complete: Agentic OS passive context/receipt integration, redaction-safe telemetry smoke, operational smoke, and acceptance proof landed. Verification green: typecheck, npm test, pmo:doctor, report regenerate, replay smoke, otel smoke, and phase4 smoke.",
-    "rev": 62,
-    "updatedAt": "2026-05-04T05:36:05.433Z"
+    "scratchpad": "pmo-702 complete: schema-backed Phase 5 fixture universe and exact macro golden scenarios landed. Verification green: typecheck and full package test (64 pass, 1 skipped). Next unlocked: pmo-703.",
+    "rev": 80,
+    "updatedAt": "2026-05-04T06:47:35.442Z"
   },
   "tasks": [
     {
@@ -1873,12 +1873,12 @@
       "id": "pmo-701",
       "title": "Macro object model and envelope contract alignment",
       "goal": "Normalize the pmo_macro object model and deterministic envelope contracts against the implementation prompt and the existing PMO schemas before adding runtime behavior.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-5",
         "priorityId": "p0"
       },
-      "assignee": null,
+      "assignee": "codex",
       "blocker_reason": null,
       "effort": "m",
       "expected_changes": [
@@ -1906,9 +1906,23 @@
           "schemas",
           "determinism"
         ],
-        "execution_assumption": "Existing Program Manager MCP roadmap through pmo-604 is complete before this lane starts."
+        "execution_assumption": "Existing Program Manager MCP roadmap through pmo-604 is complete before this lane starts.",
+        "files_touched": [
+          "shared/schemas/program-manager.ts",
+          "shared/schemas/generated/pmo-macro-object-model.schema.json",
+          "shared/schemas/generated/pmo-macro-tool-contracts.schema.json",
+          "control-plane/packages/program-manager/src/hash/state-version-hash.js",
+          "control-plane/packages/program-manager/tests/program-manager-schemas.test.js",
+          "control-plane/packages/program-manager/tests/state-version-hash.test.js",
+          "docs/phase-5/fixtures/pmo-macro-object-model.example.json",
+          "docs/phase-5/fixtures/pmo-macro-invalid-objects.example.json",
+          "docs/phase-5/fixtures/pmo-macro-hash-input.example.json",
+          "docs/phase-5/fixtures/pmo-macro-tool-contracts.example.json"
+        ],
+        "verification": "npm run typecheck; npm test; focused schema/hash tests; Hoplon describe_project and relevant-test oracle (conservative).",
+        "notes": "Runtime pmo_macro dispatcher intentionally left for later Phase 5 tasks."
       },
-      "comment": "Phase 5 starts only after pmo-604; first task locks the normalized object and envelope contract for pmo_macro."
+      "comment": "Completed Phase 5 macro object model and envelope contract alignment. Added pmo_macro object/registry/request/core/result/hash schemas, Phase 5 valid/invalid/hash/tool fixtures, generated JSON Schema snapshots, and hash canonical exclusions for traceId/correlationId. Verification: typecheck and full package test pass (63 pass, 1 skipped)."
     },
     {
       "dependencies": [
@@ -1917,12 +1931,12 @@
       "id": "pmo-702",
       "title": "Macro fixture universe and golden scenarios",
       "goal": "Build deterministic seed fixtures and expected outputs for blocker alleviation, catch-me-up context, impact simulation, and drift/reality-check macros.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-5",
         "priorityId": "p0"
       },
-      "assignee": null,
+      "assignee": "codex",
       "blocker_reason": null,
       "effort": "m",
       "expected_changes": [
@@ -1955,9 +1969,17 @@
           "impact-simulation",
           "drift-detection"
         ],
-        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md",
+        "files_touched": [
+          "shared/schemas/program-manager.ts",
+          "shared/schemas/generated/pmo-macro-fixture-universe.schema.json",
+          "control-plane/packages/program-manager/tests/program-manager-schemas.test.js",
+          "docs/phase-5/fixtures/pmo-macro-fixture-universe.example.json"
+        ],
+        "verification": "npm run typecheck; npm test; focused schema fixture test; Hoplon relevant-test oracle (conservative).",
+        "notes": "Golden scenarios are pointer-only and include explicit stateVersionHash/evidence/artifact/warning/redaction expectations."
       },
-      "comment": "Creates the reusable macro proof data before repository and dispatcher work."
+      "comment": "Completed Phase 5 macro fixture universe and golden scenarios. Added schema-backed seed graph covering Hoplon, Phalanx, Semantix, Guardrail, and Program Manager MCP plus exact pmo_macro golden scenarios for analyze_blockers, catch_me_up, detect_drift, and simulate_impact. Verification: typecheck and full package test pass (64 pass, 1 skipped)."
     },
     {
       "dependencies": [
@@ -1966,12 +1988,12 @@
       "id": "pmo-703",
       "title": "Portfolio-scoped repository and Neo4j macro support",
       "goal": "Extend the graph repository and migrations so pmo_macro reads and PMO-owned configuration mutations are portfolio-safe, ordered, and deterministic.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-5",
         "priorityId": "p0"
       },
-      "assignee": null,
+      "assignee": "codex",
       "blocker_reason": null,
       "effort": "l",
       "expected_changes": [
@@ -1999,9 +2021,18 @@
           "portfolio-isolation"
         ],
         "risk": "Nondeterministic read ordering would invalidate stateVersionHash assertions.",
-        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md",
+        "completion_summary": "Extended PMO macro repository and graph-store support for portfolio-scoped deterministic macro facts and macro registry persistence. Added domain/interface types, in-memory and graph-backed read/write methods, Neo4j storage hooks, V003 macro object migration, and deterministic fixture tests covering ordering, target filters, and cross-portfolio isolation.",
+        "verification": "npm run typecheck; node --test tests/program-manager-graph-repository.test.js tests/program-manager-graph-neo4j.test.js tests/in-memory-program-manager-repository.test.js; npm test (67 pass, 1 skipped). Hoplon get_relevant_tests returned conservative/no direct test mapping, so full package suite was run."
       },
-      "comment": "Gives the macro layer a deterministic, portfolio-isolated graph substrate."
+      "comment": "Starting pmo-703. Extending repository and graph-store macro fixture support with portfolio-scoped deterministic reads and PMO-owned macro registry persistence.",
+      "comments": [
+        {
+          "author": "codex",
+          "body": "Completed pmo-703. Repository now exposes portfolio-scoped pmo_macro fact reads and PMO macro registry persistence through abstractions rather than raw dispatcher Cypher. Added Neo4j V003 migration and deterministic graph repository coverage. Verification: npm run typecheck; focused graph/repository tests; npm test (67 pass, 1 skipped).",
+          "createdAt": "2026-05-04T00:00:00.000Z"
+        }
+      ]
     },
     {
       "dependencies": [
@@ -2010,12 +2041,12 @@
       "id": "pmo-704",
       "title": "Editable safe macro registry",
       "goal": "Implement the built-in macro registry and authorized edit path while preventing edits from granting downstream execution authority or unsafe side-effect classes.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-5",
         "priorityId": "p0"
       },
-      "assignee": null,
+      "assignee": "codex",
       "blocker_reason": null,
       "effort": "m",
       "expected_changes": [
@@ -2043,9 +2074,18 @@
           "audit"
         ],
         "security_boundary": "Internal PMO config mutation only; no downstream mutation authority.",
-        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md",
+        "completion_summary": "Implemented an editable safe PMO macro registry module with built-in sorted macro entries, safe edit whitelist, locked-field validation for side-effect posture/schema/authority/hash/evidence policy fields, server-verified actor role and portfolio checks, and a repository-backed persist path that stores accepted edits only as PMO internal macro registry mutations with audit events.",
+        "verification": "npm run generate:schemas; npm run typecheck; node --test tests/pmo-macro-registry.test.js tests/program-manager-graph-repository.test.js tests/program-manager-schemas.test.js; npm test (71 pass, 1 skipped). Hoplon get_relevant_tests returned conservative/no direct test mapping, so full package suite was run."
       },
-      "comment": "Adds the editable macro catalog without weakening the non-executor boundary."
+      "comment": "Starting pmo-704. Implementing the built-in macro registry and authorized edit path while preserving the PMO non-executor boundary.",
+      "comments": [
+        {
+          "author": "codex",
+          "body": "Completed pmo-704. Added built-in safe macro registry and repository-backed edit path. Accepted edits are limited to descriptive/config fields and stored as PMO registry mutations with audit events; unauthorized, cross-portfolio, locked-field, and downstream-authority edits are deterministic rejections. Verification: generate:schemas, typecheck, focused macro/schema/repository tests, npm test (71 pass, 1 skipped).",
+          "createdAt": "2026-05-04T00:00:00.000Z"
+        }
+      ]
     },
     {
       "dependencies": [
@@ -2054,12 +2094,12 @@
       "id": "pmo-705",
       "title": "Single public pmo_macro dispatcher",
       "goal": "Expose exactly one public PMO MCP tool named pmo_macro with help, discovery, validation, invocation, object-type documentation, export, and authorized registry editing.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-5",
         "priorityId": "p0"
       },
-      "assignee": null,
+      "assignee": "codex",
       "blocker_reason": null,
       "effort": "l",
       "expected_changes": [
@@ -2087,9 +2127,18 @@
           "single-tool-surface"
         ],
         "public_tool": "pmo_macro",
-        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md",
+        "completion_summary": "Exposed pmo_macro through the MCP gateway as the single listed public PMO macro surface while preserving legacy direct call compatibility. Added ProgramToolService pmoMacro dispatcher for help, list/discovery, describe/validate, deterministic invalid-request errors, and authorized edit_registry wiring through the safe registry persist path. Results parse through pmoMacroResultSchema with trace/correlation/evidence/artifact/redaction/state-hash behavior according to action type.",
+        "verification": "npm run typecheck; node --test tests/program-tools.test.js tests/program-tool-boundary.test.js tests/pmo-macro-registry.test.js; npm test (72 pass, 1 skipped). Hoplon get_relevant_tests returned conservative/no direct test mapping, so full package suite was run."
       },
-      "comment": "Builds the omni-tool facade after registry safety is in place."
+      "comment": "Starting pmo-705. Adding the single public pmo_macro dispatcher over the safe registry and repository-backed macro inputs.",
+      "comments": [
+        {
+          "author": "codex",
+          "body": "Completed pmo-705. Gateway now lists only pmo_macro as the public macro surface, with legacy direct tool calls retained for compatibility. The pmo_macro dispatcher handles help, list/discovery, describe/validate, deterministic validation errors, and safe edit_registry calls. Verification: typecheck, focused dispatcher/boundary/registry tests, npm test (72 pass, 1 skipped).",
+          "createdAt": "2026-05-04T00:00:00.000Z"
+        }
+      ]
     },
     {
       "dependencies": [
@@ -2098,12 +2147,12 @@
       "id": "pmo-706",
       "title": "Catch-me-up context and impact simulation macros",
       "goal": "Implement bounded context provisioning and cross-domain war-gaming macros that summarize relevant PMO graph state without dumping raw database contents or mutating truth.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-5",
         "priorityId": "p0"
       },
-      "assignee": null,
+      "assignee": "codex",
       "blocker_reason": null,
       "effort": "l",
       "expected_changes": [
@@ -2135,9 +2184,18 @@
           "pmo.simulate_change",
           "pmo.assess_impact"
         ],
-        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md",
+        "completion_summary": "Implemented pmo_macro invoke paths for catch_me_up and simulate_impact. catch_me_up composes bounded repository context and macro facts into sorted pointer refs with redaction and stable hashes. simulate_impact calls repository.assessImpact, emits non-persistent simulation warnings, report artifact refs, affected/finding/approval/evidence-obligation refs, and does not mutate canonical PMO event state.",
+        "verification": "npm run typecheck; node --test tests/program-tools.test.js; npm test (73 pass, 1 skipped). Hoplon get_relevant_tests returned conservative/no direct mapping, so full package suite was run."
       },
-      "comment": "Covers the catch-me-up and war-gaming macro family behind the dispatcher."
+      "comment": "Starting pmo-706. Implementing catch_me_up and simulate_impact invocations behind pmo_macro using bounded repository reads and no truth mutation.",
+      "comments": [
+        {
+          "author": "codex",
+          "body": "Completed pmo-706. pmo_macro now invokes catch_me_up and simulate_impact with bounded pointer-only repository reads, stable state hashes, redaction summaries, and non-persistent simulation labeling. Verification: typecheck, focused program-tools test, npm test (73 pass, 1 skipped).",
+          "createdAt": "2026-05-04T00:00:00.000Z"
+        }
+      ]
     },
     {
       "dependencies": [
@@ -2146,12 +2204,12 @@
       "id": "pmo-707",
       "title": "Blocker analysis and proposed unblock plans",
       "goal": "Implement blocker alleviation macros that classify blockers, map them to runbooks, and propose external work through ProposedAction, FlightPlan, and ExpectedReceipt records.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-5",
         "priorityId": "p0"
       },
-      "assignee": null,
+      "assignee": "codex",
       "blocker_reason": null,
       "effort": "l",
       "expected_changes": [
@@ -2182,9 +2240,18 @@
           "pmo.analyze_blockers",
           "pmo.propose_unblock_plan"
         ],
-        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md",
+        "completion_summary": "Implemented analyze_blockers and propose_unblock_plan pmo_macro invocations over normalized macro facts. The macros classify open blockers, link blocked refs/runbooks/contracts/dependency edges, emit proposed action refs and expected receipt refs, label outputs as proposed-only, include evidence pointers and redaction summaries, and avoid downstream execution or ledger mutation.",
+        "verification": "npm run typecheck; node --test tests/program-tools.test.js; npm test (74 pass, 1 skipped). Hoplon get_relevant_tests returned conservative/no direct mapping, so full package suite was run."
       },
-      "comment": "Turns blocker intelligence into executable-by-others plans while preserving PMO's boundary."
+      "comment": "Starting pmo-707. Implementing analyze_blockers and propose_unblock_plan pmo_macro invocations as proposal-only outputs.",
+      "comments": [
+        {
+          "author": "codex",
+          "body": "Completed pmo-707. Blocker macros now produce deterministic proposed action and expected receipt refs without executing downstream work or mutating PMO ledger state. Verification: typecheck, focused program-tools test, npm test (74 pass, 1 skipped).",
+          "createdAt": "2026-05-04T00:00:00.000Z"
+        }
+      ]
     },
     {
       "dependencies": [
@@ -2193,12 +2260,12 @@
       "id": "pmo-708",
       "title": "Drift detection and reconciliation finding macros",
       "goal": "Implement reality-check macros that compare expected PMO state, observed adapter state, receipts, and evidence to produce drift and reconciliation findings.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-5",
         "priorityId": "p1"
       },
-      "assignee": null,
+      "assignee": "codex",
       "blocker_reason": null,
       "effort": "m",
       "expected_changes": [
@@ -2229,9 +2296,18 @@
           "pmo.detect_drift",
           "pmo.reconcile_reality"
         ],
-        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md",
+        "completion_summary": "Implemented detect_drift pmo_macro invocation over macro facts, receipt ledger state, reconciliation statuses, and source cursors. The macro emits degraded deterministic envelopes for unevidenced or reconcile-drift states, includes remediation action refs, receipt/observed/cursor refs, evidence pointers, redaction summaries, and model-free advisory summaries without repairing downstream systems.",
+        "verification": "npm run typecheck; node --test tests/program-tools.test.js; npm test (75 pass, 1 skipped). Hoplon get_relevant_tests returned conservative/no direct mapping, so full package suite was run."
       },
-      "comment": "Adds the reality-check macro family after planning outputs exist."
+      "comment": "Starting pmo-708. Implementing detect_drift pmo_macro invocation over expected receipts, reconcile state, and macro evidence status.",
+      "comments": [
+        {
+          "author": "codex",
+          "body": "Completed pmo-708. detect_drift now compares macro facts, receipt ledger state, reconciliation statuses, and cursors, producing deterministic degraded findings/remediation refs without direct repair. Verification: typecheck, focused program-tools test, npm test (75 pass, 1 skipped).",
+          "createdAt": "2026-05-04T00:00:00.000Z"
+        }
+      ]
     },
     {
       "dependencies": [
@@ -2240,12 +2316,12 @@
       "id": "pmo-709",
       "title": "Macro omni-tool acceptance and determinism gate",
       "goal": "Close the macro omni-tool lane with a compliance proof for determinism, portfolio isolation, redaction, evidence pointers, advisoryPane hashing, registry safety, and the no-downstream-mutation boundary.",
-      "status": "not_started",
+      "status": "complete",
       "placement": {
         "swimlaneId": "phase-5",
         "priorityId": "p1"
       },
-      "assignee": null,
+      "assignee": "codex",
       "blocker_reason": null,
       "effort": "m",
       "expected_changes": [
@@ -2273,9 +2349,18 @@
           "compliance"
         ],
         "gate": "Phase 5 complete only after schema, fixture, dispatcher, macro, no-mutation, and portfolio-isolation proof.",
-        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md"
+        "source_prompt": "/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/pmo-macro-omnitool-implementation.prompt.md",
+        "completion_summary": "Closed Phase 5 with a PMO macro acceptance proof documenting determinism, relevant-state sensitivity, advisoryPane hash exclusion, portfolio isolation, pointer-only redaction, registry safety, no downstream mutation, simulation boundaries, verification commands, and residual later-phase work. Added acceptance test coverage for the proof artifact.",
+        "verification": "npm run typecheck; node --test tests/pmo-macro-acceptance.test.js tests/program-tools.test.js tests/pmo-macro-registry.test.js tests/program-manager-graph-repository.test.js tests/program-manager-graph-neo4j.test.js tests/program-manager-schemas.test.js tests/state-version-hash.test.js; npm test (76 pass, 1 skipped). Hoplon get_relevant_tests returned conservative/no direct mapping, so full package suite was run."
       },
-      "comment": "Final gate proves the macro omni-tool is deterministic, isolated, pointer-only, and non-mutating downstream."
+      "comment": "Starting pmo-709. Adding final acceptance coverage for pmo_macro determinism, isolation, redaction, advisory hashing, registry safety, and no downstream mutation.",
+      "comments": [
+        {
+          "author": "codex",
+          "body": "Completed pmo-709. Added Phase 5 acceptance proof and test coverage for determinism, portfolio isolation, redaction, advisory hash exclusion, registry safety, no-downstream-mutation boundary, and residual later-phase work. Verification: typecheck, focused acceptance/macro/schema/hash tests, npm test (76 pass, 1 skipped).",
+          "createdAt": "2026-05-04T00:00:00.000Z"
+        }
+      ]
     }
   ]
 }
