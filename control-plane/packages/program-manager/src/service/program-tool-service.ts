@@ -723,6 +723,7 @@ function buildIntegrationAlignmentGuidance() {
       "record_goal: optional expected aligned state, such as a consumer validating producer contract version X.",
       "submit_gap_report or update_gap: optional known contract mismatch, missing field, semantic drift, missing dependency, missing validation evidence, or version skew.",
       "record_blocker or update_blocker: optional impediments with owner, blocked project, and pointer-only evidence.",
+      "record_blocker/update_blocker may include integration.item.blockedOnRefs and integration.item.clearanceCriteria when closure depends on explicit PMO refs. Each clearance criterion is { ref, requiredStatus }; PMO uses these fields deterministically and does not infer blocker meaning from summary prose.",
       "request_decision or record_decision: optional breaking changes, rollout order, compatibility windows, or ownership decisions.",
       "submit_project_response: optional producer or consumer response that confirms, disputes, or accepts a contract/gap/blocker/decision state.",
       "record_learning: optional reusable agent instruction discovered while aligning the integration.",
@@ -743,6 +744,7 @@ function buildIntegrationAlignmentGuidance() {
     ],
     blockerClosureWorkflow: [
       "Open or update blockers with record_blocker/update_blocker and include ownerProjectId, blockedProjectId, affectedProjectIds, summary, status, and pointer-only evidence.",
+      "When a blocker waits on another PMO coordination record, encode that dependency with blockedOnRefs and clearanceCriteria instead of prose. detect_drift flags a blocker as stale when all clearanceCriteria refs have the requiredStatus but the blocker remains non-terminal.",
       "Only the reporting or blocked project should mark a blocker unblocked, resolved, or reopened.",
       "When a blocker is cleared, use mark_blocker_unblocked or mark_blocker_resolved with the same itemId and pointer-only evidence showing the external project-native action."
     ],
@@ -2002,6 +2004,11 @@ type ManagedIntegrationItemInput = {
   affectedProjectIds?: string[];
   artifactRefs?: string[];
   blockedProjectId?: string;
+  blockedOnRefs?: string[];
+  clearanceCriteria?: Array<{
+    ref: string;
+    requiredStatus: string;
+  }>;
   evidenceRefs?: string[];
   itemId?: string;
   itemType?: IntegrationCoordinationItem["itemType"];
@@ -2090,6 +2097,17 @@ function coordinationStatusForAction(action: ManageIntegrationAction, requestedS
   return statuses[action] ?? "recorded";
 }
 
+function sortClearanceCriteria(
+  criteria: Array<{ ref: string; requiredStatus: string }> | undefined
+): Array<{ ref: string; requiredStatus: string }> {
+  return [...(criteria ?? [])]
+    .filter((criterion) => criterion.ref.length > 0 && criterion.requiredStatus.length > 0)
+    .sort(
+      (left, right) =>
+        left.ref.localeCompare(right.ref) || left.requiredStatus.localeCompare(right.requiredStatus)
+    );
+}
+
 function coordinationItemId(input: {
   action: ManageIntegrationAction;
   correlationId: string;
@@ -2140,6 +2158,8 @@ function buildCoordinationItem(input: {
     affectedProjectIds,
     artifactRefs,
     ...(item.blockedProjectId ? { blockedProjectId: item.blockedProjectId } : {}),
+    blockedOnRefs: sortUniqueRefs(item.blockedOnRefs ?? []),
+    clearanceCriteria: sortClearanceCriteria(item.clearanceCriteria),
     createdAt: input.recordedAt,
     evidenceRefs: sortUniqueRefs([...(item.evidenceRefs ?? []), ...input.evidenceRefs]),
     integrationPointId: input.integration.integrationPointId,
@@ -2171,6 +2191,8 @@ function mergeCoordinationItems(
       ...item,
       affectedProjectIds: sortUniqueRefs(item.affectedProjectIds),
       artifactRefs: sortUniqueRefs(item.artifactRefs),
+      blockedOnRefs: sortUniqueRefs(item.blockedOnRefs ?? []),
+      clearanceCriteria: sortClearanceCriteria(item.clearanceCriteria),
       evidenceRefs: sortUniqueRefs(item.evidenceRefs),
       trackerRefs: sortUniqueRefs(item.trackerRefs)
     });
@@ -2186,6 +2208,11 @@ function mergeCoordinationItems(
         ...nextItem.affectedProjectIds
       ]),
       artifactRefs: sortUniqueRefs([...(existing?.artifactRefs ?? []), ...nextItem.artifactRefs]),
+      blockedOnRefs: sortUniqueRefs([...(existing?.blockedOnRefs ?? []), ...(nextItem.blockedOnRefs ?? [])]),
+      clearanceCriteria: sortClearanceCriteria([
+        ...(existing?.clearanceCriteria ?? []),
+        ...(nextItem.clearanceCriteria ?? [])
+      ]),
       evidenceRefs: sortUniqueRefs([...(existing?.evidenceRefs ?? []), ...nextItem.evidenceRefs]),
       trackerRefs: sortUniqueRefs([...(existing?.trackerRefs ?? []), ...nextItem.trackerRefs])
     });
@@ -2272,6 +2299,24 @@ function coordinationItemNeedsDriftReview(item: IntegrationCoordinationItem): bo
   return false;
 }
 
+function blockerClearanceCriteriaSatisfied(
+  blocker: IntegrationCoordinationItem,
+  coordinationItems: IntegrationCoordinationItem[]
+): boolean {
+  if (blocker.itemType !== "blocker" || TERMINAL_COORDINATION_STATUSES.has(blocker.status)) {
+    return false;
+  }
+  const clearanceCriteria = blocker.clearanceCriteria ?? [];
+  if (clearanceCriteria.length === 0) {
+    return false;
+  }
+  const itemById = new Map(coordinationItems.map((item) => [item.itemId, item]));
+  return clearanceCriteria.every((criterion) => {
+    const target = itemById.get(criterion.ref);
+    return Boolean(target && target.status === criterion.requiredStatus);
+  });
+}
+
 function integrationMatchesTargetRefs(
   integrationPoint: IntegrationPointRecord,
   targetRefs: string[]
@@ -2294,6 +2339,8 @@ function integrationMatchesTargetRefs(
       item.reporterProjectId ?? "",
       ...item.affectedProjectIds,
       ...item.artifactRefs,
+      ...(item.blockedOnRefs ?? []),
+      ...(item.clearanceCriteria ?? []).map((criterion) => criterion.ref),
       ...item.evidenceRefs,
       ...item.trackerRefs
     ])
@@ -2873,8 +2920,21 @@ export class ProgramToolService {
       const coordinationDriftItems = relevantIntegrationPoints.flatMap((integrationPoint) =>
         (integrationPoint.coordinationItems ?? []).filter(coordinationItemNeedsDriftReview)
       );
+      const staleBlockerRefs = relevantIntegrationPoints.flatMap((integrationPoint) =>
+        (integrationPoint.coordinationItems ?? [])
+          .filter((item) => blockerClearanceCriteriaSatisfied(item, integrationPoint.coordinationItems ?? []))
+          .map((item) => item.itemId)
+      );
+      const staleBlockerClearanceRefs = relevantIntegrationPoints.flatMap((integrationPoint) =>
+        (integrationPoint.coordinationItems ?? [])
+          .filter((item) => blockerClearanceCriteriaSatisfied(item, integrationPoint.coordinationItems ?? []))
+          .flatMap((item) => (item.clearanceCriteria ?? []).map((criterion) => criterion.ref))
+      );
       const coordinationDriftRefs = coordinationDriftItems.map(
         (item) => `finding://pmo/coordination/${encodeURIComponent(item.itemId)}`
+      );
+      const staleBlockerFindingRefs = staleBlockerRefs.map(
+        (ref) => `finding://pmo/coordination-clearance/${encodeURIComponent(ref)}`
       );
       const coordinationUnevidencedRefs = coordinationDriftItems
         .filter((item) => item.evidenceRefs.length === 0)
@@ -2891,7 +2951,8 @@ export class ProgramToolService {
         ...ledger.reconcileStatuses
           .filter((status) => !["satisfied", "expected", "in_flight"].includes(status.status))
           .map((status) => `finding://pmo/reconcile/${encodeURIComponent(status.receiptRequirementId)}`),
-        ...coordinationDriftRefs
+        ...coordinationDriftRefs,
+        ...staleBlockerFindingRefs
       ]);
       const cursorRefs = cursors.map((cursor) => `cursor://${encodeURIComponent(cursor.adapterId)}/${encodeURIComponent(cursor.cursor)}`);
       const remediationRefs = unevidencedRefs.map((ref) => `action://pmo/remediate-drift/${encodeURIComponent(ref)}`);
@@ -2899,6 +2960,8 @@ export class ProgramToolService {
         ...targetRefs,
         ...relevantIntegrationPoints.map((integrationPoint) => integrationPoint.integrationPointId),
         ...coordinationDriftItems.map((item) => item.itemId),
+        ...staleBlockerRefs,
+        ...staleBlockerClearanceRefs,
         ...unevidencedRefs,
         ...reconcileRefs,
         ...cursorRefs,

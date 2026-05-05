@@ -1939,7 +1939,18 @@ const managedIntegrationSchema = z
         affectedProjectIds: sortedStringArraySchema("integration item affectedProjectIds").optional(),
         artifactRefs: sortedStringArraySchema("integration item artifactRefs").optional(),
         blockedProjectId: pointerRefSchema.optional(),
+        blockedOnRefs: sortedStringArraySchema("integration item blockedOnRefs").optional(),
         blockerRef: pointerRefSchema.optional(),
+        clearanceCriteria: z
+          .array(
+            z
+              .object({
+                ref: pointerRefSchema,
+                requiredStatus: z.string().min(1)
+              })
+              .strict()
+          )
+          .optional(),
         decisionRef: pointerRefSchema.optional(),
         evidenceRefs: sortedStringArraySchema("integration item evidenceRefs").optional(),
         itemId: pointerRefSchema.optional(),
@@ -2204,6 +2215,15 @@ const manageIntegrationsCoreSchema = z
             affectedProjectIds: sortedStringArraySchema("manageIntegrationsCore affectedProjectIds"),
             artifactRefs: sortedStringArraySchema("manageIntegrationsCore item artifactRefs"),
             blockedProjectId: pointerRefSchema.optional(),
+            blockedOnRefs: sortedStringArraySchema("manageIntegrationsCore item blockedOnRefs").optional(),
+            clearanceCriteria: z.array(
+              z
+                .object({
+                  ref: pointerRefSchema,
+                  requiredStatus: z.string().min(1)
+                })
+                .strict()
+            ).optional(),
             createdAt: z.string().min(1),
             evidenceRefs: sortedStringArraySchema("manageIntegrationsCore item evidenceRefs"),
             integrationPointId: pointerRefSchema,

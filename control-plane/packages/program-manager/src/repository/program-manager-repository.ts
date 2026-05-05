@@ -34,6 +34,11 @@ export type IntegrationCoordinationItem = {
   affectedProjectIds: string[];
   artifactRefs: string[];
   blockedProjectId?: string;
+  blockedOnRefs?: string[];
+  clearanceCriteria?: Array<{
+    ref: string;
+    requiredStatus: string;
+  }>;
   createdAt: string;
   evidenceRefs: string[];
   integrationPointId: string;

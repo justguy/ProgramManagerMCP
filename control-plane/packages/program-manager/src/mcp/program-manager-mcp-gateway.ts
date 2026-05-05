@@ -810,6 +810,10 @@ function correctedCoordinationItem(input: {
     ...(affectedProjectIds.length > 0 ? { affectedProjectIds } : {}),
     ...(artifactRefs.length > 0 ? { artifactRefs } : {}),
     ...(stringValue(item.blockedProjectId) ? { blockedProjectId: stringValue(item.blockedProjectId) } : {}),
+    ...(stringArrayValue(item.blockedOnRefs).length > 0
+      ? { blockedOnRefs: stringArrayValue(item.blockedOnRefs) }
+      : {}),
+    ...(Array.isArray(item.clearanceCriteria) ? { clearanceCriteria: item.clearanceCriteria } : {}),
     ...(stringValue(item.itemId) ? { itemId: stringValue(item.itemId) } : {}),
     itemType: input.itemType,
     ...(stringValue(item.ownerProjectId) ? { ownerProjectId: stringValue(item.ownerProjectId) } : {}),

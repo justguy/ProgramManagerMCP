@@ -106,6 +106,43 @@ After project-native execution, reconcile pointer-only state:
 }
 ```
 
+## Structured Blocker Clearance
+
+Do not encode blocker closure conditions only in prose. PMO drift detection is deterministic and reads explicit coordination fields. When a blocker is waiting for another PMO record, include the dependency in `manage_integrations` under `integration.item.blockedOnRefs` and `integration.item.clearanceCriteria`.
+
+Example:
+
+```json
+{
+  "action": "record_blocker",
+  "portfolioId": "portfolio://default",
+  "programId": "program://agentic-os",
+  "projectIds": ["project://hoplon", "project://phalanx", "project://semantix"],
+  "integration": {
+    "integrationPointId": "integration://agentic-os/shared-flow",
+    "item": {
+      "itemType": "blocker",
+      "itemId": "blocker://shared-flow/waiting-for-hoplon-response",
+      "status": "open",
+      "blockedProjectId": "project://phalanx",
+      "blockedOnRefs": ["response://hoplon/shared-flow-confirmation"],
+      "clearanceCriteria": [
+        {
+          "ref": "response://hoplon/shared-flow-confirmation",
+          "requiredStatus": "submitted"
+        }
+      ],
+      "summary": "Blocked until the structured Hoplon response is submitted."
+    }
+  },
+  "evidenceRefs": ["evidence://shared-flow/blocker/source"],
+  "traceId": "trace://shared-flow/<role>/<task-id>",
+  "correlationId": "corr://shared-flow/<role>/record-blocker/<unique-suffix>"
+}
+```
+
+When `response://hoplon/shared-flow-confirmation` reaches `status: "submitted"`, `macro://pmo/detect_drift` will flag the blocker as stale if it remains open. PMO does not parse wording such as "waiting for Hoplon"; the structured refs are the contract.
+
 ## Producer Handoff: Hoplon
 
 Paste the following into the Hoplon producer agent:

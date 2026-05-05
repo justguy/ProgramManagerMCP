@@ -68,6 +68,30 @@ Treat those blocked envelopes as the PMO correction path, not as a reason to gue
 
 PMO remains passive. It may plan, reconcile, and ledger PMO-owned state, but it must not mutate Hoplon, Phalanx, Semantix, GitHub, LLM Tracker, code, deployments, or external product state.
 
+## Structured Blocker Clearance
+
+PMO does not infer blocker meaning from `summary` prose. If a blocker is waiting for another PMO coordination record, agents must encode that dependency in structured fields on `integration.item`:
+
+```json
+{
+  "itemType": "blocker",
+  "itemId": "blocker://ask-mr-gambler/rbaa/hoplon-phalanx-alignment-required",
+  "status": "open",
+  "blockedOnRefs": [
+    "response://hoplon/amg-rbaa-alignment-confirmation-2026-05-05"
+  ],
+  "clearanceCriteria": [
+    {
+      "ref": "response://hoplon/amg-rbaa-alignment-confirmation-2026-05-05",
+      "requiredStatus": "submitted"
+    }
+  ],
+  "summary": "Blocked until the structured Hoplon response is submitted."
+}
+```
+
+`blockedOnRefs` is a sorted pointer list for dependencies the blocker is waiting on. `clearanceCriteria` is a deterministic list of `{ ref, requiredStatus }` checks. `macro://pmo/detect_drift` flags a stale blocker when every clearance criterion is satisfied by current PMO coordination state but the blocker remains non-terminal. Changing only the prose summary must not affect drift detection.
+
 ## Verification
 
 Run the focused proof from the package root:

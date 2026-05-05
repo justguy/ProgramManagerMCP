@@ -2477,6 +2477,130 @@ test("pmo_macro detect_drift degrades for open integration gaps without evidence
   );
 });
 
+test("pmo_macro detect_drift degrades for blockers with satisfied clearance criteria", async () => {
+  const gateway = buildGateway();
+  const actor = buildActor({
+    actorId: "actor://operators/pmo-agent",
+    actorRole: "program_manager_agent",
+    authenticatedAt: "2026-05-04T05:00:00Z",
+    expiresAt: "2026-05-04T08:00:00Z"
+  });
+  const integrationPointId = "integration://rbaa/clearance-drift";
+  const responseItemId = "response://hoplon/clearance-drift-confirmation";
+  const blockerItemId = "blocker://rbaa/clearance-drift/waiting-for-hoplon";
+  const clearanceFindingRef = `finding://pmo/coordination-clearance/${encodeURIComponent(blockerItemId)}`;
+
+  await gateway.callTool(
+    "manage_integrations",
+    {
+      action: "create",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://pmo-macro/detect-clearance-drift",
+      correlationId: "corr://pmo-macro/detect-clearance-drift/create",
+      integration: {
+        integrationPointId,
+        producerProjectId: "project://hoplon",
+        consumerProjectIds: ["project://phalanx"],
+        purpose: "Structured clearance drift fixture"
+      },
+      evidenceRefs: ["evidence://setup/detect-clearance-drift/create"]
+    },
+    actor
+  );
+
+  await gateway.callTool(
+    "manage_integrations",
+    {
+      action: "submit_project_response",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://pmo-macro/detect-clearance-drift",
+      correlationId: "corr://pmo-macro/detect-clearance-drift/response",
+      integration: {
+        integrationPointId,
+        item: {
+          affectedProjectIds: ["project://phalanx"],
+          itemId: responseItemId,
+          itemType: "response",
+          projectId: "project://hoplon",
+          status: "submitted",
+          summary: "Hoplon submitted structured clearance evidence."
+        }
+      },
+      evidenceRefs: ["evidence://hoplon/clearance-drift/submitted"]
+    },
+    actor
+  );
+
+  const blocker = await gateway.callTool(
+    "manage_integrations",
+    {
+      action: "record_blocker",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://pmo-macro/detect-clearance-drift",
+      correlationId: "corr://pmo-macro/detect-clearance-drift/blocker",
+      integration: {
+        integrationPointId,
+        item: {
+          affectedProjectIds: ["project://phalanx"],
+          blockedOnRefs: [responseItemId],
+          blockedProjectId: "project://phalanx",
+          clearanceCriteria: [
+            {
+              ref: responseItemId,
+              requiredStatus: "submitted"
+            }
+          ],
+          itemId: blockerItemId,
+          itemType: "blocker",
+          ownerProjectId: "project://phalanx",
+          status: "open",
+          summary: "Blocked until the structured Hoplon response is submitted."
+        }
+      },
+      evidenceRefs: ["evidence://phalanx/clearance-drift/blocker"]
+    },
+    actor
+  );
+
+  assert.deepEqual(manageIntegrationsResultSchema.parse(blocker), blocker);
+  const recordedBlocker = blocker.deterministicCore.coordinationItems.find(
+    (item) => item.itemId === blockerItemId
+  );
+  assert.deepEqual(recordedBlocker.blockedOnRefs, [responseItemId]);
+  assert.deepEqual(recordedBlocker.clearanceCriteria, [
+    {
+      ref: responseItemId,
+      requiredStatus: "submitted"
+    }
+  ]);
+
+  const drift = await gateway.callTool(
+    "pmo_macro",
+    {
+      action: "invoke",
+      macroId: "macro://pmo/detect_drift",
+      macroVersion: "1.0.0",
+      input: {
+        targetRefs: [integrationPointId]
+      },
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://pmo-macro/detect-clearance-drift",
+      correlationId: "corr://pmo-macro/detect-clearance-drift"
+    },
+    actor
+  );
+
+  assert.deepEqual(pmoMacroResultSchema.parse(drift), drift);
+  assert.equal(drift.status, "degraded");
+  assert.ok(drift.deterministicCore.objectModelRefs.includes(responseItemId));
+  assert.ok(drift.deterministicCore.objectModelRefs.includes(blockerItemId));
+  assert.ok(drift.deterministicCore.objectModelRefs.includes(clearanceFindingRef));
+});
+
 test("all Phase 1A tools return parseable standard envelopes with provenance context", async () => {
   const gateway = buildGateway();
   const actor = buildActor();

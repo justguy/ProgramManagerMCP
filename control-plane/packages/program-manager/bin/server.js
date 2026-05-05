@@ -243,7 +243,27 @@ const MANAGE_INTEGRATIONS_INPUT_SCHEMA = {
             affectedProjectIds: { type: "array", items: { type: "string" } },
             artifactRefs: { type: "array", items: { type: "string" } },
             blockedProjectId: { type: "string" },
+            blockedOnRefs: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Explicit PMO refs this blocker waits on. PMO does not infer blocker dependencies from summary prose."
+            },
             blockerRef: { type: "string" },
+            clearanceCriteria: {
+              type: "array",
+              description:
+                "Deterministic blocker closure criteria. Each item names a PMO ref and required status; detect_drift flags stale blockers when criteria are satisfied but the blocker remains open.",
+              items: {
+                type: "object",
+                properties: {
+                  ref: { type: "string" },
+                  requiredStatus: { type: "string" }
+                },
+                required: ["ref", "requiredStatus"],
+                additionalProperties: false
+              }
+            },
             decisionRef: { type: "string" },
             evidenceRefs: { type: "array", items: { type: "string" } },
             itemId: { type: "string" },
