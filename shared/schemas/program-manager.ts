@@ -203,6 +203,58 @@ export const programContextAnchorSchema = z
   })
   .strict();
 
+export const programEventCausationSchema = z
+  .object({
+    causedByEventIds: sortedStringArraySchema("programEvent causation causedByEventIds"),
+    sourceCorrelationId: z.string().min(1).optional(),
+    sourceEventId: pointerRefSchema.optional(),
+    sourceTool: z.string().min(1),
+    sourceTraceId: z.string().min(1).optional(),
+    targetRefs: sortedStringArraySchema("programEvent causation targetRefs")
+  })
+  .strict();
+
+export const programEventSchema = z
+  .object({
+    action: z.string().min(1).optional(),
+    actorId: pointerRefSchema.optional(),
+    artifactRefs: sortedStringArraySchema("programEvent artifactRefs"),
+    causation: programEventCausationSchema.optional(),
+    contextAnchor: programContextAnchorSchema.optional(),
+    correlationId: z.string().min(1).optional(),
+    eventId: pointerRefSchema,
+    eventKind: z.enum(["pmo_audit", "pmo_omni_tool_write"]).optional(),
+    eventType: z.string().min(1),
+    evidenceRefs: sortedStringArraySchema("programEvent evidenceRefs"),
+    idempotencyKey: z.string().min(1).optional(),
+    managedRefs: sortedStringArraySchema("programEvent managedRefs").optional(),
+    payloadDigest: sha256DigestSchema.optional(),
+    portfolioId: pointerRefSchema,
+    recordedAt: isoDateTimeSchema,
+    schemaVersion: z.literal("1").optional(),
+    targetRefs: sortedStringArraySchema("programEvent targetRefs").optional(),
+    toolName: z.string().min(1).optional(),
+    traceId: z.string().min(1).optional(),
+    writeStatus: z.enum(["accepted", "blocked", "duplicate", "rejected"]).optional()
+  })
+  .strict();
+
+export const pmoOmniToolWriteEventSchema = programEventSchema
+  .extend({
+    action: z.string().min(1),
+    causation: programEventCausationSchema,
+    correlationId: z.string().min(1),
+    eventKind: z.literal("pmo_omni_tool_write"),
+    idempotencyKey: z.string().min(1),
+    managedRefs: sortedStringArraySchema("pmoOmniToolWriteEvent managedRefs"),
+    schemaVersion: z.literal("1"),
+    targetRefs: sortedStringArraySchema("pmoOmniToolWriteEvent targetRefs"),
+    toolName: z.string().min(1),
+    traceId: z.string().min(1),
+    writeStatus: z.enum(["accepted", "blocked", "duplicate", "rejected"])
+  })
+  .strict();
+
 export const artifactRefSchema = z
   .object({
     artifactId: pointerRefSchema,
@@ -262,11 +314,13 @@ export const evidencePolicySchema = z
 
 export const decisionRecordSchema = z
   .object({
+    branchName: z.string().min(1).optional(),
     actorId: pointerRefSchema,
     appliesToRefs: sortedStringArraySchema("appliesToRefs"),
     authorityRef: pointerRefSchema,
     decisionId: pointerRefSchema,
     decisionType: z.string().min(1),
+    gitCommit: gitCommitSchema.optional(),
     evidenceRefs: sortedStringArraySchema("decision evidenceRefs"),
     portfolioId: pointerRefSchema,
     programId: pointerRefSchema.optional(),
@@ -274,7 +328,9 @@ export const decisionRecordSchema = z
     recordedAt: isoDateTimeSchema,
     status: z.enum(["active", "superseded", "discarded", "future_not_applicable"]),
     validFrom: isoDateTimeSchema,
-    validTo: isoDateTimeSchema.optional()
+    validTo: isoDateTimeSchema.optional(),
+    trackerRev: z.number().int().nonnegative().optional(),
+    trackerSlug: z.string().min(1).optional()
   })
   .strict();
 
@@ -295,16 +351,20 @@ const intelligenceRecordBaseSchema = z
     portfolioId: pointerRefSchema,
     programId: pointerRefSchema.optional(),
     projectId: pointerRefSchema.optional(),
+    branchName: z.string().min(1).optional(),
     recordedAt: isoDateTimeSchema,
     recordId: pointerRefSchema,
     reviewStatus: z.enum(["supported", "needs_review"]),
+    gitCommit: gitCommitSchema.optional(),
     sourceAdapterId: z.string().min(1),
     sourceCursor: z.string().min(1),
     sourceRefs: sortedStringArraySchema("intelligenceRecord sourceRefs"),
     summary: z.string().min(1),
     title: z.string().min(1),
     validFrom: isoDateTimeSchema,
-    validTo: isoDateTimeSchema.optional()
+    validTo: isoDateTimeSchema.optional(),
+    trackerRev: z.number().int().nonnegative().optional(),
+    trackerSlug: z.string().min(1).optional()
   })
   .strict();
 
@@ -1264,6 +1324,43 @@ const operatorAttestationSchema = z
   })
   .strict();
 
+const executionAgentReceiptTestRunSchema = z
+  .object({
+    evidenceRefs: sortedStringArraySchema("executionAgentReceipt test evidenceRefs"),
+    status: z.enum(["pass", "fail", "skipped", "not_run", "blocked"]),
+    testRef: pointerRefSchema
+  })
+  .strict();
+
+const executionAgentReceiptBlockerSchema = z
+  .object({
+    blockerRef: pointerRefSchema,
+    evidenceRefs: sortedStringArraySchema("executionAgentReceipt blocker evidenceRefs"),
+    severity: z.enum(["low", "medium", "high", "critical"]),
+    status: z.enum(["open", "mitigated", "resolved", "superseded"]),
+    summary: z.string().min(1)
+  })
+  .strict();
+
+export const executionAgentReceiptSchema = z
+  .object({
+    affectedRefs: sortedStringArraySchema("executionAgentReceipt affectedRefs"),
+    blockers: z.array(executionAgentReceiptBlockerSchema),
+    integrationRef: pointerRefSchema,
+    projectId: pointerRefSchema,
+    sourceRef: pointerRefSchema,
+    testsRun: z.array(executionAgentReceiptTestRunSchema)
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (!value.affectedRefs.includes(value.integrationRef)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "executionAgentReceipt affectedRefs must include integrationRef"
+      });
+    }
+  });
+
 export const recordProgramReceiptRequestSchema = programToolRequestContextSchema
   .extend({
     artifactRefs: sortedStringArraySchema("receipt artifactRefs").optional(),
@@ -1315,14 +1412,28 @@ export const submitAgenticOsReceiptRequestSchema = recordProgramReceiptRequestSc
   .extend({
     agenticOsRunRef: pointerRefSchema,
     executionAgentRef: pointerRefSchema,
+    executionReceipt: executionAgentReceiptSchema.optional(),
     governance: agenticOsGovernanceSchema
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (
+      value.executionReceipt &&
+      value.projectIds &&
+      !value.projectIds.includes(value.executionReceipt.projectId)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "executionReceipt projectId must be included in projectIds when projectIds is supplied"
+      });
+    }
+  });
 
 export const submitAgenticOsReceiptCoreSchema = z
   .object({
     agenticOsRunRef: pointerRefSchema,
     executionAgentRef: pointerRefSchema,
+    executionReceipt: executionAgentReceiptSchema.optional(),
     receiptCore: recordProgramReceiptCoreSchema.optional(),
     receiptSubmissionToolName: z.literal("record_program_receipt"),
     validation: z
@@ -1559,25 +1670,21 @@ export const analyzeProgramIntelligenceResultSchema = programToolResultEnvelopeS
   z.object({ summary: z.string().min(1) }).strict()
 );
 
+const pmoMacroNameSchema = z.enum([
+  "analyze_blockers",
+  "catch_me_up",
+  "simulate_impact",
+  "detect_drift",
+  "propose_unblock_plan"
+]);
+
 export const pmoMacroDefinitionSchema = z
   .object({
     description: z.string().min(1),
     enabled: z.boolean(),
     inputSchemaRef: pointerRefSchema,
     macroId: pointerRefSchema,
-    macroName: z.enum([
-      "analyze_blockers",
-      "catch_me_up",
-      "describe_macro",
-      "discover_macros",
-      "simulate_impact",
-      "detect_drift",
-      "export_registry",
-      "object_type_docs",
-      "propose_unblock_plan",
-      "registry_help",
-      "validate_macro"
-    ]),
+    macroName: pmoMacroNameSchema,
     outputSchemaRef: pointerRefSchema,
     registryEntryRef: pointerRefSchema,
     requiredRoleRefs: sortedStringArraySchema("pmoMacroDefinition requiredRoleRefs"),
@@ -1620,15 +1727,17 @@ export const pmoMacroRequestSchema = programToolRequestContextSchema
     dryRun: z.boolean().optional(),
     input: z.record(z.string(), z.unknown()).optional(),
     macroId: pointerRefSchema.optional(),
+    macroInput: z.record(z.string(), z.unknown()).optional(),
+    macroName: pmoMacroNameSchema.optional(),
     macroVersion: z.string().min(1).optional(),
     registryPatchRef: pointerRefSchema.optional()
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (["describe", "validate", "invoke"].includes(value.action) && !value.macroId) {
+    if (["describe", "validate", "invoke"].includes(value.action) && !value.macroId && !value.macroName) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "macroId is required for describe, validate, and invoke actions"
+        message: "macroId or macroName is required for describe, validate, and invoke actions"
       });
     }
     if (value.action === "edit_registry" && !value.registryPatchRef) {
@@ -1639,6 +1748,17 @@ export const pmoMacroRequestSchema = programToolRequestContextSchema
     }
   });
 
+export const pmoHelpRequestSchema = z
+  .object({
+    contextAnchor: programContextAnchorSchema.optional(),
+    correlationId: z.string().min(1),
+    portfolioId: z.string().min(1).optional(),
+    programId: z.string().min(1).optional(),
+    projectIds: z.array(z.string().min(1)).optional(),
+    traceId: z.string().min(1)
+  })
+  .strict();
+
 const pmoMacroHashRequestSchema = z
   .object({
     action: z.enum(["help", "list", "describe", "validate", "invoke", "edit_registry"]),
@@ -1646,6 +1766,8 @@ const pmoMacroHashRequestSchema = z
     dryRun: z.boolean().optional(),
     input: z.record(z.string(), z.unknown()).optional(),
     macroId: pointerRefSchema.optional(),
+    macroInput: z.record(z.string(), z.unknown()).optional(),
+    macroName: pmoMacroNameSchema.optional(),
     macroVersion: z.string().min(1).optional(),
     portfolioId: pointerRefSchema,
     programId: pointerRefSchema.optional(),
@@ -1666,11 +1788,67 @@ const pmoMacroInvocationSummarySchema = z
   })
   .strict();
 
+const pmoMacroHelpCallSchema = z
+  .object({
+    arguments: z.record(z.string(), z.unknown()),
+    purpose: z.string().min(1),
+    toolName: z.string().min(1)
+  })
+  .strict();
+
+const pmoMacroHelpGuideSchema = z
+  .object({
+    canonicalScope: z
+      .object({
+        integrationRef: pointerRefSchema,
+        portfolioId: pointerRefSchema,
+        producerProjectId: pointerRefSchema,
+        programId: pointerRefSchema,
+        projectIds: sortedStringArraySchema("pmoMacroHelpGuide projectIds")
+      })
+      .strict(),
+    docsAvailableToAgents: z.boolean(),
+    firstAgentInstruction: z.string().min(1),
+    operatingRules: z.array(z.string().min(1)),
+    receiptPath: z
+      .object({
+        queryTool: z.string().min(1),
+        submitTool: z.string().min(1),
+        summary: z.string().min(1)
+      })
+      .strict(),
+    recommendedCalls: z.array(pmoMacroHelpCallSchema),
+    setupCalls: z.array(pmoMacroHelpCallSchema),
+    scopeMode: z.enum(["portfolio_bootstrap", "scoped_work"]),
+    toolCatalog: z.array(
+      z
+        .object({
+          actions: z.array(z.string().min(1)),
+          mutatesPmoState: z.boolean(),
+          purpose: z.string().min(1),
+          toolName: z.string().min(1),
+          useWhen: z.string().min(1)
+        })
+        .strict()
+    ),
+    roleRefs: z.array(
+      z
+        .object({
+          projectId: pointerRefSchema,
+          role: z.string().min(1)
+        })
+        .strict()
+    )
+  })
+  .strict();
+
 export const pmoMacroCoreSchema = z
   .object({
     action: z.enum(["help", "list", "describe", "validate", "invoke", "edit_registry"]),
     contextAnchor: programContextAnchorSchema.optional(),
     deterministicCoreRef: pointerRefSchema.optional(),
+    guidance: z.record(z.string(), z.unknown()).optional(),
+    helpGuide: pmoMacroHelpGuideSchema.optional(),
     invocation: pmoMacroInvocationSummarySchema.optional(),
     macro: pmoMacroDefinitionSchema.optional(),
     objectModelRefs: sortedStringArraySchema("pmoMacroCore objectModelRefs"),
@@ -1696,6 +1874,533 @@ export const pmoMacroResultSchema = programToolResultEnvelopeSchema(
       message: "stateVersionHash is required for deterministic pmo_macro actions"
     });
   }
+});
+
+export const pmoHelpResultSchema = programToolResultEnvelopeSchema(
+  pmoMacroCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+).safeExtend({
+  toolName: z.literal("pmo_help")
+});
+
+const managedProgramSchema = z
+  .object({
+    adapterRef: pointerRefSchema.optional(),
+    goal: z.string().min(1).optional(),
+    name: z.string().min(1).optional(),
+    programId: pointerRefSchema,
+    repoRef: pointerRefSchema.optional(),
+    status: z.enum(["active", "retired"]).optional(),
+    trackerRef: pointerRefSchema.optional()
+  })
+  .strict();
+
+const managedProjectSchema = z
+  .object({
+    adapterRef: pointerRefSchema.optional(),
+    goal: z.string().min(1).optional(),
+    name: z.string().min(1).optional(),
+    programId: pointerRefSchema.optional(),
+    projectId: pointerRefSchema,
+    projectRole: z.string().min(1).optional(),
+    repoRef: pointerRefSchema.optional(),
+    status: z.enum(["active", "retired"]).optional(),
+    trackerRef: pointerRefSchema.optional()
+  })
+  .strict();
+
+const manageProjectsActionSchema = z.enum([
+  "help",
+  "list",
+  "get",
+  "create",
+  "upsert",
+  "update",
+  "rename",
+  "retire",
+  "add_project",
+  "remove_project",
+  "set_project_role",
+  "link_tracker",
+  "link_repo",
+  "link_adapter",
+  "record_goal"
+]);
+
+const managedIntegrationSchema = z
+  .object({
+    artifactRef: pointerRefSchema.optional(),
+    consumerProjectIds: z.array(pointerRefSchema).optional(),
+    expectedStateVersionHash: sha256DigestSchema.optional(),
+    idempotencyKey: sha256DigestSchema.optional(),
+    integrationPointId: pointerRefSchema,
+    item: z
+      .object({
+        affectedProjectIds: sortedStringArraySchema("integration item affectedProjectIds").optional(),
+        artifactRefs: sortedStringArraySchema("integration item artifactRefs").optional(),
+        blockedProjectId: pointerRefSchema.optional(),
+        blockerRef: pointerRefSchema.optional(),
+        decisionRef: pointerRefSchema.optional(),
+        evidenceRefs: sortedStringArraySchema("integration item evidenceRefs").optional(),
+        itemId: pointerRefSchema.optional(),
+        itemType: z.enum([
+          "artifact",
+          "blocker",
+          "conflict",
+          "decision",
+          "gap",
+          "goal",
+          "learning",
+          "response",
+          "tracker_ref"
+        ]),
+        ownerProjectId: pointerRefSchema.optional(),
+        projectId: pointerRefSchema.optional(),
+        reporterProjectId: pointerRefSchema.optional(),
+        responseRef: pointerRefSchema.optional(),
+        status: z.string().min(1).optional(),
+        summary: z.string().min(1).optional(),
+        trackerRefs: sortedStringArraySchema("integration item trackerRefs").optional()
+      })
+      .strict()
+      .optional(),
+    producerProjectId: pointerRefSchema.optional(),
+    projectId: pointerRefSchema.optional(),
+    projectRole: z.string().min(1).optional(),
+    status: z.enum(["active", "retired"]).optional(),
+    purpose: z.string().min(1).optional(),
+    trackerRef: pointerRefSchema.optional()
+  })
+  .strict();
+
+const manageIntegrationActionSchema = z.enum([
+  "help",
+  "list",
+  "get",
+  "create",
+  "upsert",
+  "update",
+  "rename",
+  "retire",
+  "delete",
+  "add_project",
+  "remove_project",
+  "add_artifact",
+  "record_goal",
+  "acknowledge_goal",
+  "submit_gap_report",
+  "update_gap",
+  "record_blocker",
+  "update_blocker",
+  "assign_blocker_owner",
+  "mark_blocker_unblocked",
+  "mark_blocker_resolved",
+  "reopen_blocker",
+  "identify_blockers",
+  "request_decision",
+  "record_decision",
+  "submit_project_response",
+  "record_conflict",
+  "record_learning",
+  "link_tracker_ref",
+  "inbox",
+  "catch_up",
+  "supersede"
+]);
+
+export const manageProjectsRequestSchema = programToolRequestContextSchema
+  .extend({
+    action: manageProjectsActionSchema,
+    evidenceRefs: z.array(pointerRefSchema).optional(),
+    program: managedProgramSchema.optional(),
+    project: managedProjectSchema.optional()
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (["create", "upsert"].includes(value.action) && !value.program && !value.project) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "program or project is required for manage_projects create/upsert"
+      });
+    }
+    if (["create", "upsert"].includes(value.action) && value.program && !value.program.name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "program.name is required for manage_projects create/upsert"
+      });
+    }
+    if (["create", "upsert"].includes(value.action) && value.project && !value.project.name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "project.name is required for manage_projects create/upsert"
+      });
+    }
+    if (
+      ["get", "retire"].includes(value.action) &&
+      !value.programId &&
+      !value.program?.programId &&
+      !value.project?.projectId &&
+      !value.projectIds?.length
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "programId, program.programId, project.projectId, or projectIds is required for manage_projects get/retire"
+      });
+    }
+    if (
+      [
+        "add_project",
+        "remove_project",
+        "set_project_role"
+      ].includes(value.action) &&
+      !value.project?.projectId
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "project.projectId is required for project metadata and membership actions"
+      });
+    }
+    if (
+      [
+        "link_tracker",
+        "link_repo",
+        "link_adapter",
+        "record_goal"
+      ].includes(value.action) &&
+      !value.program?.programId &&
+      !value.project?.projectId
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "program.programId or project.projectId is required for metadata actions"
+      });
+    }
+    if (
+      ["create", "upsert", "add_project", "remove_project"].includes(value.action) &&
+      value.project &&
+      !(value.project.programId ?? value.program?.programId ?? value.programId)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "programId is required when creating or adding a project"
+      });
+    }
+    if (value.action === "set_project_role" && !value.project?.projectRole) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "project.projectRole is required for manage_projects set_project_role"
+      });
+    }
+    if (value.action === "link_tracker" && !value.project?.trackerRef && !value.program?.trackerRef) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "trackerRef is required for manage_projects link_tracker"
+      });
+    }
+    if (value.action === "link_repo" && !value.project?.repoRef && !value.program?.repoRef) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "repoRef is required for manage_projects link_repo"
+      });
+    }
+    if (value.action === "link_adapter" && !value.project?.adapterRef && !value.program?.adapterRef) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "adapterRef is required for manage_projects link_adapter"
+      });
+    }
+    if (value.action === "record_goal" && !value.project?.goal && !value.program?.goal) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "goal is required for manage_projects record_goal"
+      });
+    }
+  });
+
+const manageProjectsCoreSchema = z
+  .object({
+    action: manageProjectsActionSchema,
+    guidance: z.record(z.string(), z.unknown()).optional(),
+    managedRefs: sortedStringArraySchema("manageProjectsCore managedRefs"),
+    programs: z.array(
+      z
+        .object({
+          adapterRef: pointerRefSchema.optional(),
+          goal: z.string().min(1).optional(),
+          name: z.string().min(1),
+          portfolioId: pointerRefSchema,
+          programId: pointerRefSchema,
+          repoRef: pointerRefSchema.optional(),
+          status: z.enum(["active", "retired"]).optional(),
+          trackerRef: pointerRefSchema.optional()
+        })
+        .strict()
+    ),
+    projects: z.array(
+      z
+        .object({
+          activeProgramIds: sortedStringArraySchema("project activeProgramIds").optional(),
+          adapterRef: pointerRefSchema.optional(),
+          goal: z.string().min(1).optional(),
+          name: z.string().min(1),
+          portfolioId: pointerRefSchema,
+          programId: pointerRefSchema,
+          projectId: pointerRefSchema,
+          projectRole: z.string().min(1).optional(),
+          repoRef: pointerRefSchema.optional(),
+          status: z.enum(["active", "retired"]).optional(),
+          trackerRef: pointerRefSchema.optional()
+        })
+        .strict()
+    )
+  })
+  .strict();
+
+export const manageProjectsResultSchema = programToolResultEnvelopeSchema(
+  manageProjectsCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+).safeExtend({
+  toolName: z.literal("manage_projects")
+});
+
+export const manageIntegrationsRequestSchema = programToolRequestContextSchema
+  .extend({
+    action: manageIntegrationActionSchema,
+    evidenceRefs: z.array(pointerRefSchema).optional(),
+    integration: managedIntegrationSchema.optional()
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (!["help", "list"].includes(value.action) && !value.integration) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "integration is required for manage_integrations lifecycle actions"
+      });
+    }
+    if (["create", "upsert"].includes(value.action) && !value.integration?.producerProjectId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "integration.producerProjectId is required for manage_integrations upsert"
+      });
+    }
+    if (
+      ["add_project", "remove_project"].includes(value.action) &&
+      !value.integration?.consumerProjectIds?.length
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "integration.consumerProjectIds is required for project signup or removal"
+      });
+    }
+  });
+
+const manageIntegrationsCoreSchema = z
+  .object({
+    action: manageIntegrationActionSchema,
+    coordinationItems: z
+      .array(
+        z
+          .object({
+            affectedProjectIds: sortedStringArraySchema("manageIntegrationsCore affectedProjectIds"),
+            artifactRefs: sortedStringArraySchema("manageIntegrationsCore item artifactRefs"),
+            blockedProjectId: pointerRefSchema.optional(),
+            createdAt: z.string().min(1),
+            evidenceRefs: sortedStringArraySchema("manageIntegrationsCore item evidenceRefs"),
+            integrationPointId: pointerRefSchema,
+            itemId: pointerRefSchema,
+            itemType: z.enum([
+              "artifact",
+              "blocker",
+              "conflict",
+              "decision",
+              "gap",
+              "goal",
+              "learning",
+              "response",
+              "tracker_ref"
+            ]),
+            ownerProjectId: pointerRefSchema.optional(),
+            projectId: pointerRefSchema.optional(),
+            reporterProjectId: pointerRefSchema.optional(),
+            status: z.string().min(1),
+            summary: z.string().min(1).optional(),
+            trackerRefs: sortedStringArraySchema("manageIntegrationsCore item trackerRefs"),
+            updatedAt: z.string().min(1).optional()
+          })
+          .strict()
+      )
+      .optional(),
+    guidance: z.record(z.string(), z.unknown()).optional(),
+    inboxItems: z
+      .array(
+        z
+          .object({
+            action: z.string().min(1),
+            itemId: pointerRefSchema,
+            itemType: z.string().min(1),
+            projectId: pointerRefSchema,
+            summary: z.string().min(1)
+          })
+          .strict()
+      )
+      .optional(),
+    integrationPoints: z.array(
+      z
+        .object({
+          artifactRefs: sortedStringArraySchema("manageIntegrationsCore artifactRefs").optional(),
+          consumerProjectIds: sortedStringArraySchema("manageIntegrationsCore consumerProjectIds"),
+          coordinationItems: z.array(z.record(z.string(), z.unknown())).optional(),
+          evidenceRefs: sortedStringArraySchema("manageIntegrationsCore evidenceRefs").optional(),
+          idempotencyKeys: sortedStringListSchema("manageIntegrationsCore idempotencyKeys").optional(),
+          integrationPointId: pointerRefSchema,
+          portfolioId: pointerRefSchema,
+          producerProjectId: pointerRefSchema,
+          projectRoles: z.record(z.string(), z.string()).optional(),
+          purpose: z.string().min(1).optional(),
+          recordedAt: z.string().min(1).optional(),
+          statusHistory: z.array(z.record(z.string(), z.unknown())).optional(),
+          status: z.enum(["active", "retired"]).optional()
+        })
+        .strict()
+    ),
+    managedRefs: sortedStringArraySchema("manageIntegrationsCore managedRefs")
+  })
+  .strict();
+
+export const manageIntegrationsResultSchema = programToolResultEnvelopeSchema(
+  manageIntegrationsCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+).safeExtend({
+  toolName: z.literal("manage_integrations")
+});
+
+const manageEvidenceActionSchema = z.enum([
+  "help",
+  "list",
+  "get",
+  "register",
+  "update",
+  "rename",
+  "retire",
+  "add_artifact",
+  "link_evidence",
+  "classify",
+  "set_retention",
+  "attach_to_integration",
+  "attach_to_decision",
+  "attach_to_learning"
+]);
+
+const managedEvidenceItemSchema = z
+  .object({
+    artifactRef: pointerRefSchema.optional(),
+    artifactType: z.string().min(1).optional(),
+    attachesToRefs: sortedStringArraySchema("managedEvidence attachesToRefs").optional(),
+    classification: z.enum(["public", "internal", "operator_only", "content_bearing_evidence", "secret_adjacent"]).optional(),
+    contentHash: contentHashSchema.optional(),
+    evidenceRef: pointerRefSchema.optional(),
+    evidenceType: z.string().min(1).optional(),
+    kind: z.string().min(1).optional(),
+    redactionStatus: z.enum(["not_required", "redacted", "pending_review", "blocked"]).optional(),
+    retentionPolicyRef: pointerRefSchema.optional(),
+    storageUri: pointerRefSchema.optional(),
+    summary: z.string().min(1).optional()
+  })
+  .strict();
+
+export const manageEvidenceItemsRequestSchema = programToolRequestContextSchema
+  .extend({
+    action: manageEvidenceActionSchema,
+    evidenceItem: managedEvidenceItemSchema.optional(),
+    evidenceRefs: z.array(pointerRefSchema).optional()
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (!["help", "list"].includes(value.action) && !value.evidenceItem) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "evidenceItem is required for manage_evidence_items lifecycle actions"
+      });
+    }
+    if (["get", "update", "rename", "retire", "classify", "set_retention"].includes(value.action)) {
+      if (!value.evidenceItem?.evidenceRef && !value.evidenceItem?.artifactRef) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "evidenceItem.evidenceRef or evidenceItem.artifactRef is required"
+        });
+      }
+    }
+    if (["register", "add_artifact"].includes(value.action) && value.evidenceItem?.artifactRef) {
+      if (!value.evidenceItem.storageUri || !value.evidenceItem.contentHash) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "artifact registration requires storageUri and contentHash"
+        });
+      }
+    }
+    if (["register", "link_evidence"].includes(value.action) && value.evidenceItem?.evidenceRef) {
+      if (!value.evidenceItem.kind && !value.evidenceItem.evidenceType) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "evidence registration requires kind or evidenceType"
+        });
+      }
+    }
+    if (
+      ["attach_to_integration", "attach_to_decision", "attach_to_learning"].includes(value.action) &&
+      !value.evidenceItem?.attachesToRefs?.length
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "attachesToRefs is required for evidence attachment actions"
+      });
+    }
+  });
+
+const manageEvidenceItemsCoreSchema = z
+  .object({
+    action: manageEvidenceActionSchema,
+    artifactRecords: z.array(
+      z
+        .object({
+          artifactRef: pointerRefSchema,
+          artifactType: z.string().min(1),
+          classification: z.string().min(1).optional(),
+          contentHash: contentHashSchema,
+          createdAt: z.string().min(1),
+          portfolioId: pointerRefSchema,
+          redactionStatus: z.string().min(1),
+          retentionPolicyRef: pointerRefSchema.optional(),
+          storageUri: pointerRefSchema
+        })
+        .strict()
+    ),
+    evidenceRecords: z.array(
+      z
+        .object({
+          artifactRef: pointerRefSchema.optional(),
+          attachesToRefs: sortedStringArraySchema("manageEvidenceItems evidence attachesToRefs").optional(),
+          classification: z.string().min(1).optional(),
+          evidenceRef: pointerRefSchema,
+          kind: z.string().min(1),
+          portfolioId: pointerRefSchema,
+          recordedAt: z.string().min(1),
+          redactionStatus: z.string().min(1).optional(),
+          retentionPolicyRef: pointerRefSchema.optional(),
+          summary: z.string().min(1).optional()
+        })
+        .strict()
+    ),
+    guidance: z.record(z.string(), z.unknown()).optional(),
+    managedRefs: sortedStringArraySchema("manageEvidenceItemsCore managedRefs")
+  })
+  .strict();
+
+export const manageEvidenceItemsResultSchema = programToolResultEnvelopeSchema(
+  manageEvidenceItemsCoreSchema,
+  z.object({ summary: z.string().min(1) }).strict()
+).safeExtend({
+  toolName: z.literal("manage_evidence_items")
 });
 
 export const pmoMacroHashInputSchema = z
@@ -1770,7 +2475,7 @@ const pmoMacroScenarioSchema = z
     expectedArtifactRefs: sortedStringArraySchema("pmoMacroScenario expectedArtifactRefs"),
     expectedEvidenceRefs: sortedStringArraySchema("pmoMacroScenario expectedEvidenceRefs"),
     expectedStateVersionHash: sha256DigestSchema,
-    macroName: z.enum(["analyze_blockers", "catch_me_up", "simulate_impact", "detect_drift"]),
+    macroName: pmoMacroNameSchema,
     request: pmoMacroRequestSchema,
     result: pmoMacroResultSchema,
     scenarioId: z.string().min(1)
@@ -2175,6 +2880,7 @@ export const programManagerSchemaBundleSchema = z
     dependencyRelationshipProps: dependencyRelationshipPropsSchema,
     evidencePolicy: evidencePolicySchema,
     evidenceRef: evidenceRefSchema,
+    executionAgentReceipt: executionAgentReceiptSchema,
     expectedReceipt: expectedReceiptSchema,
     attemptRecord: attemptRecordSchema,
     failurePattern: failurePatternSchema,

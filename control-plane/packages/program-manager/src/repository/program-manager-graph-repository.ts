@@ -26,9 +26,11 @@ import type {
   ImpactAssessmentResult,
   MacroFactQuery,
   MacroFactSet,
+  ProgramEventCausationQuery,
   ProgramContextQuery,
   ProgramIntelligenceQuery,
   ProgramManagerRepository,
+  IntegrationPointRecord as RepositoryIntegrationPointRecord,
   ReceiptLedgerQuery,
   ReceiptLedgerState,
   RepositoryScope
@@ -59,7 +61,7 @@ import {
   normalizeRecordedAt,
   type ContractRecord,
   type DecisionRecordEnvelope,
-  type IntegrationPointRecord,
+  type IntegrationPointRecord as GraphIntegrationPointRecord,
   type ProgramManagerGraphSeed,
   type ProgramManagerGraphStore,
   type ProgramMembership,
@@ -99,6 +101,42 @@ function defaultScopeAnchor(scope: RepositoryScope): ContextAnchor {
     programId: scope.programId,
     projectId: scope.projectIds?.length === 1 ? scope.projectIds[0] : undefined
   };
+}
+
+function matchesContextAnchor(
+  value: {
+    branchName?: string;
+    gitCommit?: string;
+    trackerRev?: number;
+    trackerSlug?: string;
+    validFrom: string;
+    validTo?: string;
+  },
+  contextAnchor: ContextAnchor | undefined
+): boolean {
+  if (!contextAnchor) {
+    return true;
+  }
+  if (contextAnchor.branchName && value.branchName && value.branchName !== contextAnchor.branchName) {
+    return false;
+  }
+  if (contextAnchor.gitCommit && value.gitCommit && value.gitCommit !== contextAnchor.gitCommit) {
+    return false;
+  }
+  if (
+    contextAnchor.trackerRev !== undefined &&
+    typeof value.trackerRev === "number" &&
+    value.trackerRev > contextAnchor.trackerRev
+  ) {
+    return false;
+  }
+  if (contextAnchor.trackerSlug && value.trackerSlug && value.trackerSlug !== contextAnchor.trackerSlug) {
+    return false;
+  }
+  if (contextAnchor.asOf) {
+    return value.validFrom <= contextAnchor.asOf && (!value.validTo || value.validTo >= contextAnchor.asOf);
+  }
+  return true;
 }
 
 function inferKind(ref: string): string {
@@ -164,12 +202,16 @@ function mapDecisionRecord(decision: DecisionRecordEnvelope): DecisionRecord {
     portfolioId: decision.portfolioId,
     programId: decision.programId,
     projectId: decision.projectId,
+    branchName: decision.branchName,
     summary: decision.summary,
+    gitCommit: decision.gitCommit,
     status: decision.status,
     recordedAt: decision.recordedAt,
     validFrom: decision.validFrom,
     validTo: decision.validTo,
-    evidenceRefs: sortStrings(decision.evidenceRefs)
+    evidenceRefs: sortStrings(decision.evidenceRefs),
+    trackerRev: decision.trackerRev,
+    trackerSlug: decision.trackerSlug
   };
 }
 
@@ -257,12 +299,14 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
     });
   }
 
-  async putIntegrationPoint(integrationPoint: IntegrationPointRecord): Promise<void> {
+  async putIntegrationPoint(integrationPoint: GraphIntegrationPointRecord): Promise<void> {
     await this.store.upsertIntegrationPoint({
       ...integrationPoint,
+      artifactRefs: uniqueSortedStrings(integrationPoint.artifactRefs ?? []),
       consumerProjectIds: uniqueSortedStrings(integrationPoint.consumerProjectIds),
       recordedAt: normalizeRecordedAt(integrationPoint.recordedAt),
-      evidenceRefs: uniqueSortedStrings(integrationPoint.evidenceRefs ?? [])
+      evidenceRefs: uniqueSortedStrings(integrationPoint.evidenceRefs ?? []),
+      idempotencyKeys: uniqueSortedStrings(integrationPoint.idempotencyKeys ?? [])
     });
   }
 
@@ -282,7 +326,10 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
   }
 
   async putEvidenceRef(evidenceRef: EvidenceRef): Promise<void> {
-    await this.store.upsertEvidenceRef(evidenceRef);
+    await this.store.upsertEvidenceRef({
+      ...evidenceRef,
+      attachesToRefs: uniqueSortedStrings(evidenceRef.attachesToRefs ?? [])
+    });
   }
 
   async putArtifactRef(artifactRef: ArtifactRef): Promise<void> {
@@ -314,8 +361,37 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
     await this.store.appendEvent({
       ...event,
       evidenceRefs: uniqueSortedStrings(event.evidenceRefs),
-      artifactRefs: uniqueSortedStrings(event.artifactRefs)
+      artifactRefs: uniqueSortedStrings(event.artifactRefs),
+      targetRefs: event.targetRefs ? uniqueSortedStrings(event.targetRefs) : undefined,
+      managedRefs: event.managedRefs ? uniqueSortedStrings(event.managedRefs) : undefined,
+      causation: event.causation
+        ? {
+            ...event.causation,
+            causedByEventIds: uniqueSortedStrings(event.causation.causedByEventIds),
+            targetRefs: uniqueSortedStrings(event.causation.targetRefs)
+          }
+        : undefined
     });
+  }
+
+  async appendEvent(event: ProgramEvent): Promise<ProgramEvent> {
+    const existingByIdempotencyKey = event.idempotencyKey
+      ? await this.getEventByIdempotencyKey({ portfolioId: event.portfolioId }, event.idempotencyKey)
+      : undefined;
+    if (existingByIdempotencyKey) {
+      return existingByIdempotencyKey;
+    }
+
+    const existingByEventId = (await this.store.listEvents({ portfolioId: event.portfolioId }))
+      .find((item) => item.eventId === event.eventId);
+    if (existingByEventId) {
+      return existingByEventId;
+    }
+
+    await this.putEvent(event);
+    const stored = (await this.store.listEvents({ portfolioId: event.portfolioId }))
+      .find((item) => item.eventId === event.eventId);
+    return stored ?? event;
   }
 
   async putSyncCursor(cursor: SyncCursorRecord): Promise<void> {
@@ -420,12 +496,50 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
     return (await this.store.listProjects(scope)).sort(compareProjects);
   }
 
+  async upsertProgram(program: ProgramRef, auditEvent?: ProgramEvent): Promise<void> {
+    await this.putProgram(program);
+    if (auditEvent) {
+      await this.putEvent(auditEvent);
+    }
+  }
+
+  async upsertProject(project: ProjectRef, auditEvent?: ProgramEvent): Promise<void> {
+    await this.putProject(project);
+    if (auditEvent) {
+      await this.putEvent(auditEvent);
+    }
+  }
+
   async listMemberships(scope: RepositoryScope): Promise<ProgramMembership[]> {
     return (await this.store.listMemberships(scope)).sort(compareMemberships);
   }
 
-  async listIntegrationPoints(scope: RepositoryScope): Promise<IntegrationPointRecord[]> {
-    return (await this.store.listIntegrationPoints(scope)).sort(compareIntegrationPoints);
+  async listIntegrationPoints(scope: RepositoryScope): Promise<RepositoryIntegrationPointRecord[]> {
+    return (await this.store.listIntegrationPoints(scope)).sort(compareIntegrationPoints).map((integrationPoint) => ({
+      integrationPointId: integrationPoint.integrationPointId,
+      portfolioId: integrationPoint.portfolioId,
+      producerProjectId: integrationPoint.producerProjectId,
+      consumerProjectIds: integrationPoint.consumerProjectIds,
+      artifactRefs: integrationPoint.artifactRefs,
+      coordinationItems: integrationPoint.coordinationItems as RepositoryIntegrationPointRecord["coordinationItems"],
+      purpose: integrationPoint.purpose,
+      recordedAt: integrationPoint.recordedAt,
+      evidenceRefs: integrationPoint.evidenceRefs,
+      idempotencyKeys: integrationPoint.idempotencyKeys,
+      projectRoles: integrationPoint.projectRoles,
+      statusHistory: integrationPoint.statusHistory as RepositoryIntegrationPointRecord["statusHistory"],
+      status: integrationPoint.status
+    }));
+  }
+
+  async upsertIntegrationPoint(
+    integrationPoint: RepositoryIntegrationPointRecord,
+    auditEvent?: ProgramEvent
+  ): Promise<void> {
+    await this.putIntegrationPoint(integrationPoint);
+    if (auditEvent) {
+      await this.putEvent(auditEvent);
+    }
   }
 
   async listContracts(scope: RepositoryScope): Promise<ContractRecord[]> {
@@ -778,6 +892,20 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
     return (await this.store.listArtifactRefs(scope, refs)).sort(compareArtifactRefs);
   }
 
+  async upsertEvidenceRef(evidenceRef: EvidenceRef, auditEvent?: ProgramEvent): Promise<void> {
+    await this.putEvidenceRef(evidenceRef);
+    if (auditEvent) {
+      await this.putEvent(auditEvent);
+    }
+  }
+
+  async upsertArtifactRef(artifactRef: ArtifactRef, auditEvent?: ProgramEvent): Promise<void> {
+    await this.putArtifactRef(artifactRef);
+    if (auditEvent) {
+      await this.putEvent(auditEvent);
+    }
+  }
+
   async listDecisions(query: DecisionQuery): Promise<DecisionRecord[]> {
     return (await this.store.listDecisions(query)).sort(compareDecisions).map(mapDecisionRecord);
   }
@@ -819,15 +947,19 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
       this.store.listMacroRunbooks(query.scope)
     ]);
     const targetRefs = new Set(query.targetRefs ?? []);
-    const currentAsOf = query.contextAnchor?.asOf;
-    const isCurrent = (value: { validFrom: string; validTo?: string; supersededBy?: string }): boolean => {
+    const isCurrent = (value: {
+      branchName?: string;
+      gitCommit?: string;
+      trackerRev?: number;
+      trackerSlug?: string;
+      validFrom: string;
+      validTo?: string;
+      supersededBy?: string;
+    }): boolean => {
       if (!query.includeSuperseded && value.supersededBy) {
         return false;
       }
-      if (!currentAsOf) {
-        return true;
-      }
-      return value.validFrom <= currentAsOf && (!value.validTo || value.validTo >= currentAsOf);
+      return matchesContextAnchor(value, query.contextAnchor);
     };
     const matchesTargets = (values: string[]): boolean => {
       if (targetRefs.size === 0) {
@@ -945,6 +1077,23 @@ export class ProgramManagerGraphRepository implements ProgramManagerRepository {
       (left, right) => right.recordedAt.localeCompare(left.recordedAt) || left.eventId.localeCompare(right.eventId)
     );
     return typeof limit === "number" ? events.slice(0, limit) : events;
+  }
+
+  async getEventByIdempotencyKey(
+    scope: RepositoryScope,
+    idempotencyKey: string
+  ): Promise<ProgramEvent | undefined> {
+    return (await this.listEvents(scope)).find((event) => event.idempotencyKey === idempotencyKey);
+  }
+
+  async listEventsByCausation(query: ProgramEventCausationQuery): Promise<ProgramEvent[]> {
+    const events = (await this.listEvents(query.scope))
+      .filter(
+        (event) =>
+          event.causation?.sourceEventId === query.causedByEventId ||
+          event.causation?.causedByEventIds.includes(query.causedByEventId)
+      );
+    return typeof query.limit === "number" ? events.slice(0, query.limit) : events;
   }
 
   async getSyncCursors(scope: RepositoryScope): Promise<SyncCursor[]> {

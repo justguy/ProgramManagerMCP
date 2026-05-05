@@ -122,20 +122,26 @@ test("A0 and C0 are exact and complete for the expected impact surface", () => {
   const fixture = getGoldenFixture();
 
   assert.deepEqual(fixture.C0.targetRefs.sort(), [
+    "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
     "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "integration://agentic-os/shared-flow",
     "tracker://program-manager-mcp/PMO-001"
   ]);
 
   assert.deepEqual(
     fixture.A0.affectedRefs.map((item) => `${item.kind}:${item.ref}`).sort(),
     [
+      "contract:contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "contract:contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "evidence:tracker://program-manager-mcp/PMO-001",
+      "integration_point:integration://agentic-os/shared-flow",
       "integration_point:integration://hoplon/authz-contract",
       "policy:policy://active-adapters/hoplon-authz-tier1",
       "policy:policy://evidence/guardrail-runtime-current",
+      "project:project://hoplon",
       "project:project://phalanx",
       "project:project://program-manager-mcp",
+      "project:project://semantix",
       "tracker_task:tracker://program-manager-mcp/PMO-001"
     ]
   );

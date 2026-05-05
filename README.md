@@ -35,6 +35,8 @@ It answers PMO questions such as:
 
 Program Manager is a **passive analyst, planner, reconciler, and ledger**. It does not execute downstream mutations. Execution agents continue to use their own authorized tools and then return receipts to PMO.
 
+Like a human PMO, Program Manager MCP is expected to keep agents on track. It does not let an agent drift through random tools, local files, or improvised payload shapes when PMO state or scope is unclear. Every public tool returns a deterministic envelope with `deterministicCore`, warnings, repair guidance, allowed actions, and retry examples. Invalid writes are blocked with a machine-readable `correctForm`. Optional metadata sent as `null` is treated as unknown/not asserted and ignored; agents should provide the real pointer or value only when they intend to update PMO memory.
+
 ## System Scope
 
 Program Manager is intended to operate across:
@@ -91,7 +93,24 @@ Interim persistence may keep PMO event nodes and cp-graph projection updates in 
 
 ## Simplified MCP Surface
 
-Agents should interact with a small macro-tool surface instead of every downstream capability directly through PMO.
+Agents should interact with a small set of PMO domain tools instead of every downstream capability directly through PMO. The design goal is a middle ground: not one omni-tool that accepts arbitrary intent, and not a sprawling surface where agents must guess which low-level operation to call.
+
+The PMO surface should behave like a human PMO coordinator:
+
+- `pmo_help` is the starting point and routing surface.
+- Each domain tool owns one clear class of PMO state.
+- Wrong or malformed calls are blocked with deterministic repair guidance.
+- Agents receive `correctForm`, `retryExamples`, known refs, allowed actions, and next-tool guidance.
+- PMO stays passive: it records, analyzes, reconciles, and guides, but does not execute downstream work.
+- Agents should ask naturally, but PMO tool responses must be rigid, pointer-only, and deterministic.
+
+The current public PMO tool surface is:
+
+- `pmo_help`: onboarding, authority checks, routing, and runtime gap guidance.
+- `manage_projects`: PMO-owned program/project records only.
+- `manage_integrations`: integration lifecycle and coordination items only.
+- `manage_evidence_items`: pointer-only evidence/artifact registry only.
+- `pmo_macro`: bounded workflows such as catch-up, impact simulation, unblock planning, drift detection, and reconciliation.
 
 Phase 1A tools:
 
@@ -287,6 +306,116 @@ TPF_LLM_TOOL=codex tpf npm run smoke:neo4j
 ```
 
 By default this starts a disposable `neo4j:5.26-community` Docker container, waits for Bolt connectivity, runs the Neo4j migration/live repository test, and removes the container. To use an existing database instead, set `PMO_NEO4J_URI`, `PMO_NEO4J_USERNAME`, and `PMO_NEO4J_PASSWORD`, then run `npm run test:neo4j`.
+
+## Local MCP Entry Point
+
+Codex registration should point at the runnable stdio wrapper:
+
+```bash
+node control-plane/packages/program-manager/bin/server.js
+```
+
+For local Codex, register the shared-env wrapper instead. It reads the host-owned
+control-plane `.env` file, maps `CP_NEO4J_*` into `PMO_NEO4J_*`, and then starts
+the same MCP server. This keeps database credentials out of agent prompts and
+out of the TOML itself:
+
+```toml
+[mcp_servers.program-manager]
+command = "node"
+args = ["/Users/adilevinshtein/Documents/dev/ProgramManagerMCP/control-plane/packages/program-manager/bin/server-with-shared-env.js"]
+
+[mcp_servers.program-manager.env]
+PMO_SHARED_NEO4J_ENV_FILE = "/Users/adilevinshtein/Documents/dev/AskMrGambler/.env"
+PMO_STORAGE_BACKEND = "neo4j"
+PMO_NEO4J_SYSTEM_REF = "system://program-manager/shared-knowledge"
+PMO_MCP_ACTOR_ROLE = "program_manager_agent"
+PMO_MCP_PROJECT_GRANTS = "project://guardrail,project://hoplon,project://phalanx,project://program-manager-mcp,project://semantix,project://ask-mr-gambler"
+```
+
+The wrapper is a stateless MCP frontend. Operators configure the shared PMO knowledge database once:
+
+```bash
+PMO_STORAGE_BACKEND=neo4j
+PMO_NEO4J_URI=bolt://<shared-neo4j-host>:7687
+PMO_NEO4J_USERNAME=neo4j
+PMO_NEO4J_PASSWORD=<password>
+node control-plane/packages/program-manager/bin/server.js
+```
+
+All MCP server instances must use the same operator-owned database configuration. Startup verifies connectivity, runs migrations unless `PMO_NEO4J_RUN_MIGRATIONS=0`, writes a singleton PMO system identity, and fails if `PMO_REQUIRED_STATE_BACKEND_REF` is pinned to a different backend. The pointer-only state source ref exposed in PMO tool artifacts is backend-neutral:
+
+```text
+artifact://program-manager/state/source/shared-pmo-knowledge
+```
+
+Agents do not need database credentials or backend details. `pmo_help` reports `deterministicCore.guidance.knowledgeAuthority`, including whether shared PMO knowledge is available through the MCP and any gaps agents must surface before relying on PMO memory.
+
+The MCP host owns actor scope too. By default, the stdio wrapper grants `portfolio://default` and `program://agentic-os`; project scope is unrestricted for non-execution actors so new projects such as `project://ask-mr-gambler` can be registered through PMO without code changes. Operators can restrict this with:
+
+```bash
+PMO_MCP_PORTFOLIO_GRANTS=portfolio://default
+PMO_MCP_PROGRAM_GRANTS=program://agentic-os
+PMO_MCP_PROJECT_GRANTS=project://hoplon,project://phalanx,project://semantix,project://ask-mr-gambler
+```
+
+If the shared store is missing or unreachable, the MCP server still completes initialization so agents can call `pmo_help`. Stateful PMO tools return blocked guidance until the host fixes the shared store configuration; agents should report that setup gap instead of probing local files or random tools. Local JSON PMO state is not supported and is never used as a runtime fallback.
+
+Focused shared-store availability proof:
+
+```bash
+cd control-plane/packages/program-manager
+TPF_LLM_TOOL=codex tpf npm run pmo:mcp-runtime-smoke
+```
+
+The wrapper stamps its local actor identity at process startup with a rolling expiry. Fresh MCP processes should not fail because of stale fixture-time auth.
+
+## Agent PMO Onboarding
+
+Agent-owned cross-project coordination is documented in [docs/agent-pmo-onboarding](./docs/agent-pmo-onboarding/README.md).
+
+Agents do not need those docs to start. The MCP help response is self-contained:
+
+```json
+{
+  "portfolioId": "portfolio://default",
+  "programId": "program://agentic-os",
+  "traceId": "trace://agent/start",
+  "correlationId": "corr://agent/help"
+}
+```
+
+Call this as `program-manager.pmo_help`. Compatibility clients may still call `program-manager.pmo_macro` with `action: "help"`.
+
+The response includes `deterministicCore.helpGuide` with canonical refs, operating rules, recommended PMO sub-calls, role refs, and the receipt path.
+
+If an agent has only portfolio/bootstrap context, `pmo_help` points to `program-manager.manage_projects` first. `manage_projects` is for PMO-owned program/project list/upsert and `manage_integrations` is for integration lifecycle (list/upsert/update/add_project/remove_project/retire/delete). Only after scope is in place should the agent call `program-manager.pmo_macro` (`catch_me_up`, `simulate_impact`, `propose_unblock_plan`, `detect_drift`, `reconcile_program_state`). Canonical macro calls use `macroId: "macro://pmo/<macro-name>"` with `input: { ... }`; compatibility calls using `macroName` with `macroInput` are accepted and normalized before validation.
+
+More-than-one project for shared-flow work uses one stable integration ref (`integration://agentic-os/shared-flow`), and each project is attached with `manage_integrations` `add_project`; this is how cross-project knowledge and progress stay shared.
+
+Receipts remain pointer-only. Use `pmo_macro` for catch-up and reconciliation (`macro://pmo/catch_me_up`, `macro://pmo/simulate_impact`, `macro://pmo/detect_drift`) and keep execution evidence as refs, not raw logs or artifacts.
+
+The canonical shared-flow refs are:
+
+```text
+portfolio://default
+program://agentic-os
+integration://agentic-os/shared-flow
+project://hoplon
+project://phalanx
+project://semantix
+```
+
+Agents should use Program Manager MCP for PMO context, impact simulation, evidence obligations, receipts, and reconciliation. They must still perform code, tracker, repository, and downstream system mutations through the owning project's native tools.
+
+The repo-level agent contract is [AGENTS.md](./AGENTS.md). Paste-ready role handoffs live in [agent-handoffs.md](./docs/agent-pmo-onboarding/agent-handoffs.md), and the execution-agent receipt protocol lives in [receipt-protocol.md](./docs/agent-pmo-onboarding/receipt-protocol.md).
+
+Focused agent-owned loop proof:
+
+```bash
+cd control-plane/packages/program-manager
+TPF_LLM_TOOL=codex tpf npm run pmo:agent-loop-proof
+```
 
 ## Contribution Rules
 

@@ -1,5 +1,6 @@
 import type {
   ArtifactRef,
+  ContextAnchor,
   DecisionRecord,
   EvidenceRef,
   ExpectedReceipt,
@@ -41,9 +42,15 @@ export type IntegrationPointRecord = {
   portfolioId: string;
   producerProjectId: string;
   consumerProjectIds: string[];
+  artifactRefs?: string[];
+  coordinationItems?: Array<Record<string, unknown>>;
   purpose?: string;
   recordedAt?: string;
   evidenceRefs?: string[];
+  idempotencyKeys?: string[];
+  projectRoles?: Record<string, string>;
+  statusHistory?: Array<Record<string, unknown>>;
+  status?: "active" | "retired";
 };
 
 export type ContractRecord = {
@@ -160,7 +167,10 @@ function cloneProgram(program: ProgramRef): ProgramRef {
 }
 
 function cloneProject(project: ProjectRef): ProjectRef {
-  return { ...project };
+  return {
+    ...project,
+    activeProgramIds: sortStringArray(project.activeProgramIds)
+  };
 }
 
 function cloneMembership(membership: ProgramMembership): ProgramMembership {
@@ -173,8 +183,15 @@ function cloneMembership(membership: ProgramMembership): ProgramMembership {
 function cloneIntegrationPoint(integrationPoint: IntegrationPointRecord): IntegrationPointRecord {
   return {
     ...integrationPoint,
+    artifactRefs: sortStringArray(integrationPoint.artifactRefs),
     consumerProjectIds: [...integrationPoint.consumerProjectIds].sort(compareStrings),
-    evidenceRefs: sortStringArray(integrationPoint.evidenceRefs)
+    coordinationItems: integrationPoint.coordinationItems
+      ?.map((item) => ({ ...item }))
+      .sort((left, right) => compareOptionalStrings(String(left.itemId ?? ""), String(right.itemId ?? ""))),
+    evidenceRefs: sortStringArray(integrationPoint.evidenceRefs),
+    idempotencyKeys: sortStringArray(integrationPoint.idempotencyKeys),
+    projectRoles: integrationPoint.projectRoles ? { ...integrationPoint.projectRoles } : undefined,
+    statusHistory: integrationPoint.statusHistory?.map((item) => ({ ...item }))
   };
 }
 
@@ -193,7 +210,10 @@ function cloneRelationship(relationship: GraphRelationship): GraphRelationship {
 }
 
 function cloneEvidenceRef(evidenceRef: EvidenceRef): EvidenceRef {
-  return { ...evidenceRef };
+  return {
+    ...evidenceRef,
+    attachesToRefs: sortStringArray(evidenceRef.attachesToRefs)
+  };
 }
 
 function cloneArtifactRef(artifactRef: ArtifactRef): ArtifactRef {
@@ -267,7 +287,16 @@ function cloneEvent(event: ProgramEvent): ProgramEvent {
     ...event,
     contextAnchor: event.contextAnchor ? { ...event.contextAnchor } : undefined,
     evidenceRefs: [...event.evidenceRefs].sort(compareStrings),
-    artifactRefs: [...event.artifactRefs].sort(compareStrings)
+    artifactRefs: [...event.artifactRefs].sort(compareStrings),
+    targetRefs: sortStringArray(event.targetRefs),
+    managedRefs: sortStringArray(event.managedRefs),
+    causation: event.causation
+      ? {
+          ...event.causation,
+          causedByEventIds: [...event.causation.causedByEventIds].sort(compareStrings),
+          targetRefs: [...event.causation.targetRefs].sort(compareStrings)
+        }
+      : undefined
   };
 }
 
@@ -567,6 +596,52 @@ function matchesLedgerQuery(
     overlaps(query.proposedActionIds, [value.proposedActionId]) &&
     overlaps(query.receiptRequirementIds, value.receiptRequirementId ? [value.receiptRequirementId] : [])
   );
+}
+
+function withinContextAnchor(
+  value: {
+    branchName?: string;
+    gitCommit?: string;
+    trackerRev?: number;
+    trackerSlug?: string;
+    validFrom: string;
+    validTo?: string;
+  },
+  contextAnchor: ContextAnchor | undefined
+): boolean {
+  if (!contextAnchor) {
+    return true;
+  }
+
+  if (contextAnchor.branchName) {
+    if (value.branchName && value.branchName !== contextAnchor.branchName) {
+      return false;
+    }
+  }
+
+  if (contextAnchor.gitCommit) {
+    if (value.gitCommit && value.gitCommit !== contextAnchor.gitCommit) {
+      return false;
+    }
+  }
+
+  if (contextAnchor.trackerRev !== undefined) {
+    if (typeof value.trackerRev === "number" && value.trackerRev > contextAnchor.trackerRev) {
+      return false;
+    }
+  }
+
+  if (contextAnchor.trackerSlug) {
+    if (value.trackerSlug && value.trackerSlug !== contextAnchor.trackerSlug) {
+      return false;
+    }
+  }
+
+  if (contextAnchor.asOf) {
+    return value.validFrom <= contextAnchor.asOf && (!value.validTo || value.validTo >= contextAnchor.asOf);
+  }
+
+  return true;
 }
 
 type EntityCollection<T> = {
@@ -910,7 +985,8 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
     return this.projects
       .filter(
         (project) =>
-          inScope(project.portfolioId, project.programId, scope) &&
+          project.portfolioId === scope.portfolioId &&
+          (!scope.programId || (project.activeProgramIds ?? [project.programId]).includes(scope.programId)) &&
           matchesProjectScope(project.projectId, scope)
       )
       .map(cloneProject);
@@ -1014,6 +1090,9 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
         if (!matchesProjectScope(decision.projectId, query.scope)) {
           return false;
         }
+        if (!withinContextAnchor(decision, query.contextAnchor)) {
+          return false;
+        }
         if (query.statuses && !query.statuses.includes(decision.status)) {
           return false;
         }
@@ -1039,6 +1118,9 @@ export class InMemoryProgramManagerGraphStore implements ProgramManagerGraphStor
           return false;
         }
         if (!matchesProjectScope(record.projectId, query.scope)) {
+          return false;
+        }
+        if (!withinContextAnchor(record, query.contextAnchor)) {
           return false;
         }
         if (query.recordTypes && !query.recordTypes.includes(record.recordType)) {

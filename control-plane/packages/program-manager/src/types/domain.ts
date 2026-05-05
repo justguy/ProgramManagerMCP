@@ -44,6 +44,11 @@ export type ProgramRef = {
   portfolioId: string;
   programId: string;
   name: string;
+  adapterRef?: string;
+  goal?: string;
+  repoRef?: string;
+  status?: "active" | "retired";
+  trackerRef?: string;
 };
 
 export type ProjectRef = {
@@ -51,6 +56,13 @@ export type ProjectRef = {
   programId: string;
   projectId: string;
   name: string;
+  activeProgramIds?: string[];
+  adapterRef?: string;
+  goal?: string;
+  projectRole?: string;
+  repoRef?: string;
+  status?: "active" | "retired";
+  trackerRef?: string;
 };
 
 export type GraphRelationship = {
@@ -79,6 +91,11 @@ export type EvidenceRef = {
   kind: string;
   recordedAt: string;
   artifactRef?: string;
+  attachesToRefs?: string[];
+  classification?: "public" | "internal" | "operator_only" | "content_bearing_evidence" | "secret_adjacent";
+  redactionStatus?: "not_required" | "redacted" | "pending_review" | "blocked";
+  retentionPolicyRef?: string;
+  summary?: string;
 };
 
 export type ArtifactRef = {
@@ -90,21 +107,27 @@ export type ArtifactRef = {
     algorithm: "sha256";
     value: string;
   };
+  classification?: "public" | "internal" | "operator_only" | "content_bearing_evidence" | "secret_adjacent";
   redactionStatus: "not_required" | "redacted" | "pending_review" | "blocked";
+  retentionPolicyRef?: string;
   createdAt: string;
 };
 
 export type DecisionRecord = {
   decisionId: string;
   portfolioId: string;
+  branchName?: string;
   programId?: string;
   projectId?: string;
   summary: string;
+  gitCommit?: string;
   status: DecisionStatus;
   recordedAt: string;
   validFrom: string;
   validTo?: string;
   evidenceRefs: string[];
+  trackerRev?: number;
+  trackerSlug?: string;
 };
 
 export type ProgramEvent = {
@@ -115,6 +138,42 @@ export type ProgramEvent = {
   contextAnchor?: ContextAnchor;
   evidenceRefs: string[];
   artifactRefs: string[];
+  schemaVersion?: "1";
+  eventKind?: "pmo_audit" | "pmo_omni_tool_write";
+  toolName?: string;
+  action?: string;
+  traceId?: string;
+  correlationId?: string;
+  idempotencyKey?: string;
+  actorId?: string;
+  targetRefs?: string[];
+  managedRefs?: string[];
+  causation?: ProgramEventCausation;
+  writeStatus?: "accepted" | "blocked" | "duplicate" | "rejected";
+  payloadDigest?: string;
+};
+
+export type ProgramEventCausation = {
+  sourceTool: string;
+  sourceEventId?: string;
+  sourceTraceId?: string;
+  sourceCorrelationId?: string;
+  causedByEventIds: string[];
+  targetRefs: string[];
+};
+
+export type PmoOmniToolWriteEvent = ProgramEvent & {
+  schemaVersion: "1";
+  eventKind: "pmo_omni_tool_write";
+  toolName: string;
+  action: string;
+  traceId: string;
+  correlationId: string;
+  idempotencyKey: string;
+  targetRefs: string[];
+  managedRefs: string[];
+  causation: ProgramEventCausation;
+  writeStatus: "accepted" | "blocked" | "duplicate" | "rejected";
 };
 
 export type ExpectedReceipt = {
@@ -230,6 +289,7 @@ export type LearningConfidence = {
 };
 
 export type IntelligenceRecordBase = {
+  branchName?: string;
   recordId: string;
   recordType: IntelligenceRecordType;
   portfolioId: string;
@@ -242,11 +302,14 @@ export type IntelligenceRecordBase = {
   validTo?: string;
   evidenceRefs: string[];
   sourceRefs: string[];
+  gitCommit?: string;
   sourceAdapterId: string;
   sourceCursor: string;
   conditionTags: string[];
   appliesToRefs: string[];
   reviewStatus: IntelligenceReviewStatus;
+  trackerRev?: number;
+  trackerSlug?: string;
 };
 
 export type LearningRecord = IntelligenceRecordBase & {
@@ -295,15 +358,19 @@ export type PmoFactBase = {
   portfolioId: string;
   programId?: string;
   projectId?: string;
+  branchName?: string;
   schemaVersion: string;
   sourceAdapterId: string;
   sourceCursor?: string;
+  gitCommit?: string;
   recordedAt: string;
   validFrom: string;
   validTo?: string;
   evidenceRefs: string[];
   evidenceStatus: PmoFactEvidenceStatus;
   supersededBy?: string;
+  trackerRev?: number;
+  trackerSlug?: string;
 };
 
 export type PmoTask = PmoFactBase & {
@@ -334,6 +401,7 @@ export type PmoContract = PmoFactBase & {
   summary: string;
   status: "active" | "draft" | "stale" | "superseded";
   criticality: Criticality;
+  integrationPointId?: string;
   producerRef: string;
   consumerRefs: string[];
 };
@@ -342,6 +410,7 @@ export type PmoDependencyEdge = PmoFactBase & {
   objectType: "dependency_edge";
   dependencyRef: string;
   fromRef: string;
+  policyRefs: string[];
   toRef: string;
   dependencyType: string;
   status: DependencyStatus;
@@ -365,15 +434,9 @@ export type PmoMacroDefinition = {
   macroName:
     | "analyze_blockers"
     | "catch_me_up"
-    | "describe_macro"
-    | "discover_macros"
     | "simulate_impact"
     | "detect_drift"
-    | "export_registry"
-    | "object_type_docs"
-    | "propose_unblock_plan"
-    | "registry_help"
-    | "validate_macro";
+    | "propose_unblock_plan";
   outputSchemaRef: string;
   registryEntryRef: string;
   requiredRoleRefs: string[];

@@ -10,7 +10,9 @@ test("Phase 5 PMO macro acceptance proof documents determinism and safety gates"
   );
 
   for (const required of [
-    "single public PMO macro surface",
+    "single public PMO macro dispatcher",
+    "manage_integrations",
+    "non-destructive retirement",
     "Determinism",
     "Relevant state sensitivity",
     "Advisory isolation",

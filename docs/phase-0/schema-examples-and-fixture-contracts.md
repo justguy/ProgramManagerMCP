@@ -90,7 +90,7 @@ No fixture should rely on JavaScript insertion order or Neo4j traversal order un
 
 The implementation target is TypeScript with Zod-authored schemas and generated JSON Schema. The examples are ready for that path:
 
-- optional fields are omitted rather than represented as `null`
+- optional fields may be omitted; runtime PMO tool inputs and Neo4j read models treat `null` optional metadata as unknown/not asserted and ignore it
 - timestamps use UTC ISO 8601 strings
 - `sha256:` values are strings so they can use a JSON Schema pattern
 - enum values match the Phase 0 data model spec

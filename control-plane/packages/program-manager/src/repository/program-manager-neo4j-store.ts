@@ -32,6 +32,7 @@ import {
   type ProgramMembership,
   type SyncCursorRecord
 } from "./program-manager-graph-store.js";
+import { normalizePmoReadModel } from "../normalization/program-manager-normalization.ts";
 
 type Neo4jRecordLike = {
   get(key: string): unknown;
@@ -61,7 +62,7 @@ function sanitizeRelationshipType(dependencyType: string): string {
 }
 
 function mapRecord<T>(record: Neo4jRecordLike, key: string): T {
-  return record.get(key) as T;
+  return normalizePmoReadModel(record.get(key)) as T;
 }
 
 function normalizeParams(cypher: string, params: Record<string, unknown>): Record<string, unknown> {
@@ -209,6 +210,11 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
         SET program:PmProgram,
             program.programId = $programId,
             program.name = $name,
+            program.status = $status,
+            program.trackerRef = $trackerRef,
+            program.repoRef = $repoRef,
+            program.adapterRef = $adapterRef,
+            program.goal = $goal,
             program.kind = 'program',
             program.recordedAt = $recordedAt
       `,
@@ -216,6 +222,11 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
         portfolioId: program.portfolioId,
         programId: program.programId,
         name: program.name,
+        status: program.status,
+        trackerRef: program.trackerRef,
+        repoRef: program.repoRef,
+        adapterRef: program.adapterRef,
+        goal: program.goal,
         recordedAt: normalizeRecordedAt(undefined)
       }
     );
@@ -230,6 +241,13 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
             project.programId = $programId,
             project.projectId = $projectId,
             project.name = $name,
+            project.activeProgramIds = $activeProgramIds,
+            project.status = $status,
+            project.projectRole = $projectRole,
+            project.trackerRef = $trackerRef,
+            project.repoRef = $repoRef,
+            project.adapterRef = $adapterRef,
+            project.goal = $goal,
             project.kind = 'project',
             project.recordedAt = $recordedAt
       `,
@@ -238,6 +256,13 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
         programId: project.programId,
         projectId: project.projectId,
         name: project.name,
+        activeProgramIds: project.activeProgramIds,
+        status: project.status,
+        projectRole: project.projectRole,
+        trackerRef: project.trackerRef,
+        repoRef: project.repoRef,
+        adapterRef: project.adapterRef,
+        goal: project.goal,
         recordedAt: normalizeRecordedAt(undefined)
       }
     );
@@ -272,18 +297,30 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
             integrationPoint.integrationPointId = $integrationPointId,
             integrationPoint.producerProjectId = $producerProjectId,
             integrationPoint.consumerProjectIds = $consumerProjectIds,
+            integrationPoint.artifactRefs = $artifactRefs,
+            integrationPoint.coordinationItemsJson = $coordinationItemsJson,
             integrationPoint.purpose = $purpose,
+            integrationPoint.status = $status,
             integrationPoint.kind = 'integration_point',
             integrationPoint.recordedAt = $recordedAt,
-            integrationPoint.evidenceRefs = $evidenceRefs
+            integrationPoint.evidenceRefs = $evidenceRefs,
+            integrationPoint.idempotencyKeys = $idempotencyKeys,
+            integrationPoint.projectRolesJson = $projectRolesJson,
+            integrationPoint.statusHistoryJson = $statusHistoryJson
         WITH integrationPoint
         MATCH (producer:PmRef:PmProject {portfolioId: $portfolioId, ref: $producerProjectId})
         MERGE (producer)-[:PRODUCES_INTEGRATION_POINT {portfolioId: $portfolioId, integrationPointId: $integrationPointId}]->(integrationPoint)
       `,
       {
         ...integrationPoint,
+        artifactRefs: integrationPoint.artifactRefs ?? [],
+        coordinationItemsJson: JSON.stringify(integrationPoint.coordinationItems ?? []),
         recordedAt: normalizeRecordedAt(integrationPoint.recordedAt),
-        evidenceRefs: integrationPoint.evidenceRefs ?? []
+        evidenceRefs: integrationPoint.evidenceRefs ?? [],
+        idempotencyKeys: integrationPoint.idempotencyKeys ?? [],
+        projectRolesJson: JSON.stringify(integrationPoint.projectRoles ?? {}),
+        statusHistoryJson: JSON.stringify(integrationPoint.statusHistory ?? []),
+        status: integrationPoint.status ?? "active"
       }
     );
 
@@ -378,9 +415,17 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
             evidenceRef.evidenceRef = $evidenceRef,
             evidenceRef.kind = $kind,
             evidenceRef.recordedAt = $recordedAt,
-            evidenceRef.artifactRef = $artifactRef
+            evidenceRef.artifactRef = $artifactRef,
+            evidenceRef.attachesToRefs = $attachesToRefs,
+            evidenceRef.classification = $classification,
+            evidenceRef.redactionStatus = $redactionStatus,
+            evidenceRef.retentionPolicyRef = $retentionPolicyRef,
+            evidenceRef.summary = $summary
       `,
-      evidenceRef
+      {
+        ...evidenceRef,
+        attachesToRefs: evidenceRef.attachesToRefs ?? []
+      }
     );
   }
 
@@ -395,7 +440,9 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
             artifactRef.storageUri = $storageUri,
             artifactRef.contentHashAlgorithm = $contentHashAlgorithm,
             artifactRef.contentHashValue = $contentHashValue,
+            artifactRef.classification = $classification,
             artifactRef.redactionStatus = $redactionStatus,
+            artifactRef.retentionPolicyRef = $retentionPolicyRef,
             artifactRef.kind = 'artifact',
             artifactRef.createdAt = $createdAt
       `,
@@ -406,7 +453,9 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
         storageUri: artifactRef.storageUri,
         contentHashAlgorithm: artifactRef.contentHash.algorithm,
         contentHashValue: artifactRef.contentHash.value,
+        classification: artifactRef.classification,
         redactionStatus: artifactRef.redactionStatus,
+        retentionPolicyRef: artifactRef.retentionPolicyRef,
         createdAt: artifactRef.createdAt
       }
     );
@@ -431,6 +480,10 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
             decision.actorId = $actorId,
             decision.authorityRef = $authorityRef,
             decision.decisionType = $decisionType,
+            decision.branchName = $branchName,
+            decision.gitCommit = $gitCommit,
+            decision.trackerRev = $trackerRev,
+            decision.trackerSlug = $trackerSlug,
             decision.kind = 'decision'
       `,
       {
@@ -462,6 +515,10 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
             record.conditionTags = $conditionTags,
             record.appliesToRefs = $appliesToRefs,
             record.reviewStatus = $reviewStatus,
+            record.branchName = $branchName,
+            record.gitCommit = $gitCommit,
+            record.trackerRev = $trackerRev,
+            record.trackerSlug = $trackerSlug,
             record.payload = $payload,
             record.kind = 'intelligence_record'
       `,
@@ -568,16 +625,18 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
     await runWrite(
       this.driver,
       `
-        CREATE (event:PmEvent {portfolioId: $portfolioId, eventId: $eventId})
+        MERGE (event:PmEvent {portfolioId: $portfolioId, eventId: $eventId})
         SET event.eventType = $eventType,
             event.recordedAt = $recordedAt,
             event.contextAnchor = $contextAnchor,
             event.evidenceRefs = $evidenceRefs,
-            event.artifactRefs = $artifactRefs
+            event.artifactRefs = $artifactRefs,
+            event.payload = $payload
       `,
       {
         ...event,
-        contextAnchor: event.contextAnchor ? JSON.stringify(event.contextAnchor) : null
+        contextAnchor: event.contextAnchor ? JSON.stringify(event.contextAnchor) : null,
+        payload: JSON.stringify(event)
       }
     );
   }
@@ -677,7 +736,12 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
         RETURN {
           portfolioId: program.portfolioId,
           programId: program.programId,
-          name: program.name
+          name: program.name,
+          status: program.status,
+          trackerRef: program.trackerRef,
+          repoRef: program.repoRef,
+          adapterRef: program.adapterRef,
+          goal: program.goal
         } AS program
         ORDER BY program.programId, program.name
       `,
@@ -691,12 +755,21 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
       this.driver,
       `
         MATCH (project:PmProject)
-        WHERE ${scopeWhere(scope, "project")}
+        WHERE project.portfolioId = $portfolioId
+          AND ($programId IS NULL OR $programId IN coalesce(project.activeProgramIds, [project.programId]))
+          AND ($projectIds IS NULL OR size($projectIds) = 0 OR project.projectId IN $projectIds)
         RETURN {
           portfolioId: project.portfolioId,
           programId: project.programId,
           projectId: project.projectId,
-          name: project.name
+          name: project.name,
+          activeProgramIds: project.activeProgramIds,
+          status: project.status,
+          projectRole: project.projectRole,
+          trackerRef: project.trackerRef,
+          repoRef: project.repoRef,
+          adapterRef: project.adapterRef,
+          goal: project.goal
         } AS project
         ORDER BY project.programId, project.projectId, project.name
       `,
@@ -745,14 +818,40 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
           portfolioId: integrationPoint.portfolioId,
           producerProjectId: integrationPoint.producerProjectId,
           consumerProjectIds: coalesce(integrationPoint.consumerProjectIds, []),
+          artifactRefs: coalesce(integrationPoint.artifactRefs, []),
+          coordinationItemsJson: integrationPoint.coordinationItemsJson,
           purpose: integrationPoint.purpose,
           recordedAt: integrationPoint.recordedAt,
-          evidenceRefs: coalesce(integrationPoint.evidenceRefs, [])
+          evidenceRefs: coalesce(integrationPoint.evidenceRefs, []),
+          idempotencyKeys: coalesce(integrationPoint.idempotencyKeys, []),
+          projectRolesJson: integrationPoint.projectRolesJson,
+          statusHistoryJson: integrationPoint.statusHistoryJson,
+          status: coalesce(integrationPoint.status, 'active')
         } AS integrationPoint
         ORDER BY integrationPoint.integrationPointId, integrationPoint.recordedAt
       `,
       params,
-      (record) => mapRecord<IntegrationPointRecord>(record, "integrationPoint")
+      (record) => {
+        const value = mapRecord<
+          IntegrationPointRecord & {
+            coordinationItemsJson?: string | null;
+            projectRolesJson?: string | null;
+            statusHistoryJson?: string | null;
+          }
+        >(record, "integrationPoint");
+        const {
+          coordinationItemsJson,
+          projectRolesJson,
+          statusHistoryJson,
+          ...integrationPoint
+        } = value;
+        return {
+          ...integrationPoint,
+          coordinationItems: coordinationItemsJson ? JSON.parse(coordinationItemsJson) : [],
+          projectRoles: projectRolesJson ? JSON.parse(projectRolesJson) : {},
+          statusHistory: statusHistoryJson ? JSON.parse(statusHistoryJson) : []
+        };
+      }
     );
   }
 
@@ -826,7 +925,12 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
           portfolioId: evidenceRef.portfolioId,
           kind: evidenceRef.kind,
           recordedAt: evidenceRef.recordedAt,
-          artifactRef: evidenceRef.artifactRef
+          artifactRef: evidenceRef.artifactRef,
+          attachesToRefs: coalesce(evidenceRef.attachesToRefs, []),
+          classification: evidenceRef.classification,
+          redactionStatus: evidenceRef.redactionStatus,
+          retentionPolicyRef: evidenceRef.retentionPolicyRef,
+          summary: evidenceRef.summary
         } AS evidenceRef
         ORDER BY evidenceRef.evidenceRef
       `,
@@ -854,7 +958,9 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
             algorithm: artifactRef.contentHashAlgorithm,
             value: artifactRef.contentHashValue
           },
+          classification: artifactRef.classification,
           redactionStatus: artifactRef.redactionStatus,
+          retentionPolicyRef: artifactRef.retentionPolicyRef,
           createdAt: artifactRef.createdAt
         } AS artifactRef
         ORDER BY artifactRef.artifactRef
@@ -875,6 +981,16 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
         WHERE decision.portfolioId = $portfolioId
           AND ($programId IS NULL OR decision.programId = $programId)
           AND ($projectIds IS NULL OR size($projectIds) = 0 OR decision.projectId IN $projectIds)
+          AND ($branchName IS NULL OR decision.branchName IS NULL OR decision.branchName = $branchName)
+          AND ($gitCommit IS NULL OR decision.gitCommit IS NULL OR decision.gitCommit = $gitCommit)
+          AND ($trackerSlug IS NULL OR decision.trackerSlug IS NULL OR decision.trackerSlug = $trackerSlug)
+          AND ($trackerRev IS NULL OR decision.trackerRev IS NULL OR decision.trackerRev <= $trackerRev)
+          AND (
+            $asOf IS NULL OR (
+              decision.validFrom <= $asOf AND
+              (decision.validTo IS NULL OR decision.validTo >= $asOf)
+            )
+          )
           AND ($statuses IS NULL OR size($statuses) = 0 OR decision.status IN $statuses)
           AND (
             $targetRefs IS NULL OR size($targetRefs) = 0 OR decision.decisionId IN $targetRefs OR
@@ -886,11 +1002,15 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
           programId: decision.programId,
           projectId: decision.projectId,
           summary: decision.summary,
-          status: decision.status,
-          recordedAt: decision.recordedAt,
-          validFrom: decision.validFrom,
-          validTo: decision.validTo,
-          evidenceRefs: coalesce(decision.evidenceRefs, []),
+            status: decision.status,
+            branchName: decision.branchName,
+            gitCommit: decision.gitCommit,
+            trackerRev: decision.trackerRev,
+            trackerSlug: decision.trackerSlug,
+            recordedAt: decision.recordedAt,
+            validFrom: decision.validFrom,
+            validTo: decision.validTo,
+            evidenceRefs: coalesce(decision.evidenceRefs, []),
           appliesToRefs: coalesce(decision.appliesToRefs, []),
           actorId: decision.actorId,
           authorityRef: decision.authorityRef,
@@ -900,6 +1020,11 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
       `,
       {
         ...toScopeParams(query.scope),
+        branchName: query.contextAnchor?.branchName,
+        gitCommit: query.contextAnchor?.gitCommit,
+        trackerSlug: query.contextAnchor?.trackerSlug,
+        trackerRev: query.contextAnchor?.trackerRev,
+        asOf: query.contextAnchor?.asOf,
         statuses: query.statuses ?? [],
         targetRefs: query.targetRefs ?? []
       },
@@ -917,6 +1042,16 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
         WHERE record.portfolioId = $portfolioId
           AND ($programId IS NULL OR record.programId = $programId)
           AND ($projectIds IS NULL OR size($projectIds) = 0 OR record.projectId IN $projectIds)
+          AND ($branchName IS NULL OR record.branchName IS NULL OR record.branchName = $branchName)
+          AND ($gitCommit IS NULL OR record.gitCommit IS NULL OR record.gitCommit = $gitCommit)
+          AND ($trackerSlug IS NULL OR record.trackerSlug IS NULL OR record.trackerSlug = $trackerSlug)
+          AND ($trackerRev IS NULL OR record.trackerRev IS NULL OR record.trackerRev <= $trackerRev)
+          AND (
+            $asOf IS NULL OR (
+              record.validFrom <= $asOf AND
+              (record.validTo IS NULL OR record.validTo >= $asOf)
+            )
+          )
           AND ($recordTypes IS NULL OR size($recordTypes) = 0 OR record.recordType IN $recordTypes)
           AND ($reviewStatuses IS NULL OR size($reviewStatuses) = 0 OR record.reviewStatus IN $reviewStatuses)
           AND (
@@ -934,6 +1069,11 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
       `,
       {
         ...toScopeParams(query.scope),
+        branchName: query.contextAnchor?.branchName,
+        gitCommit: query.contextAnchor?.gitCommit,
+        trackerSlug: query.contextAnchor?.trackerSlug,
+        trackerRev: query.contextAnchor?.trackerRev,
+        asOf: query.contextAnchor?.asOf,
         recordTypes: query.recordTypes ?? [],
         reviewStatuses: query.reviewStatuses ?? [],
         targetRefs: query.targetRefs ?? [],
@@ -1031,6 +1171,7 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
         MATCH (event:PmEvent)
         WHERE event.portfolioId = $portfolioId
         RETURN {
+          payload: event.payload,
           eventId: event.eventId,
           portfolioId: event.portfolioId,
           eventType: event.eventType,
@@ -1047,6 +1188,9 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
       toScopeParams(scope),
       (record) => {
         const event = mapRecord<Record<string, unknown>>(record, "event");
+        if (typeof event.payload === "string") {
+          return JSON.parse(event.payload) as ProgramEvent;
+        }
         return {
           eventId: event.eventId as string,
           portfolioId: event.portfolioId as string,

@@ -1,4 +1,5 @@
 export type * from "./types/domain.js";
+export type * from "./events/program-events.js";
 export type * from "./repository/program-manager-repository.js";
 export type * from "./adapters/index.js";
 export type * from "./authz/program-tool-authz.ts";
@@ -9,6 +10,12 @@ export {
   adapterRegistry
 } from "./adapters/index.js";
 export { InMemoryProgramManagerRepository } from "./repository/in-memory-program-manager-repository.js";
+export { ProgramManagerGraphRepository } from "./repository/program-manager-graph-repository.js";
+export { Neo4jProgramManagerGraphStore } from "./repository/program-manager-neo4j-store.js";
+export {
+  buildPmoOmniToolWriteEvent,
+  isPmoOmniToolWriteEvent
+} from "./events/program-events.js";
 export {
   AUTHZ_POLICY_REFS,
   ProgramToolAuthzError,

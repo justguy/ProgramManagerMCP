@@ -21,15 +21,9 @@ test("built-in PMO macro registry contains safe sorted macro entries", () => {
     [
       "analyze_blockers",
       "catch_me_up",
-      "describe_macro",
       "detect_drift",
-      "discover_macros",
-      "export_registry",
-      "object_type_docs",
       "propose_unblock_plan",
-      "registry_help",
-      "simulate_impact",
-      "validate_macro"
+      "simulate_impact"
     ]
   );
   assert.equal(
@@ -154,9 +148,9 @@ test("macro registry edit path persists accepted edits only in the PMO repositor
     repository,
     "portfolio://default",
     {
-      macroId: "macro://pmo/registry_help",
+      macroId: "macro://pmo/catch_me_up",
       set: {
-        title: "Safe Registry Help"
+        title: "Safe Catch Up"
       }
     },
     actor,
@@ -166,9 +160,9 @@ test("macro registry edit path persists accepted edits only in the PMO repositor
   assert.equal(accepted.accepted, true);
   assert.equal(
     (await repository.getMacroRegistry({ portfolioId: "portfolio://default" })).macros.find(
-      (entry) => entry.macroId === "macro://pmo/registry_help"
+      (entry) => entry.macroId === "macro://pmo/catch_me_up"
     ).title,
-    "Safe Registry Help"
+    "Safe Catch Up"
   );
   assert.deepEqual(
     (await repository.listEvents({ portfolioId: "portfolio://default" })).map((event) => event.eventType),
@@ -179,7 +173,7 @@ test("macro registry edit path persists accepted edits only in the PMO repositor
     repository,
     "portfolio://default",
     {
-      macroId: "macro://pmo/registry_help",
+      macroId: "macro://pmo/catch_me_up",
       set: {
         outputSchemaRef: "schema://downstream/mutating-tool"
       }
@@ -191,7 +185,7 @@ test("macro registry edit path persists accepted edits only in the PMO repositor
   assert.equal(rejected.accepted, false);
   assert.equal(
     (await repository.getMacroRegistry({ portfolioId: "portfolio://default" })).macros.find(
-      (entry) => entry.macroId === "macro://pmo/registry_help"
+      (entry) => entry.macroId === "macro://pmo/catch_me_up"
     ).outputSchemaRef,
     "schema://pmo/pmo-macro-result"
   );

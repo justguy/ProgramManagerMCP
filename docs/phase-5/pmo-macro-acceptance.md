@@ -4,7 +4,11 @@ Generated: 2026-05-04
 
 ## Scope
 
-Phase 5 exposes `pmo_macro` as the single public PMO macro surface. Legacy PMO tool calls remain callable as compatibility contracts, but `ProgramManagerMcpGateway.listTools()` lists only `pmo_macro` for the macro facade.
+Phase 5 exposes `pmo_macro` as the single public PMO macro dispatcher. Agent bootstrap help is exposed separately as `pmo_help`, and PMO-owned program/project records are managed through `manage_projects`. The integration lifecycle entrypoint is `manage_integrations`, so `ProgramManagerMcpGateway.listTools()` lists `pmo_help`, `manage_projects`, `manage_integrations`, and `pmo_macro`. Legacy PMO tool calls remain callable as compatibility contracts.
+
+`manage_integrations` supports integration record lifecycle and participation operations:
+`list`, `upsert`, `update`, `add_project`, `remove_project`, `retire`, `delete`.
+`delete` is non-destructive retirement and keeps historical ledger artifacts/evidence references.
 
 ## Verified Controls
 

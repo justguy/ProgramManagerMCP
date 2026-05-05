@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://program-manager/execution-agent-receipt",
+  "title": "PMO execution-agent receipt metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "affectedRefs",
+    "blockers",
+    "integrationRef",
+    "projectId",
+    "sourceRef",
+    "testsRun"
+  ],
+  "properties": {
+    "projectId": {
+      "$ref": "#/$defs/pointerRef"
+    },
+    "integrationRef": {
+      "$ref": "#/$defs/pointerRef"
+    },
+    "sourceRef": {
+      "$ref": "#/$defs/pointerRef",
+      "description": "Immutable commit or source reference, such as git://project/commit/<sha>."
+    },
+    "affectedRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/pointerRef"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "testsRun": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/testRun"
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/blocker"
+      }
+    }
+  },
+  "$defs": {
+    "pointerRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*://\\S+$"
+    },
+    "testRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceRefs", "status", "testRef"],
+      "properties": {
+        "testRef": {
+          "$ref": "#/$defs/pointerRef"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "skipped", "not_run", "blocked"]
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pointerRef"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blockerRef", "evidenceRefs", "severity", "status", "summary"],
+      "properties": {
+        "blockerRef": {
+          "$ref": "#/$defs/pointerRef"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["open", "mitigated", "resolved", "superseded"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pointerRef"
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

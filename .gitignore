@@ -3,5 +3,6 @@
 .hoplon/
 .history/
 .snapshots/
+.state/
 node_modules/
 **/node_modules/

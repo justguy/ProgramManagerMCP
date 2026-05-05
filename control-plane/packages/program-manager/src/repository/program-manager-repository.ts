@@ -30,6 +30,54 @@ export type RepositoryScope = {
   projectIds?: string[];
 };
 
+export type IntegrationCoordinationItem = {
+  affectedProjectIds: string[];
+  artifactRefs: string[];
+  blockedProjectId?: string;
+  createdAt: string;
+  evidenceRefs: string[];
+  integrationPointId: string;
+  itemId: string;
+  itemType:
+    | "artifact"
+    | "blocker"
+    | "conflict"
+    | "decision"
+    | "gap"
+    | "goal"
+    | "learning"
+    | "response"
+    | "tracker_ref";
+  ownerProjectId?: string;
+  projectId?: string;
+  reporterProjectId?: string;
+  status: string;
+  summary?: string;
+  trackerRefs: string[];
+  updatedAt?: string;
+};
+
+export type IntegrationPointRecord = {
+  integrationPointId: string;
+  portfolioId: string;
+  producerProjectId: string;
+  consumerProjectIds: string[];
+  artifactRefs?: string[];
+  coordinationItems?: IntegrationCoordinationItem[];
+  purpose?: string;
+  recordedAt?: string;
+  evidenceRefs?: string[];
+  idempotencyKeys?: string[];
+  projectRoles?: Record<string, string>;
+  statusHistory?: Array<{
+    status: "active" | "retired";
+    action: string;
+    recordedAt: string;
+    evidenceRefs: string[];
+  }>;
+  status?: "active" | "retired";
+};
+
 export type DecisionQuery = {
   scope: RepositoryScope;
   contextAnchor?: ContextAnchor;
@@ -106,6 +154,12 @@ export type ReceiptLedgerState = {
   reconcileStatuses: ReceiptReconcileRecord[];
 };
 
+export type ProgramEventCausationQuery = {
+  scope: RepositoryScope;
+  causedByEventId: string;
+  limit?: number;
+};
+
 export type MacroFactQuery = {
   scope: RepositoryScope;
   contextAnchor?: ContextAnchor;
@@ -125,6 +179,10 @@ export type MacroFactSet = {
 export interface ProgramManagerRepository {
   listPrograms(scope: RepositoryScope): Promise<ProgramRef[]>;
   listProjects(scope: RepositoryScope): Promise<ProjectRef[]>;
+  listIntegrationPoints(scope: RepositoryScope): Promise<IntegrationPointRecord[]>;
+  upsertProgram(program: ProgramRef, auditEvent?: ProgramEvent): Promise<void>;
+  upsertProject(project: ProjectRef, auditEvent?: ProgramEvent): Promise<void>;
+  upsertIntegrationPoint(integrationPoint: IntegrationPointRecord, auditEvent?: ProgramEvent): Promise<void>;
   getProgramContext(query: ProgramContextQuery): Promise<{
     contextAnchor?: ContextAnchor;
     matchedRefs: Array<{
@@ -143,6 +201,8 @@ export interface ProgramManagerRepository {
   listRelationships(scope: RepositoryScope): Promise<GraphRelationship[]>;
   listEvidenceRefs(scope: RepositoryScope, refs?: string[]): Promise<EvidenceRef[]>;
   listArtifactRefs(scope: RepositoryScope, refs?: string[]): Promise<ArtifactRef[]>;
+  upsertEvidenceRef(evidenceRef: EvidenceRef, auditEvent?: ProgramEvent): Promise<void>;
+  upsertArtifactRef(artifactRef: ArtifactRef, auditEvent?: ProgramEvent): Promise<void>;
   listDecisions(query: DecisionQuery): Promise<DecisionRecord[]>;
   listIntelligenceRecords(query: ProgramIntelligenceQuery): Promise<ProgramIntelligenceRecord[]>;
   upsertExpectedReceipts(receipts: ExpectedReceipt[], auditEvent?: ProgramEvent): Promise<void>;
@@ -153,6 +213,9 @@ export interface ProgramManagerRepository {
   listMacroFacts(query: MacroFactQuery): Promise<MacroFactSet>;
   getMacroRegistry(scope: RepositoryScope): Promise<PmoMacroRegistry | undefined>;
   upsertMacroRegistry(registry: PmoMacroRegistry, auditEvent?: ProgramEvent): Promise<void>;
+  appendEvent(event: ProgramEvent): Promise<ProgramEvent>;
+  getEventByIdempotencyKey(scope: RepositoryScope, idempotencyKey: string): Promise<ProgramEvent | undefined>;
+  listEventsByCausation(query: ProgramEventCausationQuery): Promise<ProgramEvent[]>;
   listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]>;
   getSyncCursors(scope: RepositoryScope): Promise<SyncCursor[]>;
 }

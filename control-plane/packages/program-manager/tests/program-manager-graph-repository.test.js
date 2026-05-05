@@ -380,6 +380,219 @@ test("ProgramManagerGraphRepository persists and reads graph entities with deter
   );
 });
 
+test("ProgramManagerGraphRepository applies branch/revision/asOf filters for decisions and intelligence", async () => {
+  const { repositoryModule } = await loadGraphModules();
+  const repository = repositoryModule.ProgramManagerGraphRepository.createInMemory();
+
+  const scope = {
+    portfolioId: "portfolio://default",
+    programId: "program://control-plane"
+  };
+
+  await repository.seed({
+    programs: [
+      {
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        name: "Control Plane"
+      }
+    ],
+    projects: [
+      {
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        projectId: "project://phalanx",
+        name: "Phalanx"
+      }
+    ],
+    decisions: [
+      {
+        decisionId: "decision://control-plane/global-current",
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        projectId: "project://phalanx",
+        summary: "Global current decision",
+        status: "applicable",
+        recordedAt: "2026-05-03T12:04:00Z",
+        validFrom: "2026-05-03T12:00:00Z",
+        evidenceRefs: [],
+        appliesToRefs: ["contract://hoplon/authz@sha256:global"]
+      },
+      {
+        decisionId: "decision://control-plane/main-current",
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        projectId: "project://phalanx",
+        summary: "Main branch current decision",
+        status: "applicable",
+        recordedAt: "2026-05-03T12:05:00Z",
+        validFrom: "2026-05-03T12:00:00Z",
+        evidenceRefs: [],
+        appliesToRefs: ["contract://hoplon/authz@sha256:cccc"],
+        branchName: "main",
+        gitCommit: "abc123def456",
+        trackerSlug: "program-manager-mcp",
+        trackerRev: 4
+      },
+      {
+        decisionId: "decision://control-plane/main-future",
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        projectId: "project://phalanx",
+        summary: "Main branch future decision",
+        status: "applicable",
+        recordedAt: "2026-05-03T12:20:00Z",
+        validFrom: "2026-05-03T13:00:00Z",
+        evidenceRefs: [],
+        appliesToRefs: ["contract://hoplon/authz@sha256:dddd"],
+        branchName: "main",
+        trackerSlug: "program-manager-mcp",
+        trackerRev: 4
+      },
+      {
+        decisionId: "decision://control-plane/feature-only",
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        projectId: "project://phalanx",
+        summary: "Feature branch decision",
+        status: "applicable",
+        recordedAt: "2026-05-03T12:07:00Z",
+        validFrom: "2026-05-03T12:00:00Z",
+        evidenceRefs: [],
+        appliesToRefs: ["contract://hoplon/authz@sha256:eeee"],
+        branchName: "feature",
+        trackerRev: 4
+      }
+    ],
+    intelligenceRecords: [
+      {
+        appliesToRefs: ["contract://hoplon/authz@sha256:global"],
+        conditionTags: ["decision:applicable"],
+        evidenceRefs: [],
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        projectId: "project://phalanx",
+        recordedAt: "2026-05-03T12:05:30Z",
+        recordId: "intelligence://control-plane/global-learning",
+        recordType: "learning",
+        reviewStatus: "supported",
+        sourceAdapterId: "repo",
+        sourceCursor: "cursor://learning/global",
+        sourceRefs: ["decision://control-plane/global-current"],
+        summary: "Global branch learning",
+        title: "Global branch learning",
+        validFrom: "2026-05-03T12:00:00Z",
+        confidence: {
+          mode: "supported",
+          score: 0.7,
+          rationale: "global branch evidence"
+        }
+      },
+      {
+        appliesToRefs: ["contract://hoplon/authz@sha256:cccc"],
+        conditionTags: ["decision:applicable"],
+        evidenceRefs: [],
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        projectId: "project://phalanx",
+        branchName: "main",
+        recordedAt: "2026-05-03T12:06:00Z",
+        recordId: "intelligence://control-plane/main-learning",
+        recordType: "learning",
+        reviewStatus: "supported",
+        sourceAdapterId: "repo",
+        sourceCursor: "cursor://learning/main",
+        sourceRefs: ["decision://control-plane/main-current"],
+        summary: "Main branch learning",
+        title: "Main branch learning",
+        validFrom: "2026-05-03T12:00:00Z",
+        confidence: {
+          mode: "supported",
+          score: 0.9,
+          rationale: "main branch evidence"
+        },
+        gitCommit: "abc123def456",
+        trackerSlug: "program-manager-mcp",
+        trackerRev: 4
+      },
+      {
+        appliesToRefs: ["contract://hoplon/authz@sha256:eeee"],
+        conditionTags: ["decision:applicable"],
+        evidenceRefs: [],
+        portfolioId: "portfolio://default",
+        programId: "program://control-plane",
+        projectId: "project://phalanx",
+        branchName: "feature",
+        recordedAt: "2026-05-03T12:07:00Z",
+        recordId: "intelligence://control-plane/feature-learning",
+        recordType: "learning",
+        reviewStatus: "needs_review",
+        sourceAdapterId: "repo",
+        sourceCursor: "cursor://learning/feature",
+        sourceRefs: ["decision://control-plane/feature-only"],
+        summary: "Feature branch learning",
+        title: "Feature branch learning",
+        validFrom: "2026-05-03T12:00:00Z",
+        confidence: {
+          mode: "needs_review",
+          score: 0.4,
+          rationale: "feature branch evidence"
+        },
+        trackerRev: 4
+      }
+    ]
+  });
+
+  const mainContextDecisions = await repository.listDecisions({
+    scope,
+    contextAnchor: {
+      branchName: "main",
+      gitCommit: "abc123def456",
+      trackerSlug: "program-manager-mcp",
+      trackerRev: 4,
+      asOf: "2026-05-03T12:15:00Z"
+    }
+  });
+
+  assert.deepEqual(mainContextDecisions.map((decision) => decision.decisionId), [
+    "decision://control-plane/global-current",
+    "decision://control-plane/main-current"
+  ]);
+  assert.equal(mainContextDecisions[1].branchName, "main");
+  assert.equal(mainContextDecisions[1].trackerRev, 4);
+
+  const staleContextDecisions = await repository.listDecisions({
+    scope,
+    contextAnchor: {
+      branchName: "main",
+      trackerRev: 2,
+      asOf: "2026-05-03T12:15:00Z"
+    }
+  });
+  assert.deepEqual(staleContextDecisions.map((decision) => decision.decisionId), [
+    "decision://control-plane/global-current"
+  ]);
+
+  const mainContextIntelligence = await repository.listIntelligenceRecords({
+    scope,
+    contextAnchor: {
+      branchName: "main",
+      gitCommit: "abc123def456",
+      trackerSlug: "program-manager-mcp",
+      trackerRev: 4,
+      asOf: "2026-05-03T12:15:00Z"
+    }
+  });
+  assert.deepEqual(
+    mainContextIntelligence.map((record) => record.recordId),
+    [
+      "intelligence://control-plane/global-learning",
+      "intelligence://control-plane/main-learning"
+    ]
+  );
+  assert.equal(mainContextIntelligence[1].branchName, "main");
+});
+
 test("ProgramManagerGraphRepository returns bounded context and deterministic impact traversal", async () => {
   const { repositoryModule } = await loadGraphModules();
   const repository = repositoryModule.ProgramManagerGraphRepository.createInMemory();
@@ -627,19 +840,24 @@ test("ProgramManagerGraphRepository reads PMO macro facts with stable ordering a
     [
       "task://agentic-os/pmo-701",
       "task://agentic-os/pmo-702",
-      "task://agentic-os/pmo-705"
+      "task://agentic-os/pmo-705",
+      "task://agentic-os/shared-flow/hoplon-producer",
+      "task://agentic-os/shared-flow/phalanx-orchestrator",
+      "task://agentic-os/shared-flow/semantix-readiness"
     ]
   );
   assert.deepEqual(
     firstRead.blockers.map((blocker) => blocker.blockerRef),
     [
       "blocker://agentic-os/macro-dispatcher-awaits-fixtures",
-      "blocker://agentic-os/macro-fixture-evidence-gap"
+      "blocker://agentic-os/macro-fixture-evidence-gap",
+      "blocker://agentic-os/shared-flow/semantix-readiness-evidence"
     ]
   );
   assert.deepEqual(
     firstRead.contracts.map((contract) => contract.contractRef),
     [
+      "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "contract://hoplon/authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "contract://semantix/readiness/control@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     ]
@@ -649,7 +867,10 @@ test("ProgramManagerGraphRepository reads PMO macro facts with stable ordering a
     [
       "dependency://agentic-os/guardrail-consumes-semantix-readiness",
       "dependency://agentic-os/phalanx-consumes-hoplon-authz",
-      "dependency://agentic-os/pmo-701-unblocks-pmo-702"
+      "dependency://agentic-os/pmo-701-unblocks-pmo-702",
+      "dependency://agentic-os/shared-flow/hoplon-produces",
+      "dependency://agentic-os/shared-flow/phalanx-orchestrates",
+      "dependency://agentic-os/shared-flow/semantix-validates-readiness"
     ]
   );
   assert.deepEqual(
@@ -663,11 +884,30 @@ test("ProgramManagerGraphRepository reads PMO macro facts with stable ordering a
   });
   assert.deepEqual(
     phalanxFacts.contracts.map((contract) => contract.contractRef),
-    ["contract://hoplon/authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+    [
+      "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "contract://hoplon/authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    ]
   );
   assert.deepEqual(
     phalanxFacts.dependencyEdges.map((edge) => edge.dependencyRef),
-    ["dependency://agentic-os/phalanx-consumes-hoplon-authz"]
+    [
+      "dependency://agentic-os/phalanx-consumes-hoplon-authz",
+      "dependency://agentic-os/shared-flow/phalanx-orchestrates"
+    ]
+  );
+
+  const sharedFlowFacts = await repository.listMacroFacts({
+    scope,
+    targetRefs: ["integration://agentic-os/shared-flow"]
+  });
+  assert.deepEqual(
+    sharedFlowFacts.dependencyEdges.map((edge) => [edge.fromRef, edge.toRef]),
+    [
+      ["project://hoplon", "integration://agentic-os/shared-flow"],
+      ["project://phalanx", "integration://agentic-os/shared-flow"],
+      ["project://semantix", "integration://agentic-os/shared-flow"]
+    ]
   );
 
   const foreignPortfolio = await repository.listMacroFacts({

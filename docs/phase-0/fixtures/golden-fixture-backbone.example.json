@@ -49,6 +49,10 @@
     ],
     "contracts": [
       {
+        "contractRef": "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "producerProjectId": "project://hoplon"
+      },
+      {
         "contractRef": "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "producerProjectId": "project://guardrail"
       },
@@ -58,6 +62,14 @@
       }
     ],
     "integrationPoints": [
+      {
+        "integrationPointId": "integration://agentic-os/shared-flow",
+        "consumerProjectIds": [
+          "project://phalanx",
+          "project://semantix"
+        ],
+        "producerProjectId": "project://hoplon"
+      },
       {
         "integrationPointId": "integration://guardrail/runtime-controls",
         "consumerProjectIds": [
@@ -83,6 +95,40 @@
       }
     ],
     "dependencyRelationships": [
+      {
+        "criticality": "tier_1",
+        "dependencyId": "dep-agentic-os-shared-flow-hoplon-produces",
+        "dependencyType": "PRODUCES_INTEGRATION",
+        "fromRef": "project://hoplon",
+        "policyRefs": [
+          "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "status": "active",
+        "toRef": "integration://agentic-os/shared-flow"
+      },
+      {
+        "criticality": "tier_1",
+        "dependencyId": "dep-agentic-os-shared-flow-phalanx-orchestrates",
+        "dependencyType": "ORCHESTRATES_SHARED_FLOW",
+        "fromRef": "project://phalanx",
+        "policyRefs": [
+          "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "status": "active",
+        "toRef": "integration://agentic-os/shared-flow"
+      },
+      {
+        "criticality": "tier_1",
+        "dependencyId": "dep-agentic-os-shared-flow-semantix-readiness",
+        "dependencyType": "VALIDATES_READINESS",
+        "fromRef": "project://semantix",
+        "policyRefs": [
+          "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "policy://pmo/evidence-required-v1"
+        ],
+        "status": "stale",
+        "toRef": "integration://agentic-os/shared-flow"
+      },
       {
         "criticality": "tier_1",
         "dependencyId": "dep-approval-hoplon-authz",
@@ -122,6 +168,8 @@
     ],
     "evidenceRefs": [
       "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence://agentic-os/shared-flow/pmo-graph@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "evidence://agentic-os/shared-flow/semantix-readiness/missing-current-receipt",
       "tracker://program-manager-mcp/PMO-001"
     ]
   },
@@ -130,7 +178,9 @@
     "changeKind": "contract_update",
     "description": "Hoplon authz contract update with one stale tracker evidence condition.",
     "targetRefs": [
+      "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "integration://agentic-os/shared-flow",
       "tracker://program-manager-mcp/PMO-001"
     ]
   },
@@ -138,11 +188,19 @@
     "affectedRefs": [
       {
         "kind": "contract",
+        "ref": "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "kind": "contract",
         "ref": "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
       },
       {
         "kind": "evidence",
         "ref": "tracker://program-manager-mcp/PMO-001"
+      },
+      {
+        "kind": "integration_point",
+        "ref": "integration://agentic-os/shared-flow"
       },
       {
         "kind": "integration_point",
@@ -158,11 +216,19 @@
       },
       {
         "kind": "project",
+        "ref": "project://hoplon"
+      },
+      {
+        "kind": "project",
         "ref": "project://phalanx"
       },
       {
         "kind": "project",
         "ref": "project://program-manager-mcp"
+      },
+      {
+        "kind": "project",
+        "ref": "project://semantix"
       },
       {
         "kind": "tracker_task",
@@ -194,6 +260,14 @@
         ],
         "findingId": "finding-missing-guardrail-runtime-evidence",
         "severity": "critical",
+        "type": "missing_evidence"
+      },
+      {
+        "evidenceRefs": [
+          "evidence://agentic-os/shared-flow/semantix-readiness/missing-current-receipt"
+        ],
+        "findingId": "finding-shared-flow-semantix-readiness-evidence",
+        "severity": "high",
         "type": "missing_evidence"
       }
     ]

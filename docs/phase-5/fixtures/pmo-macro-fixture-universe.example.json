@@ -162,6 +162,82 @@
         "trackerRev": 65,
         "trackerSlug": "program-manager-mcp",
         "validFrom": "2026-05-04T06:00:00Z"
+      },
+      {
+        "assigneeRefs": [
+          "role://agentic-os/shared-flow/producer"
+        ],
+        "evidenceRefs": [
+          "evidence://agentic-os/shared-flow/pmo-graph@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "evidenceStatus": "supported",
+        "id": "task://agentic-os/shared-flow/hoplon-producer",
+        "objectType": "task",
+        "portfolioId": "portfolio://default",
+        "priority": "p0",
+        "programId": "program://agentic-os",
+        "projectId": "project://hoplon",
+        "recordedAt": "2026-05-04T23:00:00Z",
+        "repoId": "repo://Hoplon",
+        "schemaVersion": "1",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "tracker://hoplon",
+        "status": "in_progress",
+        "taskRef": "task://agentic-os/shared-flow/hoplon-producer",
+        "title": "Produce shared Hoplon flow contract for Phalanx and Semantix",
+        "trackerSlug": "hoplon",
+        "validFrom": "2026-05-04T23:00:00Z"
+      },
+      {
+        "assigneeRefs": [
+          "role://agentic-os/shared-flow/orchestrator"
+        ],
+        "evidenceRefs": [
+          "evidence://agentic-os/shared-flow/pmo-graph@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "evidenceStatus": "supported",
+        "id": "task://agentic-os/shared-flow/phalanx-orchestrator",
+        "objectType": "task",
+        "portfolioId": "portfolio://default",
+        "priority": "p0",
+        "programId": "program://agentic-os",
+        "projectId": "project://phalanx",
+        "recordedAt": "2026-05-04T23:00:00Z",
+        "repoId": "repo://Phalanx",
+        "schemaVersion": "1",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "tracker://project-phalanx",
+        "status": "in_progress",
+        "taskRef": "task://agentic-os/shared-flow/phalanx-orchestrator",
+        "title": "Orchestrate the shared Agentic OS flow as Phalanx consumer",
+        "trackerSlug": "project-phalanx",
+        "validFrom": "2026-05-04T23:00:00Z"
+      },
+      {
+        "assigneeRefs": [
+          "role://agentic-os/shared-flow/readiness-validator"
+        ],
+        "blockerRefs": [
+          "blocker://agentic-os/shared-flow/semantix-readiness-evidence"
+        ],
+        "evidenceRefs": [],
+        "evidenceStatus": "needs_review",
+        "id": "task://agentic-os/shared-flow/semantix-readiness",
+        "objectType": "task",
+        "portfolioId": "portfolio://default",
+        "priority": "p0",
+        "programId": "program://agentic-os",
+        "projectId": "project://semantix",
+        "recordedAt": "2026-05-04T23:00:00Z",
+        "repoId": "repo://Semantix",
+        "schemaVersion": "1",
+        "sourceAdapterId": "tracker-local",
+        "sourceCursor": "tracker://semantix",
+        "status": "blocked",
+        "taskRef": "task://agentic-os/shared-flow/semantix-readiness",
+        "title": "Validate shared flow readiness as Semantix consumer",
+        "trackerSlug": "semantix",
+        "validFrom": "2026-05-04T23:00:00Z"
       }
     ],
     "blockers": [
@@ -214,9 +290,59 @@
         "status": "open",
         "summary": "One fixture input intentionally models missing evidence for advisory handling.",
         "validFrom": "2026-05-04T06:00:00Z"
+      },
+      {
+        "blockedRefs": [
+          "task://agentic-os/shared-flow/semantix-readiness"
+        ],
+        "blockerRef": "blocker://agentic-os/shared-flow/semantix-readiness-evidence",
+        "evidenceRefs": [],
+        "evidenceStatus": "needs_review",
+        "id": "blocker://agentic-os/shared-flow/semantix-readiness-evidence",
+        "objectType": "blocker",
+        "ownerRefs": [
+          "role://agentic-os/shared-flow/readiness-validator"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://semantix",
+        "recordedAt": "2026-05-04T23:00:00Z",
+        "schemaVersion": "1",
+        "severity": "high",
+        "sourceAdapterId": "semantix-local",
+        "sourceCursor": "tracker://semantix",
+        "status": "open",
+        "summary": "Semantix readiness validation for the shared flow needs a pointer evidence receipt.",
+        "validFrom": "2026-05-04T23:00:00Z"
       }
     ],
     "contracts": [
+      {
+        "consumerRefs": [
+          "project://phalanx",
+          "project://semantix"
+        ],
+        "contractRef": "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "criticality": "tier_1",
+        "evidenceRefs": [
+          "evidence://agentic-os/shared-flow/pmo-graph@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "evidenceStatus": "supported",
+        "id": "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "integrationPointId": "integration://agentic-os/shared-flow",
+        "objectType": "contract",
+        "portfolioId": "portfolio://default",
+        "producerRef": "project://hoplon",
+        "programId": "program://agentic-os",
+        "projectId": "project://hoplon",
+        "recordedAt": "2026-05-04T23:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "pmo-fixture",
+        "sourceCursor": "integration://agentic-os/shared-flow",
+        "status": "active",
+        "summary": "Shared Agentic OS flow: Hoplon produces, Phalanx orchestrates, Semantix validates readiness.",
+        "validFrom": "2026-05-04T23:00:00Z"
+      },
       {
         "consumerRefs": [
           "project://phalanx",
@@ -334,6 +460,74 @@
         "status": "satisfied",
         "toRef": "task://agentic-os/pmo-702",
         "validFrom": "2026-05-04T06:00:00Z"
+      },
+      {
+        "dependencyRef": "dependency://agentic-os/shared-flow/hoplon-produces",
+        "dependencyType": "PRODUCES_INTEGRATION",
+        "evidenceRefs": [
+          "evidence://agentic-os/shared-flow/pmo-graph@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "evidenceStatus": "supported",
+        "fromRef": "project://hoplon",
+        "id": "dependency://agentic-os/shared-flow/hoplon-produces",
+        "objectType": "dependency_edge",
+        "policyRefs": [
+          "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://hoplon",
+        "recordedAt": "2026-05-04T23:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "pmo-fixture",
+        "status": "active",
+        "toRef": "integration://agentic-os/shared-flow",
+        "validFrom": "2026-05-04T23:00:00Z"
+      },
+      {
+        "dependencyRef": "dependency://agentic-os/shared-flow/phalanx-orchestrates",
+        "dependencyType": "ORCHESTRATES_SHARED_FLOW",
+        "evidenceRefs": [
+          "evidence://agentic-os/shared-flow/pmo-graph@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "evidenceStatus": "supported",
+        "fromRef": "project://phalanx",
+        "id": "dependency://agentic-os/shared-flow/phalanx-orchestrates",
+        "objectType": "dependency_edge",
+        "policyRefs": [
+          "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://phalanx",
+        "recordedAt": "2026-05-04T23:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "pmo-fixture",
+        "status": "active",
+        "toRef": "integration://agentic-os/shared-flow",
+        "validFrom": "2026-05-04T23:00:00Z"
+      },
+      {
+        "dependencyRef": "dependency://agentic-os/shared-flow/semantix-validates-readiness",
+        "dependencyType": "VALIDATES_READINESS",
+        "evidenceRefs": [],
+        "evidenceStatus": "needs_review",
+        "fromRef": "project://semantix",
+        "id": "dependency://agentic-os/shared-flow/semantix-validates-readiness",
+        "objectType": "dependency_edge",
+        "policyRefs": [
+          "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "policy://pmo/evidence-required-v1"
+        ],
+        "portfolioId": "portfolio://default",
+        "programId": "program://agentic-os",
+        "projectId": "project://semantix",
+        "recordedAt": "2026-05-04T23:00:00Z",
+        "schemaVersion": "1",
+        "sourceAdapterId": "semantix-local",
+        "status": "pending",
+        "toRef": "integration://agentic-os/shared-flow",
+        "validFrom": "2026-05-04T23:00:00Z"
       }
     ],
     "runbooks": [

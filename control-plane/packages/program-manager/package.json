@@ -20,6 +20,9 @@
     "pmo:report-regenerate": "node scripts/pmo-report-regenerate.mjs",
     "pmo:adapter-conformance": "node scripts/pmo-adapter-conformance.mjs",
     "pmo:phase4-smoke": "node scripts/pmo-phase4-smoke.mjs",
+    "pmo:mcp-runtime-smoke": "node --test tests/mcp-server-restart-smoke.test.js",
+    "pmo:mcp-restart-smoke": "node --test tests/mcp-server-restart-smoke.test.js",
+    "pmo:agent-loop-proof": "node --test tests/agent-owned-pmo-loop-smoke.test.js",
     "pmo:otel-smoke": "node scripts/pmo-otel-smoke.mjs"
   },
   "dependencies": {

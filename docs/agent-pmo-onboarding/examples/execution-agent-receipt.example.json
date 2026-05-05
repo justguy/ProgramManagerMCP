@@ -1,0 +1,45 @@
+{
+  "portfolioId": "portfolio://default",
+  "programId": "program://agentic-os",
+  "projectIds": ["project://program-manager-mcp"],
+  "agenticOsRunRef": "run://agentic-os/pmo-agent-004-smoke",
+  "executionAgentRef": "actor://agents/executor-a",
+  "governance": {
+    "trustRootRef": "trust-root://control-plane/oidc-jwt",
+    "retentionPolicyRef": "policy://retention/pmo-phase-5-default",
+    "piiHandlingPolicyRefs": ["policy://pii/no-inline-sensitive-data"]
+  },
+  "flightPlanHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "flightPlanId": "flightplan://program-action/record-receipt",
+  "flightPlanStateVersionHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "idempotencyKey": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "observedAt": "2026-05-03T12:09:00Z",
+  "proposedActionId": "action://program-action/record-receipt",
+  "receiptRequirementId": "receipt://program-action/record-receipt",
+  "receiptType": "tracker_update_receipt",
+  "evidenceRefs": ["evidence://receipt/required"],
+  "artifactRefs": ["artifact://receipt/record-receipt"],
+  "observedStateRefs": ["tracker://program-manager-mcp/PMO-502"],
+  "summary": "Executor observed the tracker receipt.",
+  "verificationMethod": "adapter_observed_state",
+  "receiptDigest": "sha256:7fbc4f0d2eaa06e96e861802cf7005ca2c4e75122f7bbfe5d549efe7a60e7426",
+  "executionReceipt": {
+    "projectId": "project://program-manager-mcp",
+    "integrationRef": "integration://agentic-os/shared-flow",
+    "sourceRef": "git://program-manager-mcp/commit/0123456789abcdef",
+    "affectedRefs": [
+      "integration://agentic-os/shared-flow",
+      "tracker://program-manager-mcp/PMO-502"
+    ],
+    "testsRun": [
+      {
+        "testRef": "test://program-manager-mcp/pmo-agent-004-smoke",
+        "status": "pass",
+        "evidenceRefs": ["evidence://receipt/required"]
+      }
+    ],
+    "blockers": []
+  },
+  "traceId": "trace://pmo-agent-004/receipt-smoke",
+  "correlationId": "corr://pmo-agent-004/receipt-smoke"
+}

@@ -8,6 +8,7 @@ const packageRoot = process.cwd();
 
 const graphSourceFiles = [
   "src/types/domain.ts",
+  "src/normalization/program-manager-normalization.ts",
   "src/repository/program-manager-repository.ts",
   "src/repository/program-manager-graph-store.ts",
   "src/repository/program-manager-graph-repository.ts",
@@ -15,7 +16,7 @@ const graphSourceFiles = [
 ];
 
 function rewriteRelativeModuleSpecifiers(source) {
-  return source.replaceAll(/from "(\.[^"]+)\.js"/g, 'from "$1.mjs"');
+  return source.replaceAll(/from "(\.[^"]+)\.(?:js|ts)"/g, 'from "$1.mjs"');
 }
 
 export async function loadGraphModules() {

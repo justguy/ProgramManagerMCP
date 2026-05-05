@@ -26,9 +26,11 @@ import type {
   ImpactAssessmentResult,
   MacroFactQuery,
   MacroFactSet,
+  ProgramEventCausationQuery,
   ProgramContextQuery,
   ProgramIntelligenceQuery,
   ProgramManagerRepository,
+  IntegrationPointRecord,
   ReceiptLedgerQuery,
   ReceiptLedgerState,
   RepositoryScope
@@ -37,6 +39,7 @@ import type {
 type FixtureData = {
   programs?: ProgramRef[];
   projects?: ProjectRef[];
+  integrationPoints?: IntegrationPointRecord[];
   relationships?: GraphRelationship[];
   evidenceRefs?: EvidenceRef[];
   artifactRefs?: ArtifactRef[];
@@ -71,6 +74,7 @@ type FixtureData = {
 export class InMemoryProgramManagerRepository implements ProgramManagerRepository {
   private programs: ProgramRef[] = [];
   private projects: ProjectRef[] = [];
+  private integrationPoints: IntegrationPointRecord[] = [];
   private relationships: GraphRelationship[] = [];
   private evidenceRefs: EvidenceRef[] = [];
   private artifactRefs: ArtifactRef[] = [];
@@ -106,6 +110,7 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
   seed(fixture: FixtureData): void {
     this.programs = fixture.programs ?? this.programs;
     this.projects = fixture.projects ?? this.projects;
+    this.integrationPoints = fixture.integrationPoints ?? this.integrationPoints;
     this.relationships = fixture.relationships ?? this.relationships;
     this.evidenceRefs = fixture.evidenceRefs ?? this.evidenceRefs;
     this.artifactRefs = fixture.artifactRefs ?? this.artifactRefs;
@@ -133,10 +138,95 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
   }
 
   async listProjects(scope: RepositoryScope): Promise<ProjectRef[]> {
-    return this.projects.filter((project) =>
-      this.inScope(project.portfolioId, project.programId, scope) &&
-      (!scope.projectIds || scope.projectIds.includes(project.projectId))
+    return this.projects.filter((project) => {
+      if (project.portfolioId !== scope.portfolioId) {
+        return false;
+      }
+      const programIds = project.activeProgramIds ?? [project.programId];
+      if (scope.programId && !programIds.includes(scope.programId)) {
+        return false;
+      }
+      return !scope.projectIds || scope.projectIds.includes(project.projectId);
+    });
+  }
+
+  async listIntegrationPoints(scope: RepositoryScope): Promise<IntegrationPointRecord[]> {
+    const projectToProgramId = new Map(this.projects.map((project) => [project.projectId, project.programId]));
+    return this.integrationPoints.filter((integrationPoint) => {
+      if (integrationPoint.portfolioId !== scope.portfolioId) {
+        return false;
+      }
+      const relatedProjectIds = [
+        integrationPoint.producerProjectId,
+        ...integrationPoint.consumerProjectIds
+      ];
+      if (scope.programId && !relatedProjectIds.some((projectId) => projectToProgramId.get(projectId) === scope.programId)) {
+        return false;
+      }
+      if (scope.projectIds?.length && !relatedProjectIds.some((projectId) => scope.projectIds?.includes(projectId))) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  async upsertProgram(program: ProgramRef, auditEvent?: ProgramEvent): Promise<void> {
+    this.programs = upsertBy(
+      this.programs,
+      program,
+      (value) => `${value.portfolioId}::${value.programId}`,
+      (value) => ({ ...value })
     );
+    if (auditEvent) {
+      await this.appendEvent(auditEvent);
+    }
+  }
+
+  async upsertProject(project: ProjectRef, auditEvent?: ProgramEvent): Promise<void> {
+    this.projects = upsertBy(
+      this.projects,
+      project,
+      (value) => `${value.portfolioId}::${value.programId}::${value.projectId}`,
+      (value) => ({ ...value, activeProgramIds: value.activeProgramIds ? [...value.activeProgramIds].sort() : undefined })
+    );
+    if (auditEvent) {
+      await this.appendEvent(auditEvent);
+    }
+  }
+
+  async upsertIntegrationPoint(
+    integrationPoint: IntegrationPointRecord,
+    auditEvent?: ProgramEvent
+  ): Promise<void> {
+    this.integrationPoints = upsertBy(
+      this.integrationPoints,
+      integrationPoint,
+      (value) => `${value.portfolioId}::${value.integrationPointId}`,
+      (value) => ({
+        ...value,
+        artifactRefs: sortStrings(value.artifactRefs ?? []),
+        consumerProjectIds: sortStrings(value.consumerProjectIds),
+        coordinationItems: [...(value.coordinationItems ?? [])]
+          .map((item) => ({
+            ...item,
+            affectedProjectIds: sortStrings(item.affectedProjectIds),
+            artifactRefs: sortStrings(item.artifactRefs),
+            evidenceRefs: sortStrings(item.evidenceRefs),
+            trackerRefs: sortStrings(item.trackerRefs)
+          }))
+          .sort((left, right) => left.itemId.localeCompare(right.itemId)),
+        evidenceRefs: sortStrings(value.evidenceRefs ?? []),
+        idempotencyKeys: sortStrings(value.idempotencyKeys ?? []),
+        projectRoles: value.projectRoles ? { ...value.projectRoles } : undefined,
+        statusHistory: value.statusHistory?.map((item) => ({
+          ...item,
+          evidenceRefs: sortStrings(item.evidenceRefs)
+        }))
+      })
+    );
+    if (auditEvent) {
+      await this.appendEvent(auditEvent);
+    }
   }
 
   async getProgramContext(query: ProgramContextQuery): Promise<{
@@ -189,9 +279,42 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
     );
   }
 
+  async upsertEvidenceRef(evidenceRef: EvidenceRef, auditEvent?: ProgramEvent): Promise<void> {
+    this.evidenceRefs = upsertBy(
+      this.evidenceRefs,
+      evidenceRef,
+      (value) => `${value.portfolioId}::${value.evidenceRef}`,
+      (value) => ({
+        ...value,
+        attachesToRefs: sortStrings(value.attachesToRefs ?? [])
+      })
+    );
+    if (auditEvent) {
+      this.events = [...this.events, auditEvent];
+    }
+  }
+
+  async upsertArtifactRef(artifactRef: ArtifactRef, auditEvent?: ProgramEvent): Promise<void> {
+    this.artifactRefs = upsertBy(
+      this.artifactRefs,
+      artifactRef,
+      (value) => `${value.portfolioId}::${value.artifactRef}`,
+      (value) => ({
+        ...value,
+        contentHash: { ...value.contentHash }
+      })
+    );
+    if (auditEvent) {
+      this.events = [...this.events, auditEvent];
+    }
+  }
+
   async listDecisions(query: DecisionQuery): Promise<DecisionRecord[]> {
     return this.decisions.filter((decision) => {
       if (!this.inScope(decision.portfolioId, decision.programId, query.scope)) {
+        return false;
+      }
+      if (!matchesContextAnchor(decision, query.contextAnchor)) {
         return false;
       }
       if (query.statuses && !query.statuses.includes(decision.status)) {
@@ -211,6 +334,9 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
     const conditionTagSet = query.conditionTags?.length ? new Set(query.conditionTags) : undefined;
     const filtered = this.intelligenceRecords.filter((record) => {
       if (!this.inScope(record.portfolioId, record.programId, query.scope)) {
+        return false;
+      }
+      if (!matchesContextAnchor(record, query.contextAnchor)) {
         return false;
       }
       if (query.scope.projectIds?.length && record.projectId && !query.scope.projectIds.includes(record.projectId)) {
@@ -257,13 +383,13 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
       );
     }
     if (auditEvent) {
-      this.events.push(cloneEvent(auditEvent));
+      await this.appendEvent(auditEvent);
     }
   }
 
   async appendObservedReceipt(receipt: ObservedReceipt, auditEvent: ProgramEvent): Promise<void> {
     this.observedReceipts.push(cloneObservedReceipt(receipt));
-    this.events.push(cloneEvent(auditEvent));
+    await this.appendEvent(auditEvent);
   }
 
   async appendActionLedgerEntry(entry: ActionLedgerEntry): Promise<void> {
@@ -281,7 +407,7 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
       cloneReceiptReconcileRecord
     );
     if (auditEvent) {
-      this.events.push(cloneEvent(auditEvent));
+      await this.appendEvent(auditEvent);
     }
   }
 
@@ -315,15 +441,19 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
 
   async listMacroFacts(query: MacroFactQuery): Promise<MacroFactSet> {
     const targetRefs = new Set(query.targetRefs ?? []);
-    const asOf = query.contextAnchor?.asOf;
-    const current = (value: { validFrom: string; validTo?: string; supersededBy?: string }): boolean => {
+    const current = (value: {
+      branchName?: string;
+      gitCommit?: string;
+      trackerRev?: number;
+      trackerSlug?: string;
+      validFrom: string;
+      validTo?: string;
+      supersededBy?: string;
+    }): boolean => {
       if (!query.includeSuperseded && value.supersededBy) {
         return false;
       }
-      if (!asOf) {
-        return true;
-      }
-      return value.validFrom <= asOf && (!value.validTo || value.validTo >= asOf);
+      return matchesContextAnchor(value, query.contextAnchor);
     };
     const targetMatch = (values: string[]): boolean => {
       if (targetRefs.size === 0) {
@@ -445,8 +575,48 @@ export class InMemoryProgramManagerRepository implements ProgramManagerRepositor
       cloneMacroRegistry
     );
     if (auditEvent) {
-      this.events.push(cloneEvent(auditEvent));
+      await this.appendEvent(auditEvent);
     }
+  }
+
+  async appendEvent(event: ProgramEvent): Promise<ProgramEvent> {
+    const existingByIdempotencyKey = event.idempotencyKey
+      ? await this.getEventByIdempotencyKey({ portfolioId: event.portfolioId }, event.idempotencyKey)
+      : undefined;
+    if (existingByIdempotencyKey) {
+      return existingByIdempotencyKey;
+    }
+
+    const existingByEventId = this.events.find(
+      (item) => item.portfolioId === event.portfolioId && item.eventId === event.eventId
+    );
+    if (existingByEventId) {
+      return cloneEvent(existingByEventId);
+    }
+
+    const cloned = cloneEvent(event);
+    this.events.push(cloned);
+    return cloneEvent(cloned);
+  }
+
+  async getEventByIdempotencyKey(
+    scope: RepositoryScope,
+    idempotencyKey: string
+  ): Promise<ProgramEvent | undefined> {
+    return this.events
+      .filter((event) => event.idempotencyKey === idempotencyKey)
+      .filter((event) => scopeMatches(event.portfolioId, event.contextAnchor?.programId, event.contextAnchor?.projectId, scope))
+      .map(cloneEvent)
+      .sort(compareEventsDescending)[0];
+  }
+
+  async listEventsByCausation(query: ProgramEventCausationQuery): Promise<ProgramEvent[]> {
+    const filtered = this.events
+      .filter((event) => eventCausedBy(event, query.causedByEventId))
+      .filter((event) => scopeMatches(event.portfolioId, event.contextAnchor?.programId, event.contextAnchor?.projectId, query.scope))
+      .map(cloneEvent)
+      .sort(compareEventsDescending);
+    return typeof query.limit === "number" ? filtered.slice(0, query.limit) : filtered;
   }
 
   async listEvents(scope: RepositoryScope, limit?: number): Promise<ProgramEvent[]> {
@@ -492,7 +662,16 @@ function cloneEvent(event: ProgramEvent): ProgramEvent {
     ...event,
     contextAnchor: event.contextAnchor ? { ...event.contextAnchor } : undefined,
     evidenceRefs: sortStrings(event.evidenceRefs),
-    artifactRefs: sortStrings(event.artifactRefs)
+    artifactRefs: sortStrings(event.artifactRefs),
+    targetRefs: event.targetRefs ? sortStrings(event.targetRefs) : undefined,
+    managedRefs: event.managedRefs ? sortStrings(event.managedRefs) : undefined,
+    causation: event.causation
+      ? {
+          ...event.causation,
+          causedByEventIds: sortStrings(event.causation.causedByEventIds),
+          targetRefs: sortStrings(event.causation.targetRefs)
+        }
+      : undefined
   };
 }
 
@@ -620,6 +799,64 @@ function scopeMatches(
     return false;
   }
   return true;
+}
+
+function matchesContextAnchor(
+  value: {
+    branchName?: string;
+    gitCommit?: string;
+    trackerRev?: number;
+    trackerSlug?: string;
+    validFrom: string;
+    validTo?: string;
+  },
+  contextAnchor: ContextAnchor | undefined
+): boolean {
+  if (!contextAnchor) {
+    return true;
+  }
+
+  if (contextAnchor.branchName) {
+    if (value.branchName && value.branchName !== contextAnchor.branchName) {
+      return false;
+    }
+  }
+
+  if (contextAnchor.gitCommit) {
+    if (value.gitCommit && value.gitCommit !== contextAnchor.gitCommit) {
+      return false;
+    }
+  }
+
+  if (contextAnchor.trackerRev !== undefined) {
+    if (typeof value.trackerRev === "number" && value.trackerRev > contextAnchor.trackerRev) {
+      return false;
+    }
+  }
+
+  if (contextAnchor.trackerSlug) {
+    if (value.trackerSlug && value.trackerSlug !== contextAnchor.trackerSlug) {
+      return false;
+    }
+  }
+
+  if (contextAnchor.asOf) {
+    if (value.validFrom > contextAnchor.asOf) {
+      return false;
+    }
+    if (value.validTo && value.validTo < contextAnchor.asOf) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function eventCausedBy(event: ProgramEvent, causedByEventId: string): boolean {
+  return (
+    event.causation?.sourceEventId === causedByEventId ||
+    Boolean(event.causation?.causedByEventIds.includes(causedByEventId))
+  );
 }
 
 function overlaps(filter: string[] | undefined, values: string[]): boolean {

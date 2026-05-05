@@ -55,6 +55,7 @@ test("golden fixture import into graph repository is deterministic and complete"
   assert.deepEqual(
     (await repository.listIntegrationPoints(scope)).map((integrationPoint) => integrationPoint.integrationPointId),
     [
+      "integration://agentic-os/shared-flow",
       "integration://guardrail/runtime-controls",
       "integration://hoplon/authz-contract",
       "integration://tracker/local-json"
@@ -63,6 +64,7 @@ test("golden fixture import into graph repository is deterministic and complete"
   assert.deepEqual(
     (await repository.listContracts(scope)).map((contract) => contract.contractRef),
     [
+      "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "contract://hoplon-authz/escalation-grant@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     ]
@@ -70,6 +72,9 @@ test("golden fixture import into graph repository is deterministic and complete"
   assert.deepEqual(
     (await repository.listRelationships(scope)).map((relationship) => relationship.dependencyId),
     [
+      "dep-agentic-os-shared-flow-hoplon-produces",
+      "dep-agentic-os-shared-flow-phalanx-orchestrates",
+      "dep-agentic-os-shared-flow-semantix-readiness",
       "dep-approval-hoplon-authz",
       "dep-guardrail-runtime-controls",
       "dep-tracker-evidence-freshness"
@@ -79,6 +84,8 @@ test("golden fixture import into graph repository is deterministic and complete"
     (await repository.listEvidenceRefs(scope)).map((evidenceRef) => evidenceRef.evidenceRef),
     [
       "artifact://pmo/alignment-report/2026-05-03@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence://agentic-os/shared-flow/pmo-graph@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "evidence://agentic-os/shared-flow/semantix-readiness/missing-current-receipt",
       "evidence://guardrail/runtime-controls/missing-current-snapshot",
       "tracker://program-manager-mcp/PMO-001"
     ]

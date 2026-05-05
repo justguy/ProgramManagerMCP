@@ -11,25 +11,28 @@ test("Neo4j migration files define PMO constraints and dependency indexes", () =
   const migrationsDir = join(process.cwd(), "migrations/neo4j");
   const files = readdirSync(migrationsDir).sort();
 
-  assert.deepEqual(files, [
-    "V001__program_manager_constraints.cypher",
-    "V002__program_manager_indexes.cypher",
-    "V003__pmo_macro_objects.cypher"
-  ]);
+	  assert.deepEqual(files, [
+	    "V001__program_manager_constraints.cypher",
+	    "V002__program_manager_indexes.cypher",
+	    "V003__pmo_macro_objects.cypher",
+	    "V004__shared_runtime_identity.cypher"
+	  ]);
 
-  const constraints = readFileSync(join(migrationsDir, files[0]), "utf8");
-  const indexes = readFileSync(join(migrationsDir, files[1]), "utf8");
-  const macroObjects = readFileSync(join(migrationsDir, files[2]), "utf8");
+	  const constraints = readFileSync(join(migrationsDir, files[0]), "utf8");
+	  const indexes = readFileSync(join(migrationsDir, files[1]), "utf8");
+	  const macroObjects = readFileSync(join(migrationsDir, files[2]), "utf8");
+	  const runtimeIdentity = readFileSync(join(migrationsDir, files[3]), "utf8");
 
   assert.match(constraints, /CREATE CONSTRAINT pm_program_ref IF NOT EXISTS/);
   assert.match(constraints, /CREATE CONSTRAINT pm_generic_ref IF NOT EXISTS/);
   assert.match(indexes, /CREATE INDEX pm_depends_on_dependency_id IF NOT EXISTS/);
   assert.match(indexes, /CREATE INDEX pm_requires_approval_dependency_id IF NOT EXISTS/);
   assert.match(indexes, /CREATE INDEX pm_requires_evidence_dependency_id IF NOT EXISTS/);
-  assert.match(macroObjects, /CREATE CONSTRAINT pm_macro_fact_ref IF NOT EXISTS/);
-  assert.match(macroObjects, /CREATE CONSTRAINT pm_macro_registry_ref IF NOT EXISTS/);
-  assert.match(macroObjects, /CREATE INDEX pm_macro_task_ref IF NOT EXISTS/);
-});
+	  assert.match(macroObjects, /CREATE CONSTRAINT pm_macro_fact_ref IF NOT EXISTS/);
+	  assert.match(macroObjects, /CREATE CONSTRAINT pm_macro_registry_ref IF NOT EXISTS/);
+	  assert.match(macroObjects, /CREATE INDEX pm_macro_task_ref IF NOT EXISTS/);
+	  assert.match(runtimeIdentity, /CREATE CONSTRAINT pm_system_identity_key IF NOT EXISTS/);
+	});
 
 test("Neo4j graph store issues typed dependency writes and ordered read queries", async () => {
   const { neo4jModule } = await loadGraphModules();
@@ -242,9 +245,11 @@ test(
     assert.deepEqual(
       relationships.map((relationship) => relationship.dependencyId),
       [
+        "dep-agentic-os-shared-flow-hoplon-produces",
+        "dep-agentic-os-shared-flow-phalanx-orchestrates",
+        "dep-agentic-os-shared-flow-semantix-readiness",
+        "dep-approval-hoplon-authz",
         "dep-guardrail-runtime-controls",
-        "dep-hoplon-authz",
-        "dep-semantix-readiness",
         "dep-tracker-evidence-freshness"
       ]
     );
@@ -255,7 +260,7 @@ test(
       changeKind: "contract_update",
       targetRefs: [
         "tracker://program-manager-mcp/PMO-001",
-        "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        "contract://guardrail/tool-policy@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
       ],
       traversalBudgetRef: traversalBudgetDefaults.phase1a
     });

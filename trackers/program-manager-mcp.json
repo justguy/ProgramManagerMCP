@@ -52,11 +52,27 @@
         "id": "phase-5",
         "label": "Phase 5: Macro Omni-Tool Surface",
         "description": "Single pmo_macro public tool, normalized PMO object model, editable safe macro registry, and deterministic macro implementations for blockers, context, impact simulation, drift, and acceptance proof."
+      },
+      {
+        "id": "agent-pmo-onboarding",
+        "label": "Agent PMO Onboarding",
+        "description": "Make real cross-project PMO setup discoverable and executable by agents without human-driven coordination."
+      },
+      {
+        "id": "pmo-omni-tools",
+        "label": "PMO Omni-Tools",
+        "description": "Close the agent-handoff gaps with domain omni-tools that own full lifecycle actions instead of narrow one-off PMO endpoints.",
+        "collapsed": true
+      },
+      {
+        "id": "cypher-rule-detectors",
+        "label": "Cypher Rule Detectors",
+        "description": "Versioned read-only Cypher detector rules, controlled Finding writes, report grouping, health scoring, APIs, and guardrails."
       }
     ],
-    "scratchpad": "pmo-702 complete: schema-backed Phase 5 fixture universe and exact macro golden scenarios landed. Verification green: typecheck and full package test (64 pass, 1 skipped). Next unlocked: pmo-703.",
-    "rev": 80,
-    "updatedAt": "2026-05-04T06:47:35.442Z"
+    "scratchpad": "Rule detector swimlane updated: PMO skill concepts are catalog-backed editable rules/metadata, with a data-readiness gate before any seeded detector is enabled.",
+    "rev": 115,
+    "updatedAt": "2026-05-05T14:04:14.986Z"
   },
   "tasks": [
     {
@@ -2361,6 +2377,1694 @@
           "createdAt": "2026-05-04T00:00:00.000Z"
         }
       ]
+    },
+    {
+      "dependencies": [],
+      "id": "pmo-agent-001",
+      "title": "Encode the real 3-project PMO graph",
+      "goal": "Create the machine-readable PMO state for the first real three-project shared flow so agents can discover project refs, roles, integration points, contracts, and evidence obligations without human memory.",
+      "status": "complete",
+      "placement": {
+        "swimlaneId": "agent-pmo-onboarding",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Add or update PMO registry/fixture/state for the real three projects and their shared integration flow.",
+        "Define stable refs for portfolio, program, projects, repos, trackers, integration points, contracts, evidence refs, and expected receipts.",
+        "Document producer, consumer, and validator roles as data, not chat instructions."
+      ],
+      "definition_of_done": [
+        "Agents can call program-manager.pmo_macro for catch-up or impact simulation and see the real three-project flow refs.",
+        "The shared flow has one stable integration ref used by all participant projects.",
+        "The registry remains pointer-only and does not inline logs, transcripts, screenshots, secrets, or raw repo content.",
+        "A verification note records the exact pmo_macro call used to prove the refs are visible."
+      ],
+      "constraints": [
+        "Do not require a human to remember or restate project IDs after this task lands.",
+        "Do not add downstream mutation authority to PMO.",
+        "Use stable pointer refs such as project://, repo://, tracker://, integration://, contract://, evidence://, and receipt://."
+      ],
+      "context": {
+        "tags": [
+          "pmo",
+          "agent-onboarding",
+          "cross-project",
+          "registry"
+        ],
+        "notes": "The already-running external MCP instance did not reload the edited fixture during this turn; the same pmo_macro request was verified in-process against the updated ProgramManagerMCP fixture/repository code. Downstream durability/server behavior remains for pmo-agent-002.",
+        "mcp_server": "program-manager",
+        "primary_tool": "pmo_macro",
+        "completion_summary": "Encoded the real initial three-project PMO shared flow as pointer-only PMO state: Hoplon producer, Phalanx consumer/orchestrator, Semantix consumer/readiness validator, anchored by integration://agentic-os/shared-flow. Added source fixture, docs fixture, sample registry pointers, pmo_macro catch-up endpoint expansion, and focused tests.",
+        "files_touched": [
+          "docs/phase-5/fixtures/pmo-macro-fixture-universe.example.json",
+          "control-plane/packages/program-manager/fixtures/golden-fixture-backbone.example.json",
+          "docs/phase-0/fixtures/golden-fixture-backbone.example.json",
+          "docs/phase-0/fixtures/sample-registry.example.json",
+          "control-plane/packages/program-manager/src/service/program-tool-service.ts",
+          "control-plane/packages/program-manager/src/types/domain.ts",
+          "control-plane/packages/program-manager/tests/program-tools.test.js",
+          "control-plane/packages/program-manager/tests/program-manager-graph-repository.test.js",
+          "control-plane/packages/program-manager/tests/golden-fixture-backbone.test.js",
+          "control-plane/packages/program-manager/tests/golden-fixture-seed.test.js"
+        ],
+        "verification": [
+          "node --test control-plane/packages/program-manager/tests/program-manager-schemas.test.js from repo root",
+          "npm run typecheck from control-plane/packages/program-manager",
+          "node --test tests/program-tools.test.js from control-plane/packages/program-manager",
+          "node --test tests/program-manager-graph-repository.test.js tests/golden-fixture-backbone.test.js tests/golden-fixture-seed.test.js from control-plane/packages/program-manager"
+        ],
+        "pmo_macro_proof_request": {
+          "action": "invoke",
+          "macroId": "macro://pmo/catch_me_up",
+          "macroVersion": "1.0.0",
+          "input": {
+            "targetRefs": [
+              "integration://agentic-os/shared-flow"
+            ]
+          },
+          "portfolioId": "portfolio://default",
+          "programId": "program://agentic-os",
+          "traceId": "trace://pmo-agent-001/catch-up-shared-flow",
+          "correlationId": "corr://pmo-agent-001/catch-up-shared-flow"
+        },
+        "pmo_macro_proof_visible_refs": [
+          "integration://agentic-os/shared-flow",
+          "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "project://hoplon",
+          "project://phalanx",
+          "project://semantix",
+          "dependency://agentic-os/shared-flow/hoplon-produces",
+          "dependency://agentic-os/shared-flow/phalanx-orchestrates",
+          "dependency://agentic-os/shared-flow/semantix-validates-readiness"
+        ]
+      },
+      "assignee": "codex-worker-1",
+      "blocker_reason": null,
+      "comment": "Completed by Worker 1. Real shared-flow refs are encoded pointer-only and verified via pmo_macro catch_me_up against integration://agentic-os/shared-flow; see context.pmo_macro_proof_request and context.pmo_macro_proof_visible_refs."
+    },
+    {
+      "dependencies": [
+        "pmo-agent-001"
+      ],
+      "id": "pmo-agent-002",
+      "title": "Make PMO state durable across MCP restarts",
+      "goal": "Replace the current in-memory fixture-only server behavior with a durable local PMO state source so agent-discovered project setup survives Codex restarts and MCP reloads.",
+      "status": "complete",
+      "placement": {
+        "swimlaneId": "agent-pmo-onboarding",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Update the program-manager MCP server wrapper or service initialization to load PMO state from a durable registry/fixture path.",
+        "Persist any safe PMO registry edits to an explicit file or repository-backed state store.",
+        "Add a smoke test that restarts the MCP process and confirms the real project refs are still visible."
+      ],
+      "definition_of_done": [
+        "A fresh node control-plane/packages/program-manager/bin/server.js process exposes the real PMO graph through pmo_macro.",
+        "The state source path is documented and intentionally pointer-only.",
+        "Startup failure modes are explicit and return actionable errors instead of silent fallback to stale fixture data."
+      ],
+      "constraints": [
+        "Do not introduce Neo4j as a required local dependency for this narrow onboarding slice unless the package already supports it cleanly.",
+        "Do not write raw external artifacts into PMO state.",
+        "Keep Codex TOML registration pointed at a runnable MCP entrypoint."
+      ],
+      "context": {
+        "tags": [
+          "pmo",
+          "mcp",
+          "persistence",
+          "agent-onboarding"
+        ],
+        "notes": "Current MCP works but is fixture-backed. This task makes it trustworthy for agent coordination.",
+        "durable_state_source_ref": "artifact://program-manager/state/source/default-json",
+        "default_state_path": "control-plane/packages/program-manager/.state/program-manager-state.json",
+        "mcp_entrypoint": "node control-plane/packages/program-manager/bin/server.js",
+        "restart_smoke_command": "TPF_LLM_TOOL=codex tpf npm run pmo:mcp-restart-smoke",
+        "restart_smoke_proof_request": {
+          "portfolioId": "portfolio://default",
+          "programId": "program://agentic-os",
+          "traceId": "trace://test/restart-smoke/graph",
+          "correlationId": "corr://test/restart-smoke/graph",
+          "action": "invoke",
+          "macroId": "macro://pmo/simulate_impact",
+          "input": {
+            "changeRef": "change://program-manager/test/restart-smoke",
+            "changeKind": "restart_smoke",
+            "targetRefs": [
+              "integration://agentic-os/shared-flow"
+            ]
+          }
+        },
+        "restart_smoke_visible_refs": [
+          "integration://agentic-os/shared-flow",
+          "project://hoplon",
+          "project://phalanx",
+          "project://semantix",
+          "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "verification": [
+          "npm run pmo:mcp-restart-smoke",
+          "npm run typecheck",
+          "npm test"
+        ]
+      },
+      "assignee": "codex-worker-2",
+      "blocker_reason": null,
+      "comment": "Completed by Worker 2. Durable local JSON state source added to MCP stdio wrapper; restart smoke verifies persisted pmo_macro registry edit and real shared-flow graph refs after process restart. Codex config remains pointed at node control-plane/packages/program-manager/bin/server.js."
+    },
+    {
+      "dependencies": [
+        "pmo-agent-001"
+      ],
+      "id": "pmo-agent-003",
+      "title": "Install PMO-first agent instructions",
+      "goal": "Add repo-level agent instructions that force cross-project agents to consult PMO before planning or changing shared-flow work, and to report receipts after execution.",
+      "status": "complete",
+      "placement": {
+        "swimlaneId": "agent-pmo-onboarding",
+        "priorityId": "p0"
+      },
+      "effort": "s",
+      "expected_changes": [
+        "Update AGENTS.md or the repo-local agent contract with the PMO-first workflow.",
+        "Include canonical pmo_macro request examples for catch-up, simulate impact, proposed unblock planning, and receipt reporting.",
+        "State that repo/tracker/code mutations happen through project-native tools, while PMO is used for context, planning, evidence, and reconciliation."
+      ],
+      "definition_of_done": [
+        "A new agent can read repository instructions and know exactly when and how to call program-manager.pmo_macro.",
+        "The instructions include portfolioId, programId, projectIds, integration refs, traceId, and correlationId conventions.",
+        "The instructions explicitly forbid proceeding from local repo context alone for shared-flow changes."
+      ],
+      "constraints": [
+        "Keep instructions short and operational; do not depend on this chat thread.",
+        "Do not tell agents to mutate downstream projects through PMO.",
+        "Avoid human-only steps except where explicit approval policy requires them."
+      ],
+      "context": {
+        "tags": [
+          "agents",
+          "instructions",
+          "pmo",
+          "cross-project"
+        ],
+        "notes": "Instructions state that downstream mutations use project-native tools and PMO is passive context/planning/evidence/reconciliation.",
+        "files_touched": [
+          "AGENTS.md"
+        ],
+        "verification": "Inspected AGENTS.md and ran shared-flow catch-up with macro://pmo/catch_me_up using canonical input; PMO returned status ok with no warnings.",
+        "pmo_refs": [
+          "portfolio://default",
+          "program://agentic-os",
+          "integration://agentic-os/shared-flow",
+          "project://hoplon",
+          "project://phalanx",
+          "project://semantix"
+        ]
+      },
+      "assignee": "codex-worker-3",
+      "blocker_reason": null,
+      "comment": "Completed by Worker 3. Added repo-level PMO-first instructions with canonical shared-flow refs, trace/correlation conventions, and pmo_macro examples for catch-up, simulation, unblock planning, and drift/receipt reconciliation."
+    },
+    {
+      "dependencies": [
+        "pmo-agent-002",
+        "pmo-agent-003"
+      ],
+      "id": "pmo-agent-004",
+      "title": "Create PMO receipt protocol for execution agents",
+      "goal": "Give execution agents a concrete, machine-checkable receipt format for reporting completed project work, evidence refs, blockers, and cross-project effects back to PMO.",
+      "status": "complete",
+      "placement": {
+        "swimlaneId": "agent-pmo-onboarding",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Define the receipt payload agents must submit after project-native execution.",
+        "Wire the payload through the currently exposed PMO macro surface or expose the existing receipt service safely through the MCP server if needed.",
+        "Add examples for successful receipt, blocker receipt, missing-evidence receipt, and stale-evidence receipt."
+      ],
+      "definition_of_done": [
+        "Agents have a single documented receipt shape with projectId, integrationRef, commit/ref, tests run, evidence refs, blockers, and affected refs.",
+        "PMO can distinguish expected, observed, missing, stale, blocked, and conflicting receipt states.",
+        "A smoke test proves a sample execution-agent receipt can be submitted and then queried or reconciled."
+      ],
+      "constraints": [
+        "Receipt recording may mutate only PMO-owned state.",
+        "Do not store raw logs or screenshots inline; use evidence/artifact refs with digests where available.",
+        "Do not fabricate green verification from missing evidence."
+      ],
+      "context": {
+        "tags": [
+          "receipts",
+          "evidence",
+          "agents",
+          "pmo"
+        ],
+        "notes": "Needed before agents can close the loop without a human manually summarizing what happened."
+      },
+      "assignee": "codex-worker-4",
+      "blocker_reason": null,
+      "comment": "Completed by Worker 4. Added execution-agent receipt protocol docs/schema/example, optional submit_agentic_os_receipt executionReceipt metadata, and focused smoke coverage. Smoke proves MCP submission, ledger observation, satisfied/missing reconciliation, stale-plan blocking, and conflicting reconciliation. Callable path: submit_agentic_os_receipt -> record_program_receipt; query with reconcile_program_state.",
+      "references": [
+        "docs/agent-pmo-onboarding/receipt-protocol.md:1",
+        "docs/agent-pmo-onboarding/execution-agent-receipt.schema.json:1",
+        "docs/agent-pmo-onboarding/examples/execution-agent-receipt.example.json:1",
+        "control-plane/packages/program-manager/tests/execution-agent-receipt-protocol-smoke.test.js:1",
+        "shared/schemas/program-manager.ts:1267",
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:2772"
+      ]
+    },
+    {
+      "dependencies": [
+        "pmo-agent-003"
+      ],
+      "id": "pmo-agent-005",
+      "title": "Add cross-project flow handoff packs for project agents",
+      "goal": "Create deterministic handoff material that can be given to each participating project agent so producer, consumer, and validator work can proceed independently while staying coordinated through PMO.",
+      "status": "complete",
+      "placement": {
+        "swimlaneId": "agent-pmo-onboarding",
+        "priorityId": "p1"
+      },
+      "effort": "s",
+      "expected_changes": [
+        "Create one handoff template each for producer, consumer, and validator agents.",
+        "Each handoff includes the PMO refs, required pmo_macro calls, native execution boundary, evidence expectations, and receipt obligations.",
+        "Add a short operator-free launch checklist for spawning agents against the three project roles."
+      ],
+      "definition_of_done": [
+        "The handoff pack can be pasted or loaded into an agent without additional human explanation.",
+        "Each role has clear ownership, non-overlapping responsibilities, and PMO receipt expectations.",
+        "The templates use the real refs from PMO state, not generic Project A/B/C placeholders."
+      ],
+      "constraints": [
+        "Do not encode secrets, raw logs, or hidden session context.",
+        "Do not require the human to decide routine sequencing once dependencies are known.",
+        "Keep role handoffs compatible with parallel agent execution."
+      ],
+      "context": {
+        "tags": [
+          "handoff",
+          "agents",
+          "parallel-work",
+          "pmo"
+        ],
+        "notes": "This turns PMO setup into an agent-launchable workflow."
+      },
+      "assignee": "codex-worker-5",
+      "blocker_reason": null,
+      "comment": "Completed by Worker 5. Added docs/agent-pmo-onboarding/agent-handoffs.md with paste-ready Hoplon producer, Phalanx consumer, Semantix consumer, and validator handoffs. Includes real PMO refs, required pmo_macro calls, project-native execution boundaries, pointer-only evidence and receipt guidance, non-overlap rules, and operator-free launch checklist. Verification: rg confirmed sections, refs, macro calls, receipt refs, and no Project A/B/C placeholders."
+    },
+    {
+      "dependencies": [
+        "pmo-agent-002",
+        "pmo-agent-004",
+        "pmo-agent-005"
+      ],
+      "id": "pmo-agent-006",
+      "title": "Prove the agent-owned PMO loop end to end",
+      "goal": "Run a local proof that an agent can discover the shared flow, simulate impact, execute a mock project receipt, and reconcile state without human-authored coordination notes.",
+      "status": "complete",
+      "placement": {
+        "swimlaneId": "agent-pmo-onboarding",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "expected_changes": [
+        "Add or run a smoke test covering pmo_macro catch-up, impact simulation, receipt submission, and reconciliation over the real three-project refs.",
+        "Capture evidence refs and test output pointers in tracker context.",
+        "Update PMO docs only where needed to make the proof reproducible."
+      ],
+      "definition_of_done": [
+        "The proof starts from a fresh agent context and does not rely on this conversation.",
+        "The test output shows PMO-visible project refs, integration refs, expected receipts, observed receipt, and reconciliation status.",
+        "Tracker task context records the verification command and evidence refs."
+      ],
+      "constraints": [
+        "Use pointer-only evidence references for logs/results.",
+        "Do not require live downstream mutations in the three real repos unless explicitly allowed by the task execution pack.",
+        "Keep the proof deterministic enough for future regression checks."
+      ],
+      "context": {
+        "tags": [
+          "e2e",
+          "verification",
+          "pmo",
+          "agent-loop"
+        ],
+        "notes": "Final acceptance for the no-human coordination loop.",
+        "verification_command": "cd control-plane/packages/program-manager && npm run pmo:agent-loop-proof",
+        "related_verification_command": "cd control-plane/packages/program-manager && node --test tests/agent-owned-pmo-loop-smoke.test.js tests/execution-agent-receipt-protocol-smoke.test.js",
+        "evidence_refs": [
+          "evidence://program-manager-mcp/pmo-agent-006/node-test",
+          "evidence://program-manager-mcp/pmo-agent-006/context-packet",
+          "artifact://program-manager-mcp/pmo-agent-006/proof-output"
+        ],
+        "proof_output_marker": "PMO_AGENT_OWNED_LOOP_PROOF",
+        "proof_summary": {
+          "pmo_visible_project_refs": [
+            "project://hoplon",
+            "project://phalanx",
+            "project://program-manager-mcp",
+            "project://semantix"
+          ],
+          "pmo_visible_integration_refs": [
+            "integration://agentic-os/shared-flow"
+          ],
+          "observed_receipt_status": "accepted",
+          "reconciliation_status": "satisfied",
+          "pmo_drift_macro_status": "degraded"
+        },
+        "verification_result": "Focused proof passed; paired receipt smoke passed 3 tests total.",
+        "post_proof_fix": "Updated MCP wrapper actor timestamps to use process-start authenticatedAt and 12-hour rolling expiresAt, removing stale authz-denied failures on fresh MCP processes.",
+        "post_proof_verification": "Ran npm run pmo:agent-loop-proof, npm run pmo:mcp-restart-smoke, and a direct fresh MCP wrapper detect_drift call; all passed/returned status ok.",
+        "evidenceRefs": [
+          "evidence://program-manager-mcp/pmo-agent-006/node-test",
+          "evidence://program-manager-mcp/pmo-agent-006/context-packet",
+          "artifact://program-manager-mcp/pmo-agent-006/proof-output",
+          "artifact://pmo/macro/detect-drift/report@sha256:6fd7d8df4ed26cc894f9e95142f194685a631c2eb02c812a47b8f7ad2365dc2c"
+        ]
+      },
+      "assignee": "codex-worker-6",
+      "blocker_reason": null,
+      "comment": "Completed by Worker 6, then orchestrator fixed stale MCP actor expiry and re-verified fresh-process detect_drift. Agent-owned PMO loop proof, restart smoke, and direct MCP drift check pass.",
+      "references": [
+        "control-plane/packages/program-manager/tests/agent-owned-pmo-loop-smoke.test.js:1",
+        "control-plane/packages/program-manager/package.json:23"
+      ]
+    },
+    {
+      "dependencies": [],
+      "id": "pmo-omni-000",
+      "title": "PMO omni-tool gap closure program",
+      "kind": "group",
+      "status": "not_started",
+      "goal": "Track the handoff-backed work to make PMO usable by independent agents through durable domain omni-tools for integrations, project memory, artifacts, decisions, blockers, responses, and learnings.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p0"
+      },
+      "effort": "s",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:157",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:368",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:920"
+      ],
+      "definition_of_done": [
+        "All child tasks have explicit acceptance criteria tied to agent-facing MCP behavior.",
+        "The three-agent integration flow can be executed without humans reading repo docs.",
+        "PMO remains a facilitator and durable memory layer, not an autonomous resolver."
+      ],
+      "constraints": [
+        "Use domain omni-tools with sub-actions instead of proliferating narrow MCP tools.",
+        "Every tool must return actionable guidance when required data is missing or invalid.",
+        "Keep LLM Tracker as the task tracker for each project; PMO stores cross-project coordination memory."
+      ],
+      "context": {
+        "tags": [
+          "pmo",
+          "omni-tools",
+          "handoff-gap",
+          "agent-coordination"
+        ],
+        "source": "User requested tracker setup for all gaps from the PMO handoff doc and the discussed three-project agent flow."
+      }
+    },
+    {
+      "dependencies": [],
+      "id": "pmo-omni-001",
+      "title": "Define PMO omni-tool contract and shared action taxonomy",
+      "kind": "task",
+      "status": "complete",
+      "parent_id": "pmo-omni-000",
+      "goal": "Define the shared contract every PMO omni-tool uses for help, validation, discovery, lifecycle mutation, evidence linking, and agent recovery guidance.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:920",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:1164",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:1181"
+      ],
+      "expected_changes": [
+        "Add a shared action taxonomy and result envelope for PMO omni-tools.",
+        "Set the canonical public integration omni-tool name to manage_integrations; do not introduce manage_integration_items as a separate public tool. Evolve the existing tool in place or keep any alternate name as a temporary compatibility alias only.",
+        "Document required guidance behavior for missing action, portfolioId, programId, projectId, integrationId, artifact refs, malformed inputs, and unauthorized actions.",
+        "Define a shared authority model for who may create, update, acknowledge, unblock, resolve, reopen, supersede, retire, or delete each item type.",
+        "Set default authority policy: reporter/blocked project controls unblock and resolve for its own blocker; owner project can submit resolution evidence; affected projects can acknowledge or dispute; unrelated projects cannot mutate; PMO cannot infer closure.",
+        "Define item state machines for gaps, blockers, decisions, responses, artifacts, and learnings, including allowed transitions and rejected transitions with repair guidance.",
+        "Define project inbox semantics: each omni-tool that can create obligations must expose what a project owes now as a first-class action.",
+        "Define conflict handling: PMO records contradictory project responses and surfaces conflicts without selecting a winner.",
+        "Define optimistic concurrency and idempotency requirements for retried agent writes and stale updates.",
+        "Define how PMO records link to LLM Tracker task refs without PMO becoming the task owner.",
+        "Normalize evidenceRefs/artifactRefs sorting and URI validation before writes where deterministic ordering matters.",
+        "Update pmo_help so it explains the omni-tool model and points agents to the correct domain tool, not pmo_macro, unless macro automation is actually requested.",
+        "Define migration/deprecation policy for existing narrow or legacy integration behavior so agents see one clear canonical manage_integrations path."
+      ],
+      "definition_of_done": [
+        "Each omni-tool can answer action=help without an existing program/project/integration.",
+        "Missing action returns valid actions with examples and next steps.",
+        "Missing or invalid identifiers return relevant candidate lists when possible.",
+        "Unauthorized actions return the required authority, eligible actors, and safe next actions.",
+        "Invalid state transitions return the current state, allowed next states, and repair guidance.",
+        "Every write-capable omni-tool documents idempotency key behavior and stale-update behavior.",
+        "The public MCP tool list names manage_integrations as the canonical integration omni-tool.",
+        "Default authority policy is testable for reporter/blocked project, owner project, affected project, unrelated project, and PMO itself.",
+        "Tests cover missing action, missing id, invalid id, unauthorized action, invalid state transition, unsorted refs, unknown action, and stale/idempotent retry for at least two tools."
+      ],
+      "constraints": [
+        "Do not use pmo_macro for integral PMO lifecycle operations.",
+        "Keep pmo_macro as the single macro automation tool layered on top of domain tools.",
+        "Do not create separate help/list/create/update/delete tools for the same domain.",
+        "Do not expose two canonical integration lifecycle tools long-term; manage_integrations is canonical."
+      ],
+      "assignee": "codex",
+      "blocker_reason": null,
+      "comment": "Implemented shared PMO omni-tool contract guidance, authority/write-policy surfaces, invalid integration transition repair guidance, and focused DoD tests. Verification: npm test in control-plane/packages/program-manager passed with 91 pass / 1 skip."
+    },
+    {
+      "dependencies": [
+        "pmo-omni-001"
+      ],
+      "id": "pmo-omni-002",
+      "title": "Evolve manage_integrations into the integration omni-tool",
+      "kind": "task",
+      "status": "complete",
+      "parent_id": "pmo-omni-000",
+      "goal": "Create or extend the canonical manage_integrations omni-tool so independent project agents can coordinate one shared integration from setup through responses, blockers, decisions, artifacts, and learnings.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p0"
+      },
+      "effort": "l",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:173",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:269",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:920"
+      ],
+      "expected_changes": [
+        "Expose a single canonical MCP tool, manage_integrations, with actions: help, list, get, create, update, rename, retire, delete, add_project, remove_project, add_artifact, record_goal, acknowledge_goal, submit_gap_report, update_gap, record_blocker, update_blocker, assign_blocker_owner, mark_blocker_unblocked, mark_blocker_resolved, reopen_blocker, identify_blockers, request_decision, record_decision, submit_project_response, record_conflict, record_learning, link_tracker_ref, inbox, catch_up, supersede.",
+        "Persist integration goals, participant projects, project roles, gap reports, blockers, decisions, project responses, conflicts, artifacts, learning records, status histories, authority metadata, idempotency keys, and linked LT task refs.",
+        "Return participant-specific pending items through both catch_up and inbox actions so each project agent knows what it owes the integration.",
+        "Enforce blocker authority boundaries: reporter/blocked project controls whether its blocker is unblocked or resolved; owner project can submit resolution evidence; affected projects can acknowledge or dispute; unrelated projects cannot mutate; PMO cannot infer closure.",
+        "Enforce state transitions for goals, gaps, blockers, decisions, and responses with actionable repair guidance.",
+        "Support conflicting project responses as first-class records surfaced to affected agents.",
+        "Update pmo_help output and stdio tools/list schema to identify manage_integrations as the canonical integration omni-tool."
+      ],
+      "definition_of_done": [
+        "Agent 1 can create an integration and share goals/tasks entirely through manage_integrations MCP calls.",
+        "Agents from two other projects can read the integration, submit gaps/issues/blockers/responses, link LT task refs, and add artifacts without repo docs.",
+        "Agent 1 can read consolidated gaps, blockers, decisions, conflicts, responses, unresolved items, and per-project inboxes from manage_integrations.",
+        "A blocker can be reported, answered with evidence by the owner project, marked unblocked or resolved by the blocked/reporter project, and reopened with a recorded reason.",
+        "Invalid unblock/resolve attempts by the wrong project are rejected with eligible actors and next actions.",
+        "Delete is non-destructive unless an explicit hard-delete policy is later approved.",
+        "Unit and MCP stdio tests cover every action plus missing/invalid id guidance, unauthorized updates, invalid state transitions, idempotent retry, stale update, and conflict surfacing."
+      ],
+      "constraints": [
+        "PMO records and routes coordination state; it must not resolve blockers or make project decisions itself.",
+        "The tool must be usable before a program or project already exists by returning setup guidance and candidates.",
+        "All cross-project artifacts are stored as refs/pointers, not copied opaque payloads.",
+        "LLM Tracker remains the project-local task source; PMO only links tracker refs from coordination records.",
+        "Do not create a separate public manage_integration_items tool."
+      ],
+      "assignee": "codex",
+      "comment": "Implemented manage_integrations expansion and focused tests; PMO reconciliation will run after remaining omni tasks land.",
+      "context": {
+        "implementation_summary": "Expanded manage_integrations into the integration coordination omni-tool with create/get/help aliases, pointer-only coordination records, project inbox/catch_up panes, idempotent retry handling, stale state hash blocking, non-destructive retirement, and blocker transition authority checks.",
+        "verification": "node --test tests/program-tools.test.js; npm run typecheck; node --test tests/program-manager-schemas.test.js; node --test tests/program-manager-graph-repository.test.js; node --test tests/in-memory-program-manager-repository.test.js tests/program-events.test.js",
+        "pmo_reconciliation": "detect_drift ok, artifact://pmo/macro/detect-drift/report@sha256:a45c82d658ddc41a0bb8a26008c6d894c7fc9fc29f0c456767d525e964db60af"
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-omni-001"
+      ],
+      "id": "pmo-omni-003",
+      "title": "Build manage_program_items omni-tool for program and project memory",
+      "kind": "task",
+      "status": "complete",
+      "parent_id": "pmo-omni-000",
+      "goal": "Provide a domain omni-tool for creating, updating, discovering, and maintaining programs, projects, membership, goals, and project metadata needed by agent coordination.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "effort": "l",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:167",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:181",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:333"
+      ],
+      "expected_changes": [
+        "Expose actions: help, list_programs, get_program, create_program, update_program, rename_program, retire_program, list_projects, get_project, create_project, update_project, rename_project, retire_project, add_project_to_program, remove_project_from_program, set_project_role, link_tracker, link_repo, link_adapter, record_goal.",
+        "Persist project descriptions, roles, owners/authority refs, repo refs, tracker refs, branch policy, adapter refs, and active integration memberships.",
+        "Make missing portfolio/program/project inputs return relevant candidates and setup guidance."
+      ],
+      "definition_of_done": [
+        "An agent with no prior IDs can use help/list actions to discover or create the right program/project records.",
+        "Program/project records can reference LLM Tracker project slugs without PMO taking over task tracking.",
+        "Integration tools can depend on this data without duplicating project metadata.",
+        "Tests cover discovery, create/update/rename/retire, membership edits, and missing-id guidance."
+      ],
+      "constraints": [
+        "Do not merge this with macro automation; this is an integral PMO lifecycle tool.",
+        "Do not require repo docs to bootstrap a new project registration."
+      ],
+      "assignee": "codex",
+      "blocker_reason": null,
+      "comment": "Implemented manage_projects omni-tool actions and pointer-only program/project metadata with legacy upsert alias, deterministic guidance, and focused tests. Verification: program-tools passed; typecheck passed; schemas+program-tools passed. Full npm test attempted but exited without output after hanging, so inconclusive.",
+      "context": {
+        "pmo_reconciliation": "detect_drift ok, artifact://pmo/macro/detect-drift/report@sha256:a45c82d658ddc41a0bb8a26008c6d894c7fc9fc29f0c456767d525e964db60af"
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-omni-001"
+      ],
+      "id": "pmo-omni-004",
+      "title": "Build manage_evidence_items omni-tool and artifact registry",
+      "kind": "task",
+      "status": "complete",
+      "parent_id": "pmo-omni-000",
+      "goal": "Implement durable artifact and evidence registration so decisions, blockers, responses, and learnings can cite stable refs across agent memory loss.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:410",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:728",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:861"
+      ],
+      "expected_changes": [
+        "Expose actions: help, list, get, register, update, rename, retire, add_artifact, link_evidence, classify, set_retention, attach_to_integration, attach_to_decision, attach_to_learning.",
+        "Persist artifact identity, source tool, content hash when available, retention policy, classification, redaction summary, and evidence pointers.",
+        "Require pointer-only storage for large or sensitive artifacts."
+      ],
+      "definition_of_done": [
+        "Agents can register and reuse evidence refs without copying full logs or private content into PMO records.",
+        "Invalid or missing refs return repair guidance and examples.",
+        "Decision/blocker/learning records can link artifacts through this registry.",
+        "Tests cover registration, linking, retention/classification metadata, and invalid pointer guidance."
+      ],
+      "constraints": [
+        "Respect pointer-only evidence and redaction summaries.",
+        "Do not make artifact registration dependent on a single external adapter."
+      ],
+      "assignee": "codex",
+      "comment": "Implemented manage_evidence_items pointer-only evidence/artifact registry surface with registration, metadata, attachment guidance, strict inline-payload rejection, and focused tests.",
+      "context": {
+        "implementation_summary": "Added public manage_evidence_items tool, schemas, gateway dispatch/validation guidance, repository upsert APIs, in-memory/graph/Neo4j persistence for artifact/evidence metadata, service behavior for register/list/get/update/classify/retention/attachments, and program-tools coverage.",
+        "verification": "node --test tests/program-tools.test.js (38 pass); npm run typecheck; node --test tests/program-manager-schemas.test.js tests/program-manager-graph-repository.test.js tests/in-memory-program-manager-repository.test.js tests/program-events.test.js",
+        "pmo_reconciliation": "detect_drift ok, artifact://pmo/macro/detect-drift/report@sha256:c48b1c0c17f12a201ac5ecf3b30fa024422f8f54f1f86b9dbbaeb32f7726aba5"
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-omni-001",
+        "pmo-omni-004"
+      ],
+      "id": "pmo-omni-005",
+      "title": "Build manage_decision_items omni-tool for decision gates and approvals",
+      "kind": "task",
+      "status": "not_started",
+      "parent_id": "pmo-omni-000",
+      "goal": "Provide durable decision-request and decision-record memory so agents can surface approvals, blockers, discarded options, supersession, and authority requirements without PMO deciding for them.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "effort": "l",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:254",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:650",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:1197"
+      ],
+      "expected_changes": [
+        "Expose actions: help, list, get, request_decision, record_decision, record_discarded_option, update_status, assign_authority, add_artifact, supersede, retire.",
+        "Persist DecisionRequest, DecisionRecord, DiscardedDecision, authority refs, affected projects, affected integrations, evidence refs, and current status.",
+        "Return pending decisions and missing authority/evidence guidance to agents."
+      ],
+      "definition_of_done": [
+        "Agents can request a decision and link it to integrations/projects/blockers.",
+        "Authorized agents or host-approved actors can record decisions with evidence and supersession metadata.",
+        "Help explains that PMO records and routes decision state but does not fabricate decisions.",
+        "Tests cover request, record, supersede, missing authority, missing evidence, and candidate listing."
+      ],
+      "constraints": [
+        "PMO must not auto-approve decisions.",
+        "Decision state must be durable enough for new agents to recover context after memory loss."
+      ]
+    },
+    {
+      "dependencies": [
+        "pmo-omni-001",
+        "pmo-omni-004",
+        "pmo-omni-005"
+      ],
+      "id": "pmo-omni-006",
+      "title": "Build manage_learning_items omni-tool for attempts, findings, risks, and reusable learnings",
+      "kind": "task",
+      "status": "not_started",
+      "parent_id": "pmo-omni-000",
+      "goal": "Add durable learning memory so agents can record failed attempts, mitigations, risks, findings, and confidence without relying on chat history.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:714",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:764",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:784"
+      ],
+      "expected_changes": [
+        "Expose actions: help, list, get, record_attempt, record_learning, record_failure_pattern, record_risk_signal, record_finding, update_confidence, add_artifact, link_decision, retire.",
+        "Persist AttemptRecord, LearningRecord, FailurePattern, RiskSignal, Finding, mitigation refs, applicability scope, and confidence metadata.",
+        "Make context queries surface relevant learnings for projects and integrations."
+      ],
+      "definition_of_done": [
+        "Agents can record what failed, why, what mitigated it, and where it applies.",
+        "Future agents can retrieve learnings by project, integration, branch context, artifact, or decision link.",
+        "Tests cover create/update/query and applicability filtering at a basic level."
+      ],
+      "constraints": [
+        "Learning records are advisory memory, not proof of correctness.",
+        "Evidence must be referenced through the artifact registry when available."
+      ]
+    },
+    {
+      "dependencies": [
+        "pmo-omni-002",
+        "pmo-omni-005",
+        "pmo-omni-006"
+      ],
+      "id": "pmo-omni-007",
+      "title": "Implement context relay panes over omni-tool records",
+      "kind": "task",
+      "status": "not_started",
+      "parent_id": "pmo-omni-000",
+      "goal": "Make PMO catch-up/query outputs provide the exact coordination panes agents need: goals, gaps, blockers, responses, decisions, artifacts, failed attempts, reusable mitigations, and stale evidence.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p0"
+      },
+      "effort": "l",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:368",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:384",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:390"
+      ],
+      "expected_changes": [
+        "Add a context relay action or omni-tool action that returns MemoryRelayContract panes for one project, program, or integration.",
+        "Include pending actions per project agent and unresolved cross-project items.",
+        "Include latest decisions, discarded options, stale evidence warnings, recent attempts, reusable mitigations, and project responses.",
+        "Ensure pmo_help teaches agents to use this as their first recovery step."
+      ],
+      "definition_of_done": [
+        "A new agent can recover the state of a shared integration without reading chat history or repo docs.",
+        "Relay panes are derived from durable PMO records, not fabricated summaries.",
+        "Tests cover a three-project integration with at least one gap, one blocker, one decision request, one project response, and one learning."
+      ],
+      "constraints": [
+        "Keep output bounded and pointer-rich to avoid dumping full artifacts.",
+        "Do not mutate downstream project trackers while producing relay context."
+      ]
+    },
+    {
+      "dependencies": [
+        "pmo-omni-002",
+        "pmo-omni-007"
+      ],
+      "id": "pmo-omni-008",
+      "title": "Implement blocker and drift identification over integration records",
+      "kind": "task",
+      "status": "not_started",
+      "parent_id": "pmo-omni-000",
+      "goal": "Add advisory analysis that flags unresolved coordination gaps, missing project responses, stale blockers, pending decisions, and evidence drift without resolving them for agents.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:562",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:614",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:625"
+      ],
+      "expected_changes": [
+        "Implement identify_blockers or detect_drift actions on integration/context tools.",
+        "Flag gaps without project responses, blockers without owner or next step, decision requests without decision, artifacts/evidence past retention or stale by policy, and participant projects that have not acknowledged current goals.",
+        "Return target project/agent callouts for each item."
+      ],
+      "definition_of_done": [
+        "PMO can tell each project agent what information or response is missing.",
+        "Analysis is deterministic/advisory and stores no fabricated resolution.",
+        "Tests cover fresh, stale, blocked, and fully responded integration states."
+      ],
+      "constraints": [
+        "Do not auto-close or resolve items.",
+        "Do not depend on a scheduler for basic on-demand analysis."
+      ]
+    },
+    {
+      "dependencies": [
+        "pmo-omni-001"
+      ],
+      "id": "pmo-omni-009",
+      "title": "Implement typed PMO event model for omni-tool writes",
+      "kind": "task",
+      "status": "complete",
+      "parent_id": "pmo-omni-000",
+      "goal": "Record all PMO omni-tool writes as typed events with enough actor, causation, idempotency, and propagation metadata to support reliable agent coordination.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "effort": "l",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:535",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:1181",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:1197"
+      ],
+      "expected_changes": [
+        "Define event envelope fields: eventId, eventType, actorId, actorRole, authorityRef, causationId, correlationId, traceId, idempotencyKey, origin, propagationPath, createdAt.",
+        "Add event types for integration/project/artifact/decision/learning/blocker/response lifecycle changes.",
+        "Store events alongside current PMO state and make read tools cite event refs where useful.",
+        "Add idempotency behavior for retried agent writes."
+      ],
+      "definition_of_done": [
+        "Repeated writes with the same idempotency key do not create duplicate records.",
+        "Event history can explain who recorded a blocker, response, decision, or learning and why.",
+        "Tests cover event creation, idempotency, causation/correlation propagation, and retrieval."
+      ],
+      "constraints": [
+        "Events are PMO memory; they must not trigger unbounded downstream propagation loops.",
+        "Preserve existing JSON-dev persistence while adding the event abstraction."
+      ],
+      "assignee": "codex+subagent-dalton",
+      "comment": "Implemented typed PMO omni-tool event model and repository retrieval support; focused event/repository/schema tests passed.",
+      "context": {
+        "implementation_summary": "Added typed PMO omni-tool write event shape, builder/guard, idempotent event storage, idempotency and causation lookup APIs, graph/Neo4j event field preservation, and shared schemas.",
+        "verification": "node --test tests/program-events.test.js; npm run typecheck; node --test tests/in-memory-program-manager-repository.test.js tests/program-events.test.js; node --test tests/program-manager-schemas.test.js; node --test tests/program-events.test.js tests/in-memory-program-manager-repository.test.js tests/program-manager-schemas.test.js tests/receipt-ledger.test.js tests/program-manager-graph-repository.test.js",
+        "pmo_reconciliation": "detect_drift ok, artifact://pmo/macro/detect-drift/report@sha256:a45c82d658ddc41a0bb8a26008c6d894c7fc9fc29f0c456767d525e964db60af"
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-omni-001",
+        "pmo-omni-009"
+      ],
+      "id": "pmo-omni-010",
+      "title": "Implement branch and time-travel memory context",
+      "kind": "task",
+      "status": "complete",
+      "parent_id": "pmo-omni-000",
+      "goal": "Add BranchContext and historical query support so PMO records can be filtered by branch, tracker revision, commit, and time when agents coordinate across changing project states.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:421",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:441",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:480"
+      ],
+      "expected_changes": [
+        "Add BranchContext metadata to relevant project, integration, decision, artifact, and learning records.",
+        "Support query-as-of time or revision where backed by stored events.",
+        "Filter relay panes and learnings by branch applicability when context is supplied."
+      ],
+      "definition_of_done": [
+        "Agents can ask for current context or context as of a known branch/revision/time.",
+        "Records with incompatible branch context are omitted or flagged as potentially stale.",
+        "Tests cover simple branch-specific decision/learning visibility."
+      ],
+      "constraints": [
+        "Do not block earlier omni-tool usability on full time-travel support.",
+        "Use stored refs and metadata; do not require live Git access for every query."
+      ],
+      "assignee": "codex",
+      "comment": "Completed branch/time-travel memory context closeout.",
+      "blocker_reason": null,
+      "context": {
+        "closeout": "Verified implementation and PMO drift closeout before marking complete.",
+        "implementation_files": [
+          "control-plane/packages/program-manager/src/repository/in-memory-program-manager-repository.ts",
+          "control-plane/packages/program-manager/src/repository/program-manager-graph-store.ts",
+          "control-plane/packages/program-manager/src/repository/program-manager-graph-repository.ts",
+          "control-plane/packages/program-manager/src/repository/program-manager-neo4j-store.ts",
+          "control-plane/packages/program-manager/src/service/program-tool-service.ts"
+        ],
+        "test_files": [
+          "control-plane/packages/program-manager/tests/program-manager-graph-repository.test.js",
+          "control-plane/packages/program-manager/tests/program-tools.test.js"
+        ],
+        "verification": "Passed: node --test tests/program-manager-graph-repository.test.js; node --test tests/program-tools.test.js; node --test tests/program-manager-schemas.test.js tests/in-memory-program-manager-repository.test.js tests/program-events.test.js; npm run typecheck; package node --test suite excluding known-hanging tests/mcp-server-restart-smoke.test.js.",
+        "pmo_drift_artifact": "artifact://pmo/macro/detect-drift/report@sha256:004a7442c20233bd5d49ff6cc3013b192fcff178739433e3d4660cd81e76112a",
+        "pmo_drift_status": "ok_no_warnings",
+        "known_residual": "npm test hangs in tests/mcp-server-restart-smoke.test.js; process tree was terminated and the rest of the package suite passed without it."
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-omni-001",
+        "pmo-omni-004",
+        "pmo-omni-009"
+      ],
+      "id": "pmo-omni-011",
+      "title": "Build manage_adapter_items omni-tool and live adapter sync",
+      "kind": "task",
+      "status": "not_started",
+      "parent_id": "pmo-omni-000",
+      "goal": "Complete the adapter registry and sync workflow so PMO can ingest project tracker, evidence, and status signals from external systems without taking over their authority.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "effort": "l",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:861",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:882",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:901"
+      ],
+      "expected_changes": [
+        "Expose actions: help, list, get, register, update, rename, retire, health, sync, reconcile, link_project, link_artifact.",
+        "Implement or complete adapter contracts for LLM Tracker, Hoplon, Semantix, Guardrail, and GitHub where available.",
+        "Store imported status/evidence as PMO refs/events with source provenance.",
+        "Return degraded/unavailable adapter guidance instead of opaque failure."
+      ],
+      "definition_of_done": [
+        "PMO can discover linked project trackers and import summary status without modifying tracker tasks.",
+        "Adapter sync results are provenance-rich and replay-safe.",
+        "Tests cover successful sync, degraded adapter, missing registration, and reconcile guidance."
+      ],
+      "constraints": [
+        "LLM Tracker remains the source of task truth for individual projects.",
+        "Adapters must be pluggable and failure-isolated."
+      ]
+    },
+    {
+      "dependencies": [
+        "pmo-omni-009"
+      ],
+      "id": "pmo-omni-012",
+      "title": "Add Neo4j-capable operational PMO store",
+      "kind": "task",
+      "status": "not_started",
+      "parent_id": "pmo-omni-000",
+      "goal": "Move PMO toward the handoff-specified graph-backed operational store while keeping local JSON suitable for dev and smoke tests.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "effort": "l",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:197",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:525",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:933"
+      ],
+      "expected_changes": [
+        "Define repository interfaces for graph-backed programs, projects, integrations, artifacts, decisions, learning records, and events.",
+        "Implement a Neo4j-capable adapter or explicit driver boundary with migration/seed strategy.",
+        "Keep JSON persistence as local/dev mode with the same repository contract.",
+        "Document configuration and degraded behavior when Neo4j is unavailable."
+      ],
+      "definition_of_done": [
+        "Core PMO read/write flows can run against either JSON dev store or graph-backed store through the same repository interface.",
+        "Integration and relay queries have graph-friendly indexes/relationships defined.",
+        "Tests cover repository contract parity for the primary omni-tool flows."
+      ],
+      "constraints": [
+        "Do not make Neo4j mandatory for stdio smoke tests.",
+        "Avoid schema drift between JSON and graph store contracts."
+      ]
+    },
+    {
+      "dependencies": [
+        "pmo-omni-002",
+        "pmo-omni-007",
+        "pmo-omni-008"
+      ],
+      "id": "pmo-omni-013",
+      "title": "Add autonomous three-agent integration-loop acceptance proof",
+      "kind": "task",
+      "status": "not_started",
+      "parent_id": "pmo-omni-000",
+      "goal": "Prove the exact user-requested flow works end to end with independent agents using MCP tools only.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p0"
+      },
+      "effort": "m",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:157",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:368",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:920"
+      ],
+      "expected_changes": [
+        "Create an integration-test fixture or scripted MCP stdio scenario with three independent agent personas.",
+        "Use fixed fixture identifiers: portfolio://pmo-omni-fixture, program:pmo-omni-shared-flow, project:pmo-producer, project:pmo-consumer-a, project:pmo-consumer-b, integration://pmo-omni/shared-flow, agent:pmo-producer, agent:pmo-consumer-a, agent:pmo-consumer-b, and lt://program-manager-mcp/pmo-omni-fixture-task refs.",
+        "Agent 1 reads help, registers an integration through manage_integrations, publishes goals/tasks, and adds participant projects.",
+        "Agents 2 and 3 read the integration through manage_integrations and submit gaps, issues, blockers, project responses, artifacts, linked LT task refs, and plan notes.",
+        "Agent 1 reads the consolidated state, sees actionable gaps/blockers/conflicts, and records follow-up actions or decision requests.",
+        "The scenario exercises default authority policy: reporter/blocked project controls unblock/resolve, owner project submits resolution evidence, affected project can acknowledge/dispute, unrelated project is rejected, and PMO does not infer closure.",
+        "The scenario exercises blocker lifecycle: report, owner response with evidence, blocked-project unblock/resolve, and reopen.",
+        "The scenario exercises wrong-agent protection by attempting an unauthorized unblock/resolve and asserting useful guidance.",
+        "The scenario exercises project inbox/catch_up outputs for each participant.",
+        "PMO continues syncing through durable records and relay panes without requiring humans to drive context."
+      ],
+      "definition_of_done": [
+        "The proof runs as an automated test or deterministic smoke script.",
+        "The scenario asserts PMO did not mutate project trackers or fabricate decisions.",
+        "The scenario verifies that new agent context can be recovered after clearing in-memory conversation state.",
+        "The scenario uses the fixed fixture IDs and does not require human-provided setup values.",
+        "The scenario verifies conflicts are surfaced and not auto-resolved.",
+        "The scenario verifies idempotent retries do not duplicate blockers, responses, decisions, artifacts, or learnings.",
+        "The scenario verifies stale updates and wrong-agent updates are rejected with clear next actions."
+      ],
+      "constraints": [
+        "Use MCP tool calls, not private in-process helpers, for the acceptance path.",
+        "Keep the fixture small but representative.",
+        "The proof must start from pmo_help so agent bootstrap quality is tested.",
+        "The proof must use manage_integrations as the canonical integration tool."
+      ]
+    },
+    {
+      "dependencies": [
+        "pmo-omni-002",
+        "pmo-omni-003",
+        "pmo-omni-004",
+        "pmo-omni-005",
+        "pmo-omni-006",
+        "pmo-omni-007",
+        "pmo-omni-008"
+      ],
+      "id": "pmo-omni-014",
+      "title": "Update help and docs for agent-only PMO bootstrap",
+      "kind": "task",
+      "status": "not_started",
+      "parent_id": "pmo-omni-000",
+      "goal": "Make agent-facing help self-contained so agents can start from the help tool, discover domain omni-tools, recover from missing data, and coordinate without external docs.",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "effort": "m",
+      "references": [
+        "program-manager-mcp-agent-handoff-2026-05-03.md:920",
+        "program-manager-mcp-agent-handoff-2026-05-03.md:1164"
+      ],
+      "expected_changes": [
+        "Update pmo_help to explain when to use manage_program_items, manage_integrations, manage_evidence_items, manage_decision_items, manage_learning_items, manage_adapter_items, and pmo_macro.",
+        "Add examples for the first agent, participant project agents, and returning agents after memory loss.",
+        "Ensure help never recommends pmo_macro as the next step for missing program/project/integration setup.",
+        "Ensure help identifies manage_integrations as the canonical integration omni-tool and does not route agents to manage_integration_items.",
+        "Update README and agent onboarding docs after tool behavior is implemented."
+      ],
+      "definition_of_done": [
+        "An agent can read pmo_help and perform the three-agent integration loop without repo docs.",
+        "Missing identifiers and blocked validation responses include concrete next tool/action suggestions.",
+        "Docs and help agree with tools/list schemas and tests."
+      ],
+      "constraints": [
+        "Docs are secondary; MCP help must carry the operational instructions.",
+        "Keep pmo_macro documented only as macro automation on top of PMO data and tools."
+      ]
+    },
+    {
+      "dependencies": [],
+      "id": "pmo-cypher-rules-000",
+      "title": "Cypher rule detector architecture",
+      "kind": "group",
+      "goal": "Track the implementation of versioned, editable Cypher detector definitions that run against Neo4j, write controlled Findings, and feed reports and health dashboards. PMO skill concepts belong in the rule catalog as groups, rule metadata, report definitions, parameters, and editable seeds, not as new canonical PMO source-data entities unless a later task explicitly adds the source-data contract.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p0"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:1"
+      ],
+      "effort": "xl",
+      "context": {
+        "tags": [
+          "cypher",
+          "neo4j",
+          "rules",
+          "findings"
+        ],
+        "source_file": "Rules are Cypher-based detector definitions.txt",
+        "notes": "Catalog-first clarification added after data check: use editable Rule/RuleVersion/RuleGroup/ReportDefinition records for PMO skill rule packs; do not introduce Schedule/Cost/etc. or resource/risk planning concepts as first-class PMO graph facts just to make detectors possible."
+      }
+    },
+    {
+      "dependencies": [],
+      "id": "pmo-cypher-rules-001",
+      "title": "Define rule graph schema and indexes",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Add the graph model, relationships, uniqueness constraints, and lookup indexes for Rule, RuleVersion, RuleGroup, RuleRun, Finding, ReportDefinition, and HealthSnapshot.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p0"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:14"
+      ],
+      "effort": "m",
+      "definition_of_done": [
+        "Graph objects and relationships are represented in the project schema or migration layer for the rule engine core only: Rule, RuleVersion, RuleGroup, RuleRun, Finding, ReportDefinition, and HealthSnapshot.",
+        "Uniqueness constraints exist for rule keys, rule version IDs, rule group keys, finding fingerprints, and project IDs.",
+        "Indexes cover finding status, finding rule/status, project health, and rule enabled state.",
+        "PMO framework labels such as Schedule, Cost, Scope, Quality, Risk, Stakeholder, Resource Allocation, and Portfolio Planning are modeled as editable catalog metadata or RuleGroups, not as new canonical source-data node types."
+      ],
+      "expected_changes": [
+        "Neo4j schema/migrations",
+        "Schema fixtures or setup docs"
+      ],
+      "context": {
+        "tags": [
+          "schema",
+          "neo4j",
+          "constraints"
+        ]
+      },
+      "constraints": [
+        "Do not add HealthDimension, Resource, Risk, or portfolio-planning domain nodes only to support a detector seed; add source-data contracts separately when actual upstream data exists."
+      ]
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-001"
+      ],
+      "id": "pmo-cypher-rules-002",
+      "title": "Implement Rule and RuleVersion lifecycle",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Implement create, validate, activate, update-as-new-version, disable, retire, and draft-only hard delete semantics without overwriting active rule logic.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p0"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:43"
+      ],
+      "effort": "m",
+      "definition_of_done": [
+        "Rule is the stable business concept and RuleVersion is the immutable logic record.",
+        "Updating a rule creates a new RuleVersion and supersedes the previous active version.",
+        "Historical Findings remain linked to the RuleVersion that generated them."
+      ],
+      "expected_changes": [
+        "Rule catalog service",
+        "Rule lifecycle persistence"
+      ],
+      "context": {
+        "tags": [
+          "rule-catalog",
+          "versioning",
+          "lifecycle"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-010"
+      ],
+      "id": "pmo-cypher-rules-003",
+      "title": "Validate read-only detector Cypher",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Build validation that accepts detector queries only when they are read-only, parameterized, return the standard Finding row shape, and pass parse/performance/fixture checks.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p0"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:72"
+      ],
+      "effort": "l",
+      "definition_of_done": [
+        "Validation rejects write clauses and unsafe procedure calls in detector rules.",
+        "Validation proves required columns are returned: ruleKey, projectId, entityId, entityType, severity, weight, title, reason, recommendation, and fingerprint.",
+        "Validation can use Neo4j EXPLAIN and fixture data before activation."
+      ],
+      "constraints": [
+        "Do not execute unvalidated detector Cypher with write privileges.",
+        "Use parameters rather than string-building."
+      ],
+      "expected_changes": [
+        "Rule validation service",
+        "Cypher safety checks",
+        "Detector fixture tests"
+      ],
+      "context": {
+        "tags": [
+          "cypher",
+          "validation",
+          "security"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-003"
+      ],
+      "id": "pmo-cypher-rules-004",
+      "title": "Build controlled rule runner and Finding writer",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Execute active detector RuleVersions, upsert current Findings by fingerprint, resolve disappeared Findings, record RuleRuns, and hand off downstream recalculation.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p0"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:119"
+      ],
+      "effort": "l",
+      "definition_of_done": [
+        "Detector rows are written through one controlled Finding write path.",
+        "Repeated runs do not duplicate Findings because fingerprint is stable.",
+        "Open Findings that no longer appear are marked RESOLVED with a clear reason.",
+        "RuleRun records link executions to the RuleVersion used."
+      ],
+      "expected_changes": [
+        "Rule runner service",
+        "Finding persistence path",
+        "Run history model"
+      ],
+      "context": {
+        "tags": [
+          "runner",
+          "findings",
+          "fingerprints"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-002",
+        "pmo-cypher-rules-004"
+      ],
+      "id": "pmo-cypher-rules-005",
+      "title": "Add rule-group report queries",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Implement RuleGroup and ReportDefinition query paths so reports pull open Findings through included rule groups instead of raw detector definitions.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p1"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:173"
+      ],
+      "effort": "m",
+      "definition_of_done": [
+        "Rules can belong to one or more editable business groups in the rule catalog.",
+        "Seedable group keys include PROJECT_HEALTH, PORTFOLIO_PLANNING, RISK_MANAGEMENT, RESOURCE_ALLOCATION, DEPENDENCY_MAPPING, and EXECUTIVE_REPORTING as catalog records.",
+        "Reports include groups and return Findings with section, project, severity, title, reason, recommendation, weight, firstSeenAt, and lastSeenAt.",
+        "Example report definitions exist for executive, compliance, and delivery risk views and are editable catalog definitions, not hard-coded report classes."
+      ],
+      "expected_changes": [
+        "Report definition model",
+        "Report query service",
+        "Rule group fixtures",
+        "Catalog seed metadata for PMO skill-aligned groups"
+      ],
+      "context": {
+        "tags": [
+          "reports",
+          "rule-groups"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-004"
+      ],
+      "id": "pmo-cypher-rules-006",
+      "title": "Compute health snapshots from open Findings",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Calculate explainable project health scores from open Finding weights and editable rule-catalog health metadata, then persist HealthSnapshot records with reason codes and status bands.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p1"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:274"
+      ],
+      "effort": "m",
+      "definition_of_done": [
+        "Health score is derived from open Finding penalty weights and clamped to the supported range.",
+        "GREEN, AMBER, and RED status bands are applied consistently.",
+        "Schedule, Cost, Scope, Quality, Risk, and Stakeholder weights are configurable catalog metadata using the PMO defaults: 0.25, 0.20, 0.15, 0.20, 0.10, and 0.10.",
+        "Snapshots preserve reasons so dashboard health can explain why a project changed state.",
+        "Unsupported metric-specific health rules, such as SPI/CPI/EAC/defect-rate/stakeholder-satisfaction, are not enabled until source fields are present in fixtures and schema."
+      ],
+      "expected_changes": [
+        "Health scoring service",
+        "HealthSnapshot persistence",
+        "Dashboard/report data contract"
+      ],
+      "context": {
+        "tags": [
+          "health",
+          "scoring",
+          "snapshots"
+        ]
+      },
+      "constraints": [
+        "Do not create HealthDimension graph nodes for PMO health dimensions; store dimension and weight mappings in editable catalog metadata or rule parameters."
+      ]
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-003",
+        "pmo-cypher-rules-004"
+      ],
+      "id": "pmo-cypher-rules-007",
+      "title": "Enforce detector security guardrails",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Harden detector authoring and execution with least-privilege Neo4j credentials, forbidden write/procedure clauses, and parameter-only execution.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p1"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:372"
+      ],
+      "effort": "m",
+      "definition_of_done": [
+        "Detector rules cannot contain CREATE, MERGE, SET, DELETE, DETACH DELETE, REMOVE, LOAD CSV, dbms procedures, or APOC procedures unless explicitly allowed later.",
+        "Runtime detector execution uses read-only database privileges where possible.",
+        "Controlled application code remains the only path that writes Findings."
+      ],
+      "approval_required_for": [
+        "Allowing arbitrary procedure calls from authored detector rules",
+        "Running detector rules with write-capable Neo4j credentials"
+      ],
+      "expected_changes": [
+        "Cypher allow/deny list",
+        "Neo4j credential policy",
+        "Security tests"
+      ],
+      "context": {
+        "tags": [
+          "security",
+          "rbac",
+          "guardrails"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-005",
+        "pmo-cypher-rules-006",
+        "pmo-cypher-rules-007"
+      ],
+      "id": "pmo-cypher-rules-008",
+      "title": "Expose rule engine API surface",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Add application endpoints for rule catalog operations, rule validation and activation, rule groups, rule runs, reports, project findings, and project health.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p1"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:343"
+      ],
+      "effort": "l",
+      "definition_of_done": [
+        "Rule APIs cover create, list, detail, patch-as-version, validate, activate, disable, and retire.",
+        "Rule group APIs cover create, patch, and rule membership for PMO skill-aligned groups.",
+        "Catalog APIs expose editable group metadata, health dimension weights, report definition membership, rule status, and required-data annotations.",
+        "Run, report, findings, and health APIs expose the outputs needed by reports and dashboards."
+      ],
+      "expected_changes": [
+        "HTTP/API routes",
+        "DTOs or schemas",
+        "API tests"
+      ],
+      "context": {
+        "tags": [
+          "api",
+          "rules",
+          "reports"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-008",
+        "pmo-cypher-rules-011",
+        "pmo-cypher-rules-012",
+        "pmo-cypher-rules-015"
+      ],
+      "id": "pmo-cypher-rules-009",
+      "title": "Seed detector examples and verification fixtures",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Create representative catalog-backed detector rules, groups, fixture graph data, and tests for the PMO skill rule packs, enabling only rules backed by current graph data and recording unsupported PMO skill examples as data gaps rather than runnable detectors.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p1"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:173"
+      ],
+      "effort": "l",
+      "definition_of_done": [
+        "Example detector rules return the required standard Finding row shape.",
+        "Active seed detectors only reference fields that exist in the current PMO schema or fixture graph.",
+        "Seeded catalog groups cover PROJECT_HEALTH, PORTFOLIO_PLANNING, RISK_MANAGEMENT, RESOURCE_ALLOCATION, DEPENDENCY_MAPPING, and EXECUTIVE_REPORTING, but unsupported groups may contain no active rules until their data contract exists.",
+        "Project health seeds use editable catalog dimension weights instead of HealthDimension nodes.",
+        "Portfolio strategic alignment, SPI/CPI/EAC, resource utilization, risk probability-impact, dependency due-date/slack, and stakeholder-satisfaction detectors are not activated unless the source fields are present in fixtures and validation proves they run.",
+        "Fixtures prove findings open, update, resolve, report, and score health correctly.",
+        "Verification covers rule version history so historical reports remain explainable."
+      ],
+      "expected_changes": [
+        "Detector seed data",
+        "Neo4j fixtures",
+        "Integration or service tests",
+        "Rule catalog PMO skill pack fixtures",
+        "Data-gap annotations for unsupported detector ideas"
+      ],
+      "context": {
+        "tags": [
+          "fixtures",
+          "tests",
+          "examples"
+        ],
+        "data_gaps_checked": [
+          "Project schema currently has projectId, displayName, portfolioId, programIds, and repoRefs, but no spi, cpi, eac, budget, strategicAlignmentScore, stakeholder satisfaction, scope-change, defect, or test-pass fields.",
+          "Current source facts include tasks, blockers, contracts, dependency edges, evidence refs, findings, and risk signals.",
+          "Dependency data has status and tier criticality but no dueDate, slack, dependency owner, or response timestamps.",
+          "Resource allocation data is absent: no Resource node, ALLOCATED_TO relationship, allocationPct, capacity, or skills contract.",
+          "Risk-management source data is partial: risk signals and blockers exist, but no Risk node with probability, impact, mitigationPlan, owner, review date, or RAID lifecycle fields."
+        ],
+        "enabled_seed_scope": [
+          "Evidence hygiene rules",
+          "Blocked or stale dependency edge rules over status and tier criticality",
+          "Open blocker or owner hygiene rules over existing blocker facts",
+          "Draft or needs-review contract/evidence rules over existing contract and evidenceStatus fields",
+          "Rule-group report definitions that query generated Findings"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-002"
+      ],
+      "id": "pmo-cypher-rules-010",
+      "title": "Define typed rule parameter contracts",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Give every RuleVersion an explicit parameter contract with types, defaults, required fields, allowed values, and safe runtime binding before validation or execution.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p0"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:11",
+        "Rules are Cypher-based detector definitions.txt:53"
+      ],
+      "effort": "m",
+      "definition_of_done": [
+        "RuleVersion stores a parameter contract separate from authored Cypher text.",
+        "Validation rejects missing, extra, incorrectly typed, or unsafe parameter bindings.",
+        "Execution passes only bound parameters through the Neo4j driver and never interpolates user values into Cypher strings."
+      ],
+      "constraints": [
+        "Do not allow detector Cypher string construction from runtime values."
+      ],
+      "expected_changes": [
+        "RuleVersion parameter schema",
+        "Parameter validation and binding code",
+        "Parameter contract tests"
+      ],
+      "context": {
+        "tags": [
+          "parameters",
+          "contracts",
+          "cypher-safety"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-004",
+        "pmo-cypher-rules-007"
+      ],
+      "id": "pmo-cypher-rules-011",
+      "title": "Add RuleRun orchestration and telemetry",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Support manual and scheduled rule runs with durable run state, row counts, timings, failures, retries, and idempotency so rule execution is operable.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p1"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:119",
+        "Rules are Cypher-based detector definitions.txt:161"
+      ],
+      "effort": "m",
+      "definition_of_done": [
+        "RuleRun status captures queued/running/succeeded/failed/partial outcomes with started and completed timestamps.",
+        "Run records include detector count, Finding open/update/resolve counts, duration, and bounded error details.",
+        "Retry behavior is idempotent and does not duplicate Findings or corrupt prior run history.",
+        "Manual and scheduled invocation paths use the same execution core."
+      ],
+      "expected_changes": [
+        "Rule run scheduler or invocation service",
+        "Run telemetry model",
+        "Retry/idempotency tests"
+      ],
+      "context": {
+        "tags": [
+          "orchestration",
+          "telemetry",
+          "idempotency"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-004",
+        "pmo-cypher-rules-007"
+      ],
+      "id": "pmo-cypher-rules-012",
+      "title": "Complete Finding lifecycle and causal links",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Finish Finding semantics beyond basic upsert by linking caused-by entities and handling resolved, suppressed, disabled-rule, and retired-rule outcomes consistently.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p1"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:35",
+        "Rules are Cypher-based detector definitions.txt:148",
+        "Rules are Cypher-based detector definitions.txt:256"
+      ],
+      "effort": "m",
+      "definition_of_done": [
+        "Findings link to the entity that caused them when detector rows identify a Milestone, Risk, Issue, Dependency, or GovernanceCheck.",
+        "The system has tested behavior for findings when a rule is disabled: remain open, suppress, or resolve with RULE_DISABLED, according to the chosen policy.",
+        "Retired rules stop running while historical findings remain explainable through old RuleVersions.",
+        "Suppression and resolution states do not count as open health penalties or active report findings unless explicitly requested."
+      ],
+      "expected_changes": [
+        "Finding lifecycle state model",
+        "CAUSED_BY relationship writer",
+        "Disable/retire/suppress behavior tests"
+      ],
+      "context": {
+        "tags": [
+          "findings",
+          "lifecycle",
+          "causality"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-005",
+        "pmo-cypher-rules-006",
+        "pmo-cypher-rules-008"
+      ],
+      "id": "pmo-cypher-rules-013",
+      "title": "Deliver dashboard-ready outputs",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Provide the dashboard-facing report and health payloads needed to inspect current findings, reason codes, recommendations, trend snapshots, and rule-version provenance.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p1"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:306",
+        "Rules are Cypher-based detector definitions.txt:400"
+      ],
+      "effort": "m",
+      "definition_of_done": [
+        "Dashboard or API output exposes open findings grouped by report section and project.",
+        "Health output includes score, status, reason codes, recommendations, and snapshot trend data.",
+        "Each displayed finding can trace back to the RuleVersion that produced it.",
+        "The output shape is documented or covered by contract tests for the intended UI/client."
+      ],
+      "expected_changes": [
+        "Dashboard-ready DTOs or views",
+        "Report/health contract tests",
+        "Optional UI wiring if the repo owns the dashboard"
+      ],
+      "context": {
+        "tags": [
+          "dashboard",
+          "reports",
+          "health"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-009",
+        "pmo-cypher-rules-013"
+      ],
+      "id": "pmo-cypher-rules-014",
+      "title": "Prove end-to-end rule engine behavior",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Run a complete conformance scenario proving the system works from rule creation through validation, activation, execution, Finding lifecycle, reporting, health scoring, and historical explainability.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p1"
+      },
+      "references": [
+        "Rules are Cypher-based detector definitions.txt:395"
+      ],
+      "effort": "l",
+      "definition_of_done": [
+        "A test or documented proof creates a rule, validates it, activates it, runs it, and opens a Finding.",
+        "The proof changes graph facts so the Finding resolves on a later run without duplicate alerts.",
+        "The proof shows reports pull the Finding through RuleGroups and health scoring reflects open Findings only.",
+        "The proof updates the rule to a new RuleVersion and demonstrates historical reports remain explainable by the older RuleVersion."
+      ],
+      "expected_changes": [
+        "End-to-end conformance test",
+        "Fixture graph facts",
+        "Verification evidence"
+      ],
+      "context": {
+        "tags": [
+          "e2e",
+          "conformance",
+          "working-solution"
+        ]
+      }
+    },
+    {
+      "dependencies": [],
+      "id": "pmo-cypher-rules-015",
+      "title": "Map PMO skill rule packs to available graph data",
+      "kind": "task",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Create a data-readiness map for the PMO skill rule packs before seeding detector rules, separating immediately runnable catalog rules from ideas that need new source-data contracts.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p0"
+      },
+      "references": [
+        "shared/schemas/program-manager.ts:89",
+        "shared/schemas/program-manager.ts:168",
+        "shared/schemas/program-manager.ts:462",
+        "control-plane/packages/program-manager/fixtures/golden-fixture-backbone.example.json:18",
+        "docs/phase-5/fixtures/pmo-macro-fixture-universe.example.json:34"
+      ],
+      "effort": "s",
+      "definition_of_done": [
+        "A catalog-readiness matrix exists for PROJECT_HEALTH, PORTFOLIO_PLANNING, RISK_MANAGEMENT, RESOURCE_ALLOCATION, DEPENDENCY_MAPPING, and EXECUTIVE_REPORTING.",
+        "Each proposed rule is classified as active-seedable, draft-only, or blocked-by-data-contract.",
+        "The matrix names exact required source labels/properties/relationships for every draft-only or blocked detector.",
+        "The task confirms PMO skill dimensions and report sections are editable rule catalog metadata, not new first-class PMO source entities."
+      ],
+      "expected_changes": [
+        "Rule catalog readiness document or fixture metadata",
+        "Tracker notes on data-backed versus blocked detector seeds"
+      ],
+      "constraints": [
+        "Do not add executable detector seeds for missing fields such as spi, cpi, eac, budget, strategicAlignmentScore, allocationPct, risk probability/impact, mitigationPlan, dependency dueDate, slack, or stakeholder satisfaction.",
+        "Do not create first-class PMO source nodes solely to mirror PMO skill taxonomy."
+      ],
+      "context": {
+        "tags": [
+          "catalog-readiness",
+          "data-gaps",
+          "pmo-skills",
+          "rule-seeds"
+        ],
+        "initial_findings": "Current schema supports catalog rules over projects, tasks, blockers, contracts, dependency edges, evidence, findings, and risk signals. It does not yet support enabled SPI/CPI/EAC, resource utilization, risk probability-impact, dependency due-date/slack, or stakeholder-satisfaction detectors."
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-cypher-rules-015"
+      ],
+      "id": "pmo-cypher-rules-016",
+      "title": "Add source-data contracts for deferred PMO skill detectors",
+      "kind": "task",
+      "parent_id": "pmo-cypher-rules-000",
+      "goal": "Define the upstream PMO graph source-data contracts required before the deferred project health, portfolio planning, risk, resource, and dependency detector rules can become enabled catalog rules.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "cypher-rule-detectors",
+        "priorityId": "p1"
+      },
+      "references": [
+        "shared/schemas/program-manager.ts:89",
+        "shared/schemas/program-manager.ts:426",
+        "shared/schemas/program-manager.ts:462",
+        "docs/phase-0/data-model-event-replay-and-hash-spec.md:51"
+      ],
+      "effort": "m",
+      "definition_of_done": [
+        "A proposed source-data contract exists for project health metrics: SPI, schedule variance, CPI, cost variance, EAC, budget, scope changes, defect rate, test pass rate, and stakeholder satisfaction.",
+        "A proposed source-data contract exists for risk records with probability, impact, owner, mitigation plan, status, and review lifecycle if risk probability-impact rules are desired.",
+        "A proposed source-data contract exists for resource allocation records with capacity, allocationPct, skills, project links, and conflict semantics if resource utilization rules are desired.",
+        "A proposed source-data contract exists for dependency dueDate, slack, owner, response timestamp, and external dependency type if overdue/cascade rules are desired.",
+        "No detector is marked enabled until fixture data and validation prove the required fields exist."
+      ],
+      "expected_changes": [
+        "Schema or design proposal for source-data contracts",
+        "Fixture requirements for deferred PMO skill detectors",
+        "Validation requirements for enabling catalog rules"
+      ],
+      "constraints": [
+        "This task adds data contracts, not hard-coded PMO taxonomy nodes.",
+        "Rule enablement remains governed by RuleVersion validation and fixture-backed data availability."
+      ],
+      "context": {
+        "tags": [
+          "source-data-contracts",
+          "deferred-detectors",
+          "fixtures",
+          "schema"
+        ]
+      }
     }
   ]
 }

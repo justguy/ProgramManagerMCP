@@ -111,6 +111,16 @@
   "integrationPoints": [
     {
       "consumerProjectIds": [
+        "project://phalanx",
+        "project://semantix"
+      ],
+      "integrationPointId": "integration://agentic-os/shared-flow",
+      "portfolioId": "portfolio://default",
+      "producerProjectId": "project://hoplon",
+      "purpose": "First real shared Agentic OS flow: Hoplon produces, Phalanx orchestrates, and Semantix validates readiness."
+    },
+    {
+      "consumerProjectIds": [
         "project://program-manager-mcp",
         "project://phalanx"
       ],
@@ -163,6 +173,12 @@
     }
   ],
   "contracts": [
+    {
+      "contractRef": "contract://agentic-os/shared-flow@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "integrationPointId": "integration://agentic-os/shared-flow",
+      "portfolioId": "portfolio://default",
+      "producerProjectId": "project://hoplon"
+    },
     {
       "contractRef": "contract://guardrail/runtime-controls@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "integrationPointId": "integration://guardrail/runtime-controls",
@@ -220,6 +236,20 @@
       "evidenceType": "alignment_report_envelope",
       "portfolioId": "portfolio://default",
       "redactionStatus": "redacted"
+    },
+    {
+      "classification": "internal",
+      "evidenceRef": "evidence://agentic-os/shared-flow/pmo-graph@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "evidenceType": "pmo_graph_pointer",
+      "portfolioId": "portfolio://default",
+      "redactionStatus": "not_required"
+    },
+    {
+      "classification": "internal",
+      "evidenceRef": "evidence://agentic-os/shared-flow/semantix-readiness/missing-current-receipt",
+      "evidenceType": "missing_readiness_receipt",
+      "portfolioId": "portfolio://default",
+      "redactionStatus": "not_required"
     },
     {
       "classification": "internal",

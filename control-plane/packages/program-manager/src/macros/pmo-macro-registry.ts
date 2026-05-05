@@ -97,15 +97,9 @@ export function createBuiltInMacroRegistry(
     macros: [
       macro("analyze_blockers", "Analyze Blockers", "Find active blockers, affected work, and missing evidence."),
       macro("catch_me_up", "Catch Me Up", "Return a bounded context packet for selected PMO object refs."),
-      macro("describe_macro", "Describe Macro", "Describe one macro's input, output, evidence, and safety posture."),
       macro("detect_drift", "Detect Drift", "Compare current PMO facts against expected evidence and contracts."),
-      macro("discover_macros", "Discover Macros", "List enabled macros visible to the verified actor."),
-      macro("export_registry", "Export Registry", "Return the pointer-only PMO macro registry."),
-      macro("object_type_docs", "Object Type Docs", "Document normalized PMO object types and reference patterns."),
       macro("propose_unblock_plan", "Propose Unblock Plan", "Draft PMO-only proposed unblock actions without executing them.", "describes_actions_only"),
-      macro("registry_help", "Registry Help", "Explain safe registry edit behavior and locked fields."),
-      macro("simulate_impact", "Simulate Impact", "War-game dependency impact without persisting hypothetical program truth.", "describes_actions_only"),
-      macro("validate_macro", "Validate Macro", "Validate a macro request and deterministic envelope shape.")
+      macro("simulate_impact", "Simulate Impact", "War-game dependency impact without persisting hypothetical program truth.", "describes_actions_only")
     ],
     portfolioId,
     recordedAt,
