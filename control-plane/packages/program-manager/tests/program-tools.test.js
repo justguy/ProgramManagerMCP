@@ -410,6 +410,14 @@ test("pmo_help returns autonomous-agent bootstrap guidance without macro-shaped 
     )
   );
   assert.match(
+    help.deterministicCore.helpGuide.operatingRules.join("\n"),
+    /Canonicalize set-like ref arrays/
+  );
+  assert.match(
+    help.deterministicCore.guidance.canonicalRefOrdering.callerAction,
+    /Sort projectIds, targetRefs, evidenceRefs, artifactRefs, consumerProjectIds, managedRefs/
+  );
+  assert.match(
     help.deterministicCore.guidance.omniToolContract.writePolicy.staleUpdate,
     /stale state hash/
   );
@@ -1878,6 +1886,34 @@ test("public tools return retry guidance instead of opaque validation failures",
     "manage_evidence_items",
     "pmo_macro"
   ]);
+
+  const unsortedMacroRefs = await gateway.callTool(
+    "pmo_macro",
+    {
+      action: "invoke",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      projectIds: ["project://semantix", "project://phalanx"],
+      traceId: "trace://pmo-macro/unsorted-project-ids",
+      correlationId: "corr://pmo-macro/unsorted-project-ids",
+      macroId: "macro://pmo/detect_drift",
+      macroVersion: "1.0.0",
+      input: {
+        targetRefs: ["integration://agentic-os/shared-flow"]
+      }
+    },
+    actor
+  );
+  assert.equal(unsortedMacroRefs.status, "blocked");
+  assert.equal(unsortedMacroRefs.deterministicCore.guidance.correctForm.toolName, "pmo_macro");
+  assert.match(
+    unsortedMacroRefs.deterministicCore.guidance.canonicalRefOrdering.enforcedBy,
+    /returns status blocked for unsorted ref arrays/
+  );
+  assert.match(
+    unsortedMacroRefs.deterministicCore.guidance.omniToolContract.writePolicy.deterministicOrdering,
+    /PMO rejects unsorted/
+  );
 });
 
 test("write-capable omni-tools return authority guidance for unauthorized mutations", async () => {

@@ -641,7 +641,7 @@ export function buildPmoOmniToolContract() {
       staleUpdate:
         "When a caller supplies a stale state hash, block the mutation and return current state, candidate refs, allowed next actions, and a retry-after-refresh example.",
       deterministicOrdering:
-        "Normalize and sort evidenceRefs, artifactRefs, projectIds, consumerProjectIds, and managedRefs before persistence and hashing."
+        "Callers must normalize and lexicographically sort set-like ref arrays before PMO validation. PMO rejects unsorted evidenceRefs, artifactRefs, projectIds, consumerProjectIds, targetRefs, managedRefs, and similar pointer-ref arrays instead of silently reordering them."
     },
     trackerLinking: {
       policy:
@@ -655,12 +655,26 @@ export function buildPmoOmniToolContract() {
   };
 }
 
+export function buildPmoCanonicalRefGuidance() {
+  return {
+    requirement:
+      "Caller-provided set-like ref arrays must be canonical before submission: URI-shaped pointer refs, duplicates removed when the field is a set, and values sorted lexicographically.",
+    enforcedBy:
+      "PMO validates canonical ordering before macro or write handling and returns status blocked for unsorted ref arrays.",
+    callerAction:
+      "Sort projectIds, targetRefs, evidenceRefs, artifactRefs, consumerProjectIds, managedRefs, and similar pointer-ref arrays before calling PMO; do not rely on PMO to mutate payload order.",
+    rationale:
+      "The submitted payload, validation result, hashes, retry examples, and audit trail must be replayable from exactly what the caller sent."
+  };
+}
+
 function buildOmniGuidance(extra: Record<string, unknown> = {}) {
   const omniToolContract = buildPmoOmniToolContract();
   return {
     omniToolContract,
     authorityPolicy: omniToolContract.authorityPolicy,
     writePolicy: omniToolContract.writePolicy,
+    canonicalRefOrdering: buildPmoCanonicalRefGuidance(),
     ...extra
   };
 }
@@ -876,6 +890,7 @@ function buildPmoMacroHelpGuide(scopeMode: "portfolio_bootstrap" | "scoped_work"
       "Keep PMO evidence pointer-only: evidence refs, artifact refs, digest refs, commit refs, tracker refs, test refs, and receipt refs only.",
       "Do not inline secrets, credentials, raw logs, screenshots, provider transcripts, hidden scratchpads, raw database rows, or unbounded diffs.",
       "Treat PMO warnings as blockers until inspected or explicitly reconciled.",
+      "Canonicalize set-like ref arrays before PMO calls: sort projectIds, targetRefs, evidenceRefs, artifactRefs, consumerProjectIds, managedRefs, and similar pointer refs lexicographically. PMO blocks unsorted input instead of silently reordering caller payloads.",
       "Use unique correlationId values for each call and a stable traceId across one task or handoff chain."
     ],
     receiptPath: {

@@ -20,7 +20,11 @@ import {
 import { ZodError } from "zod";
 import type { ProgramToolActor } from "../authz/program-tool-authz.ts";
 import { normalizePmoToolInput } from "../normalization/program-manager-normalization.ts";
-import { ProgramToolService, buildPmoOmniToolContract } from "../service/program-tool-service.ts";
+import {
+  ProgramToolService,
+  buildPmoCanonicalRefGuidance,
+  buildPmoOmniToolContract
+} from "../service/program-tool-service.ts";
 
 export const PROGRAM_MANAGER_MCP_TOOLS = Object.freeze([
   {
@@ -243,6 +247,7 @@ export class ProgramManagerMcpGateway {
       deterministicCore: {
         guidance: {
           omniToolContract: buildPmoOmniToolContract(),
+          canonicalRefOrdering: buildPmoCanonicalRefGuidance(),
           allowedActions: allowedActionsForTool(toolName),
           issues,
           correctionSummary: correction.summary,
@@ -355,6 +360,7 @@ function correctionForToolInput(
     fieldGuidance: [
       "Keep pointer-only refs in documented fields only.",
       "Use deterministicCore.guidance.issues to identify the rejected field path.",
+      "Sort set-like ref arrays lexicographically before retrying, including projectIds, targetRefs, evidenceRefs, artifactRefs, consumerProjectIds, and managedRefs.",
       "Null optional fields are treated as unknown/not asserted and ignored. Provide a real pointer or value when that metadata is important.",
       "Use deterministicCore.guidance.help to refresh current PMO tool guidance when in doubt."
     ],
