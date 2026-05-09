@@ -4,7 +4,7 @@ Generated: 2026-05-04
 
 ## Scope
 
-Phase 5 exposes `pmo_macro` as the single public PMO macro dispatcher. Agent bootstrap help is exposed separately as `pmo_help`, and PMO-owned program/project records are managed through `manage_projects`. The integration lifecycle entrypoint is `manage_integrations`, so `ProgramManagerMcpGateway.listTools()` lists `pmo_help`, `manage_projects`, `manage_integrations`, and `pmo_macro`. Legacy PMO tool calls remain callable as compatibility contracts.
+Phase 5 exposes `pmo_macro` as the single public PMO macro dispatcher. Agent bootstrap help is exposed separately as `pmo_help`, PMO-owned program/project records are managed through `manage_projects`, integration lifecycle and coordination records are managed through `manage_integrations`, and pointer-only evidence/artifact records are managed through `manage_evidence_items`. `ProgramManagerMcpGateway.listTools()` lists `pmo_help`, `manage_projects`, `manage_integrations`, `manage_evidence_items`, and `pmo_macro`. Legacy PMO tool calls remain callable as compatibility contracts.
 
 `manage_integrations` supports integration record lifecycle and participation operations:
 `list`, `upsert`, `update`, `add_project`, `remove_project`, `retire`, `delete`.

@@ -1,12 +1,28 @@
 # Agent PMO Onboarding
 
-This directory is the operator-free setup path for agents coordinating the Agentic OS shared flow through Program Manager MCP.
+This directory is the operator-free setup path for agents coordinating work through Program Manager MCP.
 
-Agents should not rely on chat history or a human-maintained checklist for cross-project flow state. The self-contained starting point is `program-manager.pmo_help`. The help response includes `deterministicCore.helpGuide` with canonical refs, operating rules, recommended follow-up calls, role refs, and the receipt path. Compatibility clients may still call `program-manager.pmo_macro` with `action: "help"`.
+Agents should not rely on chat history, local repo notes, or a human-maintained checklist for cross-project flow state. The self-contained starting point is `program-manager.pmo_help`. The help response includes `deterministicCore.helpGuide` with canonical refs, operating rules, recommended follow-up calls, role refs, runtime storage authority, and the receipt path.
 
 Agents that can read repository files should also read `AGENTS.md`, this directory, and the role handoff. Agents that cannot read repository docs should follow `deterministicCore.helpGuide` from the MCP help response.
 
-`pmo_help` is the bootstrap tool. It is the only start step for autonomous PMO use.
+`pmo_help` is the bootstrap tool. It is the only safe start step for autonomous PMO use.
+
+## Public PMO Surface
+
+Program Manager MCP uses a domain omni-tool surface. Agents see a small set of broad PMO tools instead of dozens of narrow operations:
+
+| Tool | Use it for |
+| --- | --- |
+| `pmo_help` | Bootstrap, runtime authority, setup order, known refs, warnings, and next calls. |
+| `manage_projects` | PMO-owned program/project records and project metadata pointers. |
+| `manage_integrations` | Integration lifecycle, participation, contracts, gaps, blockers, decisions, responses, conflicts, learnings, tracker refs, inbox, and catch-up. |
+| `manage_evidence_items` | Pointer-only evidence and artifact registry records. |
+| `pmo_macro` | Workflow automation over existing PMO state. |
+
+This approach saves agents from tool-list guessing while keeping PMO state separated by domain. The tradeoff is that each domain tool has a larger action schema, so blocked responses and retry examples are part of the normal runtime workflow.
+
+See [../omni-tool-agent-guide.md](../omni-tool-agent-guide.md) for the full design, pros and cons, and examples.
 
 `pmo_macro` is not the PMO entity-management tool. Use `program-manager.manage_projects` to list or register PMO-owned programs and projects.
 
@@ -47,6 +63,7 @@ Use these refs unless PMO returns a newer applicable decision:
 - [Receipt protocol](./receipt-protocol.md): machine-checkable execution-agent receipt shape and PMO submission path.
 - [Receipt JSON Schema](./execution-agent-receipt.schema.json): metadata schema for `executionReceipt`.
 - [Receipt example](./examples/execution-agent-receipt.example.json): pointer-only sample receipt payload.
+- [Omni-tool agent guide](../omni-tool-agent-guide.md): public tool design, runtime guidance contract, pros/cons, and examples.
 
 ## Agent-Owned Loop
 
@@ -67,6 +84,22 @@ When required input is missing or invalid, PMO tools return guidance with allowe
 Treat those blocked envelopes as the PMO correction path, not as a reason to guess. Retry with `deterministicCore.guidance.correctForm` or one of `retryExamples`. Optional metadata sent as `null` is treated as unknown/not asserted and ignored; send the real pointer or value when the metadata is important enough to update PMO memory.
 
 PMO remains passive. It may plan, reconcile, and ledger PMO-owned state, but it must not mutate Hoplon, Phalanx, Semantix, GitHub, LLM Tracker, code, deployments, or external product state.
+
+## Where This Saves Time
+
+For agents, PMO shortens the loop between "I have a task" and "I know the safe next action." `pmo_help` supplies the setup order, known refs, and warnings. Domain tools repair malformed requests with deterministic retry shapes. Macros summarize shared state and surface drift without asking the agent to inspect every tracker, repo, or prior chat.
+
+For humans, PMO reduces repeated handoffs and status archaeology. Humans can ask for the current blockers, receipt state, evidence obligations, or impact of a contract change without reconstructing the story from logs and agent messages. Because PMO stores refs and hashes instead of raw bodies, it also keeps reviews safer and easier to audit.
+
+## Common Agent Use Cases
+
+- **Bootstrap a new worker:** call `pmo_help`, then follow `nextRecommendedTool`.
+- **Register missing scope:** call `manage_projects upsert` for program/project identity, then `manage_integrations upsert` for a shared integration.
+- **Join a project to existing work:** call `manage_integrations add_project` against the stable integration ref.
+- **Catch up before editing:** call `pmo_macro catch_me_up` and inspect warnings, blockers, gaps, and evidence refs.
+- **Estimate blast radius:** call `pmo_macro simulate_impact` before changing shared contracts or readiness behavior.
+- **Record project-native proof:** call `manage_evidence_items register` or submit the expected receipt with pointer-only refs after tests, tracker work, or code changes happen outside PMO.
+- **Close the loop:** call `pmo_macro detect_drift` or reconciliation before marking shared work complete.
 
 ## Structured Blocker Clearance
 

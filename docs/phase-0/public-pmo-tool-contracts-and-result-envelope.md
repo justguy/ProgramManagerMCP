@@ -11,6 +11,22 @@ This document defines the small public PMO MCP surface and the standard result e
 
 Program Manager remains a passive analyst, planner, reconciler, and ledger. Public tools may read PMO state, describe impact, generate reproducible PMO artifacts, and record PMO-owned receipts or audit facts in later phases. They must not expose downstream mutation authority or proxy arbitrary focused-tool actions.
 
+## Current Public Domain Omni-Tool Surface
+
+The current MCP tool discovery surface is intentionally small:
+
+| Tool | Domain | Boundary |
+|---|---|---|
+| `pmo_help` | Bootstrap guidance, shared knowledge authority, canonical scope, recommended calls, and receipt path. | Read-only. Agents should call this first. |
+| `manage_projects` | PMO-owned program/project memory, roles, tracker/repo/adapter refs, and goals. | Mutates only PMO project records. |
+| `manage_integrations` | Integration lifecycle, participation, contracts, gaps, blockers, decisions, responses, conflicts, learnings, tracker refs, inbox, and catch-up. | Mutates only PMO integration and coordination records. |
+| `manage_evidence_items` | Pointer-only evidence and artifact registry records, classification, retention, and attachments. | Mutates only PMO evidence/artifact metadata. |
+| `pmo_macro` | Workflow automation over existing PMO state, including catch-up, impact simulation, blocker analysis, unblock planning, drift detection, and registry help. | Read-only or PMO-owned macro records only; no downstream mutation. |
+
+This is a domain omni-tool design. The public surface is not one arbitrary intent tool, and it is not every low-level PMO action as a separate MCP tool. Each domain tool accepts an `action` and validates that action against its own state transitions, authorization, pointer-only evidence rules, idempotency, and retry guidance.
+
+Legacy narrow tools described later in this document remain compatibility contracts for existing clients and tests. New agent-facing docs and tool discovery should route callers through the five-tool surface above.
+
 ## Standard Result Envelope
 
 Every public tool returns `ProgramToolResultEnvelope<TCore, TAdvisory>`.
@@ -78,7 +94,9 @@ type ProgramToolRequestContext = {
 
 The runtime must also have server-verified actor identity. Caller-provided text identity is not enough for authz decisions.
 
-## Phase 1A Tools
+## Legacy Narrow Tool Contracts
+
+The tools below define the Phase 1A and forward-compatible narrow contracts that backed earlier clients. They remain useful for compatibility and fixture coverage, but autonomous agents should prefer the current public domain omni-tool surface.
 
 ### `list_program_capabilities`
 
