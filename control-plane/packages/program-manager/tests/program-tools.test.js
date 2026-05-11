@@ -1048,6 +1048,78 @@ test("manage_integrations lists and upserts PMO-owned integration scope", async 
     assert.equal(sharedFlow.purpose, undefined);
   });
 
+test("manage_integrations keeps accepted writes visible when project registry rows are absent", async () => {
+  const gateway = buildGateway();
+  const actor = buildActor({
+    actorId: "actor://operators/pmo-agent",
+    actorRole: "program_manager_agent",
+    authenticatedAt: "2026-05-04T05:00:00Z",
+    expiresAt: "2026-05-04T08:00:00Z",
+    projectGrants: ["project://unregistered-consumer", "project://unregistered-producer"]
+  });
+  const integrationPointId = "integration://unregistered/runtime-wiring";
+  const gapItemId = "gap://unregistered/runtime-wiring/missing-consumer";
+
+  const upsert = await gateway.callTool(
+    "manage_integrations",
+    {
+      action: "upsert",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://manage-integrations/unregistered-upsert",
+      correlationId: "corr://manage-integrations/unregistered-upsert",
+      integration: {
+        integrationPointId,
+        producerProjectId: "project://unregistered-producer",
+        consumerProjectIds: ["project://unregistered-consumer"],
+        purpose: "Runtime wiring before project registry rows are available"
+      }
+    },
+    actor
+  );
+
+  assert.equal(upsert.status, "ok");
+  assert.deepEqual(manageIntegrationsResultSchema.parse(upsert), upsert);
+  assert.ok(
+    upsert.deterministicCore.integrationPoints.some(
+      (integration) => integration.integrationPointId === integrationPointId
+    )
+  );
+
+  const gap = await gateway.callTool(
+    "manage_integrations",
+    {
+      action: "submit_gap_report",
+      portfolioId: "portfolio://default",
+      programId: "program://agentic-os",
+      traceId: "trace://manage-integrations/unregistered-gap",
+      correlationId: "corr://manage-integrations/unregistered-gap",
+      integration: {
+        integrationPointId,
+        item: {
+          itemType: "gap",
+          itemId: gapItemId,
+          reporterProjectId: "project://unregistered-producer",
+          ownerProjectId: "project://unregistered-consumer",
+          affectedProjectIds: ["project://unregistered-consumer", "project://unregistered-producer"],
+          summary: "Consumer runtime wiring is not confirmed."
+        }
+      }
+    },
+    actor
+  );
+
+  assert.equal(gap.status, "ok");
+  assert.deepEqual(manageIntegrationsResultSchema.parse(gap), gap);
+  assert.ok(gap.deterministicCore.managedRefs.includes(integrationPointId));
+  assert.ok(gap.deterministicCore.coordinationItems.some((item) => item.itemId === gapItemId));
+  assert.ok(
+    gap.deterministicCore.integrationPoints.some(
+      (integration) => integration.integrationPointId === integrationPointId
+    )
+  );
+});
+
 test("manage_integrations lifecycle operations add/remove consumers, update, retire, and delete", async () => {
     const gateway = buildGateway();
     const actor = buildActor({

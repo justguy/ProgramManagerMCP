@@ -805,13 +805,18 @@ export class Neo4jProgramManagerGraphStore implements ProgramManagerGraphStore {
       this.driver,
       `
         MATCH (integrationPoint:PmIntegrationPoint)
-        MATCH (producer:PmProject {portfolioId: $portfolioId, ref: integrationPoint.producerProjectId})
+        WITH integrationPoint,
+             [integrationPoint.producerProjectId] + coalesce(integrationPoint.consumerProjectIds, []) AS relatedProjectIds
+        OPTIONAL MATCH (relatedProject:PmProject {portfolioId: $portfolioId})
+        WHERE relatedProject.ref IN relatedProjectIds
+        WITH integrationPoint,
+             relatedProjectIds,
+             [project IN collect(relatedProject) WHERE project.programId IS NOT NULL | project.programId] AS directProgramIds
         WHERE integrationPoint.portfolioId = $portfolioId
-          AND ($programId IS NULL OR producer.programId = $programId)
+          AND ($programId IS NULL OR $programId IN directProgramIds)
           AND (
             size($scopeProjectIds) = 0 OR
-            integrationPoint.producerProjectId IN $scopeProjectIds OR
-            any(projectId IN coalesce(integrationPoint.consumerProjectIds, []) WHERE projectId IN $scopeProjectIds)
+            any(projectId IN relatedProjectIds WHERE projectId IN $scopeProjectIds)
           )
         RETURN {
           integrationPointId: integrationPoint.integrationPointId,

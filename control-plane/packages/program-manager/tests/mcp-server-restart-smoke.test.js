@@ -259,6 +259,14 @@ test("MCP server runtime graph loader includes normalization dependencies", asyn
   assert.ok(serverSource.includes("(?:js|ts)"));
 });
 
+test("MCP server mints a fresh host-verified actor for each tool call", async () => {
+  const serverSource = await readFile(serverPath, "utf8");
+
+  assert.doesNotMatch(serverSource, /actor\s*=\s*buildActor\(\)/);
+  assert.match(serverSource, /const requestActor = buildActor\(\)/);
+  assert.match(serverSource, /gateway\.callTool\(toolName, args, requestActor\)/);
+});
+
 test("MCP server runtime graph temp modules can import Neo4j repository modules", async () => {
   const tempRoot = await mkdtemp(join(tmpdir(), "program-manager-runtime-graph-test-"));
 

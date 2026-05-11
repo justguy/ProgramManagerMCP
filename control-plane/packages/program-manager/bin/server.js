@@ -787,11 +787,9 @@ async function buildGateway() {
 }
 
 let gateway;
-let actor;
 let stateProvenance;
 try {
   ({ gateway, stateProvenance } = await buildGateway());
-  actor = buildActor();
 } catch (error) {
   console.error(
     `[program-manager-mcp] startup failed: ${error instanceof Error ? error.message : String(error)}`
@@ -894,10 +892,11 @@ async function handleRequest(message) {
       case "tools/call": {
         const toolName = message.params?.name;
         const args = message.params?.arguments ?? {};
+        const requestActor = buildActor();
         const result =
           stateProvenance.degraded && toolName !== "pmo_help"
             ? sharedKnowledgeUnavailableEnvelope(toolName, args)
-            : await gateway.callTool(toolName, args, actor);
+            : await gateway.callTool(toolName, args, requestActor);
         const resultWithStateSource = addStateSourceArtifact(result);
         ok(message.id, {
           content: [

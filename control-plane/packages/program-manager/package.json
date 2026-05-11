@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "generate:schemas": "node ../../../shared/schemas/generate-json-schema.mjs",
-    "build": "tsc -b tsconfig.build.json",
+    "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/*.test.js",
     "test:neo4j": "node --test tests/program-manager-graph-neo4j.test.js",

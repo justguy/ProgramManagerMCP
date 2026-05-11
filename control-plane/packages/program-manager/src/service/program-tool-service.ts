@@ -4503,11 +4503,19 @@ export class ProgramToolService {
           left.integrationPointId.localeCompare(right.integrationPointId)
         )
       : scopedIntegrationPoints;
+    const refreshedVisibleIntegrationPoints =
+      integration && !refreshedIntegrationPoints.some(
+        (integrationPoint) => integrationPoint.integrationPointId === integration.integrationPointId
+      )
+        ? [...refreshedIntegrationPoints, integration].sort((left, right) =>
+            left.integrationPointId.localeCompare(right.integrationPointId)
+          )
+        : refreshedIntegrationPoints;
     const visibleIntegrationPoints =
       request.action === "get" && existingIntegration
         ? [existingIntegration]
         : integration
-          ? refreshedIntegrationPoints
+          ? refreshedVisibleIntegrationPoints
           : scopedIntegrationPoints;
     const visibleCoordinationItems = visibleIntegrationPoints.flatMap(
       (integrationPoint) => integrationPoint.coordinationItems ?? []

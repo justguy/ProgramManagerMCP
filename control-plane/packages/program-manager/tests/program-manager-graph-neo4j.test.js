@@ -90,6 +90,64 @@ test("Neo4j graph store issues typed dependency writes and ordered read queries"
   assert.match(reads[0].cypher, /ORDER BY dependency.recordedAt, dependency.dependencyId, fromRef.ref, toRef.ref/);
 });
 
+test("Neo4j graph store reads integration lifecycle nodes without requiring project registry rows", async () => {
+  const { neo4jModule } = await loadGraphModules();
+  const { Neo4jProgramManagerGraphStore } = neo4jModule;
+
+  const reads = [];
+  const driver = {
+    session() {
+      return {
+        async executeRead(work) {
+          return work({
+            async run(cypher, params) {
+              reads.push({ cypher, params });
+              return {
+                records: [
+                  {
+                    get(key) {
+                      assert.equal(key, "integrationPoint");
+                      return {
+                        integrationPointId: "integration://unregistered/runtime-wiring",
+                        portfolioId: "portfolio://default",
+                        producerProjectId: "project://unregistered-producer",
+                        consumerProjectIds: ["project://unregistered-consumer"],
+                        artifactRefs: [],
+                        coordinationItemsJson: "[]",
+                        purpose: "Runtime wiring before project registry rows are available",
+                        recordedAt: "2026-05-03T12:00:00Z",
+                        evidenceRefs: [],
+                        idempotencyKeys: [],
+                        projectRolesJson: "{}",
+                        statusHistoryJson: "[]",
+                        status: "active"
+                      };
+                    }
+                  }
+                ]
+              };
+            }
+          });
+        },
+        async executeWrite() {
+          throw new Error("unexpected write");
+        },
+        async close() {}
+      };
+    }
+  };
+
+  const store = new Neo4jProgramManagerGraphStore(driver);
+  const integrationPoints = await store.listIntegrationPoints({
+    portfolioId: "portfolio://default"
+  });
+
+  assert.equal(integrationPoints[0].integrationPointId, "integration://unregistered/runtime-wiring");
+  assert.match(reads[0].cypher, /MATCH \(integrationPoint:PmIntegrationPoint\)/);
+  assert.match(reads[0].cypher, /OPTIONAL MATCH \(relatedProject:PmProject/);
+  assert.doesNotMatch(reads[0].cypher, /MATCH \(producer:PmProject/);
+});
+
 test("Neo4j graph store scopes PMO macro fact and registry queries", async () => {
   const { neo4jModule } = await loadGraphModules();
   const { Neo4jProgramManagerGraphStore } = neo4jModule;
