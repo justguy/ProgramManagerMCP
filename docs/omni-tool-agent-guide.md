@@ -35,13 +35,14 @@ When a call is blocked, agents should not guess. The blocked envelope may includ
 - allowed actions
 - known programs, projects, and integrations
 - missing or invalid field paths
+- `normalizationHints` for common slug-to-ref repairs such as `hoplon` to `project://hoplon`
 - `correctForm`
 - `retryExamples`
 - setup order
 - authority gaps
 - redaction or shared-store gaps
 
-This is where the system saves time: agents get an actionable repair path in the tool result instead of searching source files, asking a human for schema details, or retrying random payload shapes.
+This is where the system saves time: agents get an actionable repair path in the tool result instead of searching source files, asking a human for schema details, or retrying random payload shapes. PMO still blocks malformed refs; `normalizationHints`, `correctForm`, and `retryExamples` show the canonical payload to retry.
 
 ## Normal Agent Flow
 
@@ -112,7 +113,7 @@ A project agent runs tests or updates a tracker through project-native tools. It
 
 ### Runtime Recovery
 
-An agent submits malformed `manage_integrations` input. PMO returns `status: "blocked"` with a known integration list, field guidance, and a valid `correctForm`. The agent retries without asking a human or reading TypeScript schemas.
+An agent submits malformed `manage_integrations` input using slugs like `hoplon` or `agentic-os` where PMO refs are required. PMO returns `status: "blocked"` with known refs, normalization hints, field guidance, and a valid `correctForm`. The agent retries without asking a human or reading TypeScript schemas.
 
 ### Drift Detection
 

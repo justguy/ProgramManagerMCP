@@ -698,6 +698,168 @@ function buildPmoHelpForm(request: {
   };
 }
 
+const POINTER_REF_PATTERN = /^[a-z][a-z0-9_-]*:\/\/\S+$/;
+
+function buildPmoMacroValidationRepair(
+  fallback: Record<string, unknown>,
+  actor: ProgramToolActor
+): {
+  arguments: {
+    action: "invoke";
+    portfolioId: string;
+    programId?: string;
+    projectIds?: string[];
+    traceId: string;
+    correlationId: string;
+    macroId: string;
+    macroVersion: string;
+    input: { targetRefs: string[] };
+  };
+  normalizationHints: string[];
+} {
+  const hints: string[] = [];
+  const portfolioId = normalizePortfolioRefForGuidance(fallback.portfolioId, actor, hints);
+  const programId = normalizeProgramRefForGuidance(fallback.programId, actor, hints);
+  const projectIds = normalizeProjectRefsForGuidance(fallback.projectIds, actor, hints);
+  const input = recordValue(fallback.input) ?? recordValue(fallback.macroInput);
+  const targetRefs = normalizeMacroTargetRefsForGuidance(input?.targetRefs, hints);
+  const macroId =
+    typeof fallback.macroId === "string" && isPointerRef(fallback.macroId)
+      ? fallback.macroId
+      : typeof fallback.macroName === "string"
+        ? `macro://pmo/${fallback.macroName}`
+        : "macro://pmo/catch_me_up";
+
+  return {
+    arguments: {
+      action: "invoke",
+      portfolioId,
+      ...(programId ? { programId } : {}),
+      ...(projectIds.length > 0 ? { projectIds } : {}),
+      traceId: typeof fallback.traceId === "string" ? fallback.traceId : "trace://pmo-macro/invalid-request",
+      correlationId:
+        typeof fallback.correlationId === "string"
+          ? fallback.correlationId
+          : "corr://pmo-macro/invalid-request/retry",
+      macroId,
+      macroVersion: typeof fallback.macroVersion === "string" ? fallback.macroVersion : "1.0.0",
+      input: {
+        targetRefs: targetRefs.length > 0 ? targetRefs : [AGENTIC_OS_SHARED_FLOW_SCOPE.integrationRef]
+      }
+    },
+    normalizationHints: hints
+  };
+}
+
+function normalizePortfolioRefForGuidance(
+  value: unknown,
+  actor: ProgramToolActor,
+  hints: string[]
+): string {
+  const submitted = typeof value === "string" ? value : undefined;
+  const normalized =
+    submitted && isPointerRef(submitted)
+      ? submitted
+      : submitted === "default"
+        ? "portfolio://default"
+        : actor.portfolioGrants[0] ?? AGENTIC_OS_SHARED_FLOW_SCOPE.portfolioId;
+  addNormalizationHint(hints, "portfolioId", submitted, normalized);
+  return normalized;
+}
+
+function normalizeProgramRefForGuidance(
+  value: unknown,
+  actor: ProgramToolActor,
+  hints: string[]
+): string | undefined {
+  const submitted = typeof value === "string" ? value : undefined;
+  if (!submitted) {
+    return undefined;
+  }
+  if (isPointerRef(submitted)) {
+    return submitted;
+  }
+  const normalized =
+    findRefBySlug(submitted, actor.programGrants) ??
+    (actor.programGrants.length === 1 ? actor.programGrants[0] : `program://${submitted}`);
+  addNormalizationHint(hints, "programId", submitted, normalized);
+  return normalized;
+}
+
+function normalizeProjectRefsForGuidance(
+  value: unknown,
+  actor: ProgramToolActor,
+  hints: string[]
+): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return sortUniqueRefs(
+    value
+      .filter((item): item is string => typeof item === "string")
+      .map((projectId, index) => {
+        if (isPointerRef(projectId)) {
+          return projectId;
+        }
+        const normalized = findRefBySlug(projectId, actor.projectGrants) ?? `project://${projectId}`;
+        addNormalizationHint(hints, `projectIds.${index}`, projectId, normalized);
+        return normalized;
+      })
+  );
+}
+
+function normalizeMacroTargetRefsForGuidance(value: unknown, hints: string[]): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return sortUniqueRefs(
+    value
+      .filter((item): item is string => typeof item === "string")
+      .map((targetRef, index) => {
+        if (isPointerRef(targetRef)) {
+          return targetRef;
+        }
+        const normalized =
+          targetRef === "shared-flow"
+            ? AGENTIC_OS_SHARED_FLOW_SCOPE.integrationRef
+            : targetRef.includes("/")
+              ? `integration://${targetRef}`
+              : `integration://${targetRef}`;
+        addNormalizationHint(hints, `input.targetRefs.${index}`, targetRef, normalized);
+        return normalized;
+      })
+  );
+}
+
+function isPointerRef(value: string): boolean {
+  return POINTER_REF_PATTERN.test(value);
+}
+
+function findRefBySlug(slug: string, refs: string[]): string | undefined {
+  return refs.find((ref) => {
+    const body = ref.split("://")[1] ?? ref;
+    const segments = body.split("/").filter(Boolean);
+    return body === slug || segments[segments.length - 1] === slug;
+  });
+}
+
+function recordValue(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function addNormalizationHint(
+  hints: string[],
+  path: string,
+  submitted: string | undefined,
+  normalized: string
+): void {
+  if (submitted && submitted !== normalized) {
+    hints.push(`${path}: normalized "${submitted}" to "${normalized}".`);
+  }
+}
+
 function buildIntegrationAlignmentGuidance() {
   const schemaRequiredFields = [
     "integration.integrationPointId: schema-required for every manage_integrations action except help and list.",
@@ -2518,6 +2680,7 @@ export class ProgramToolService {
         : {};
     const parsed = pmoMacroRequestSchema.safeParse(normalizedRequestInput);
     if (!parsed.success) {
+      const repair = buildPmoMacroValidationRepair(fallback, actor);
       const deterministicCore = {
         action: "validate" as const,
         guidance: buildOmniGuidance({
@@ -2526,20 +2689,22 @@ export class ProgramToolService {
             "Compatibility shape accepted by PMO: macroName = <macro-name>, macroInput = { ... }.",
             "Use macroName values catch_me_up, simulate_impact, propose_unblock_plan, detect_drift, or analyze_blockers."
           ],
+          issues: parsed.error.issues.map((issue) => ({
+            path: issue.path.join(".") || "<root>",
+            message: issue.message
+          })),
+          normalizationHints: repair.normalizationHints,
           correctForm: {
             toolName: "pmo_macro",
-            arguments: {
-              action: "invoke",
-              portfolioId: String(fallback.portfolioId ?? "portfolio://default"),
-              ...(typeof fallback.programId === "string" ? { programId: fallback.programId } : {}),
-              traceId: String(fallback.traceId ?? "trace://pmo-macro/invalid-request"),
-              correlationId: String(fallback.correlationId ?? "corr://pmo-macro/invalid-request/retry"),
-              macroId: "macro://pmo/catch_me_up",
-              input: {
-                targetRefs: ["integration://<integration-slug>"]
-              }
-            }
+            arguments: repair.arguments
           },
+          retryExamples: [
+            {
+              purpose: "Retry pmo_macro with URI-shaped refs and sorted scope arrays.",
+              toolName: "pmo_macro",
+              arguments: repair.arguments
+            }
+          ],
           macroAutomation: buildMacroAutomationGuidance()
         }),
         objectModelRefs: [],
@@ -2549,7 +2714,7 @@ export class ProgramToolService {
         schemaVersion: "1",
         status: "blocked",
         toolName: "pmo_macro",
-        portfolioId: String(fallback.portfolioId ?? "portfolio://unknown"),
+        portfolioId: repair.arguments.portfolioId,
         evidenceRefs: ["evidence://schema/pmo-macro-request/validation-failed"],
         artifactRefs: [],
         redactionSummary: buildRedactionSummary({
@@ -2570,8 +2735,8 @@ export class ProgramToolService {
           validationError: parsed.error.issues.map((issue) => issue.message).sort()
         }),
         nextRecommendedTool: "pmo_macro",
-        traceId: String(fallback.traceId ?? "trace://pmo-macro/invalid-request"),
-        correlationId: String(fallback.correlationId ?? "corr://pmo-macro/invalid-request")
+        traceId: repair.arguments.traceId,
+        correlationId: repair.arguments.correlationId
       });
     }
 

@@ -18,7 +18,7 @@ Program Manager MCP saves that coordination time by acting like a durable PMO as
 
 - It gives agents a first call, `pmo_help`, that explains the current scope, authority model, known refs, operating rules, next calls, and receipt path.
 - It keeps cross-project facts in PMO-owned memory instead of relying on a single MCP process or chat transcript.
-- It returns deterministic, repairable envelopes when an agent gets a payload wrong, including allowed actions, known refs, `correctForm`, retry examples, warnings, and the next recommended tool.
+- It returns deterministic, repairable envelopes when an agent gets a payload wrong, including allowed actions, known refs, normalization hints, `correctForm`, retry examples, warnings, and the next recommended tool.
 - It keeps evidence pointer-only, so agents can coordinate through refs, digests, artifact ids, commit refs, tracker refs, and receipt refs without pasting raw logs, screenshots, transcripts, product rows, credentials, or secrets into PMO memory.
 - It distinguishes PMO-owned work from downstream execution. PMO guides, analyzes, records, and reconciles; code, tracker, GitHub, deployment, product, and project-specific mutations still happen through the owning project's tools.
 
@@ -117,7 +117,7 @@ Every public PMO response uses a standard envelope:
 - `nextRecommendedTool`: where the agent should go next
 - `traceId` and `correlationId`: correlation for a task or handoff chain
 
-Blocked calls are not dead ends. They are the guidance path. PMO returns known candidate refs, allowed actions, field guidance, retry examples, and often a machine-readable `correctForm`. Agents should retry from that envelope instead of mining local source files for schema details.
+Blocked calls are not dead ends. They are the guidance path. PMO returns known candidate refs, allowed actions, invalid field paths, `normalizationHints` for common slug-to-ref repairs, field guidance, retry examples, and often a machine-readable `correctForm`. Agents should retry from that envelope instead of mining local source files for schema details.
 
 ## Common Use Cases
 

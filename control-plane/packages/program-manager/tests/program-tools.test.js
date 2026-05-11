@@ -1863,6 +1863,50 @@ test("public tools return retry guidance instead of opaque validation failures",
     )
   );
 
+  const slugRefsRejected = await gateway.callTool(
+    "manage_integrations",
+    {
+      action: "get",
+      portfolioId: "agentic-os",
+      programId: "planning-guardrails",
+      projectIds: ["phalanx", "hoplon"],
+      traceId: "trace://manage-integrations/slug-ref-guidance",
+      correlationId: "corr://manage-integrations/slug-ref-guidance",
+      integration: {
+        integrationPointId: "integration://agentic-os/shared-flow"
+      }
+    },
+    actor
+  );
+  assert.equal(slugRefsRejected.status, "blocked");
+  assert.equal(slugRefsRejected.portfolioId, "portfolio://default");
+  assert.equal(
+    slugRefsRejected.deterministicCore.guidance.correctForm.arguments.portfolioId,
+    "portfolio://default"
+  );
+  assert.equal(
+    slugRefsRejected.deterministicCore.guidance.correctForm.arguments.programId,
+    "program://agentic-os"
+  );
+  assert.deepEqual(
+    slugRefsRejected.deterministicCore.guidance.correctForm.arguments.projectIds,
+    ["project://hoplon", "project://phalanx"]
+  );
+  assert.equal(
+    slugRefsRejected.deterministicCore.guidance.correctForm.arguments.integration.integrationPointId,
+    "integration://agentic-os/shared-flow"
+  );
+  assert.ok(
+    slugRefsRejected.deterministicCore.guidance.normalizationHints.some(
+      (hint) => hint.includes('portfolioId: normalized "agentic-os" to "portfolio://default"')
+    )
+  );
+  assert.ok(
+    slugRefsRejected.deterministicCore.guidance.normalizationHints.some(
+      (hint) => hint.includes('programId: normalized "planning-guardrails" to "program://agentic-os"')
+    )
+  );
+
   const unknownAction = await gateway.callTool(
     "manage_integrations",
     {
@@ -1913,6 +1957,46 @@ test("public tools return retry guidance instead of opaque validation failures",
   assert.match(
     unsortedMacroRefs.deterministicCore.guidance.omniToolContract.writePolicy.deterministicOrdering,
     /PMO rejects unsorted/
+  );
+
+  const macroSlugRefsRejected = await gateway.callTool(
+    "pmo_macro",
+    {
+      action: "invoke",
+      portfolioId: "agentic-os",
+      programId: "agentic-os",
+      projectIds: ["semantix", "phalanx"],
+      traceId: "trace://pmo-macro/slug-ref-guidance",
+      correlationId: "corr://pmo-macro/slug-ref-guidance",
+      macroName: "catch_me_up",
+      input: {
+        targetRefs: ["shared-flow"]
+      }
+    },
+    actor
+  );
+  assert.equal(macroSlugRefsRejected.status, "blocked");
+  assert.equal(macroSlugRefsRejected.portfolioId, "portfolio://default");
+  assert.equal(
+    macroSlugRefsRejected.deterministicCore.guidance.correctForm.arguments.portfolioId,
+    "portfolio://default"
+  );
+  assert.equal(
+    macroSlugRefsRejected.deterministicCore.guidance.correctForm.arguments.programId,
+    "program://agentic-os"
+  );
+  assert.deepEqual(
+    macroSlugRefsRejected.deterministicCore.guidance.correctForm.arguments.projectIds,
+    ["project://phalanx", "project://semantix"]
+  );
+  assert.deepEqual(
+    macroSlugRefsRejected.deterministicCore.guidance.correctForm.arguments.input.targetRefs,
+    ["integration://agentic-os/shared-flow"]
+  );
+  assert.ok(
+    macroSlugRefsRejected.deterministicCore.guidance.normalizationHints.some(
+      (hint) => hint.includes('input.targetRefs.0: normalized "shared-flow" to "integration://agentic-os/shared-flow"')
+    )
   );
 });
 

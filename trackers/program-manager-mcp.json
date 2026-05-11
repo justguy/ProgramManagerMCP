@@ -70,9 +70,9 @@
         "description": "Versioned read-only Cypher detector rules, controlled Finding writes, report grouping, health scoring, APIs, and guardrails."
       }
     ],
-    "scratchpad": "Rule detector swimlane updated: PMO skill concepts are catalog-backed editable rules/metadata, with a data-readiness gate before any seeded detector is enabled.",
-    "rev": 115,
-    "updatedAt": "2026-05-05T14:04:14.986Z"
+    "scratchpad": "Added PMO profile-variation tracker tasks. Current slice is documenting summary/operator/executor/auditor MCP registration in README and AGENTS.",
+    "rev": 117,
+    "updatedAt": "2026-05-07T23:32:17.963Z"
   },
   "tasks": [
     {
@@ -4064,6 +4064,170 @@
           "fixtures",
           "schema"
         ]
+      }
+    },
+    {
+      "dependencies": [],
+      "id": "pmo-profiles-000",
+      "title": "PMO MCP profile variations",
+      "kind": "group",
+      "parent_id": null,
+      "goal": "Track the work to expose PMO through role-specific MCP views so summary agents see aggregate/read-only state while executor agents receive update and receipt workflows.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "assignee": null,
+      "references": [
+        "README.md:1",
+        "AGENTS.md:1"
+      ],
+      "context": {
+        "tags": [
+          "pmo-profiles",
+          "mcp-variants"
+        ],
+        "notes": "Container for PMO MCP profile and registration work."
+      }
+    },
+    {
+      "dependencies": [],
+      "id": "pmo-profiles-001",
+      "title": "Document PMO MCP profile registration",
+      "kind": "task",
+      "parent_id": "pmo-profiles-000",
+      "goal": "Document how to register separate PMO MCP entries for summary, operator, executor, and auditor agents while keeping one shared PMO knowledge store.",
+      "status": "complete",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p0"
+      },
+      "assignee": "codex",
+      "references": [
+        "README.md:1",
+        "AGENTS.md:1"
+      ],
+      "definition_of_done": [
+        "README explains profile-based PMO MCP registration with summary and executor examples.",
+        "AGENTS.md tells agents which profile to use and preserves PMO-first/source-of-truth rules.",
+        "Docs state that profile controls visibility while server-verified authority controls mutation."
+      ],
+      "context": {
+        "tags": [
+          "docs",
+          "pmo-profiles",
+          "agent-instructions"
+        ],
+        "files_touched": [
+          "README.md",
+          "AGENTS.md"
+        ],
+        "notes": "Documented profile-specific PMO MCP registrations for summary/operator/executor/auditor agents. README now includes registration examples and the authority distinction; AGENTS now gives per-profile operating guidance.",
+        "completedAt": "2026-05-07",
+        "references": [
+          "README.md:373",
+          "AGENTS.md:40"
+        ]
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-profiles-001"
+      ],
+      "id": "pmo-profiles-002",
+      "title": "Implement server-enforced PMO view profiles",
+      "kind": "task",
+      "parent_id": "pmo-profiles-000",
+      "goal": "Add server-side profile handling so listTools and callTool enforce summary/operator/executor/auditor visibility without relying on client discipline.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p0"
+      },
+      "assignee": null,
+      "references": [
+        "control-plane/packages/program-manager/src/mcp/program-manager-mcp-gateway.ts:1",
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1"
+      ],
+      "definition_of_done": [
+        "PMO MCP derives a profile from trusted runtime configuration or actor context.",
+        "listTools returns only tools/actions allowed by the active profile.",
+        "callTool blocks hidden or write-capable operations when the active profile does not allow them."
+      ],
+      "context": {
+        "tags": [
+          "implementation",
+          "mcp-profiles"
+        ],
+        "notes": "Profile controls visibility; existing PMO authz still controls writes."
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-profiles-002"
+      ],
+      "id": "pmo-profiles-003",
+      "title": "Add aggregate summary projections and macro",
+      "kind": "task",
+      "parent_id": "pmo-profiles-000",
+      "goal": "Provide first-class aggregate PMO outputs for summary agents without exposing full execution records or write paths.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "assignee": null,
+      "references": [
+        "control-plane/packages/program-manager/src/service/program-tool-service.ts:1",
+        "shared/schemas/program-manager.ts:1"
+      ],
+      "definition_of_done": [
+        "PMO supports aggregate/brief/execution/audit projection metadata in deterministic responses.",
+        "A summarize_status macro returns counts, blockers, drift, stale evidence, current decisions, and next owners.",
+        "Summary projections remain pointer-only and avoid raw logs, transcripts, screenshots, hidden scratchpads, and unbounded diffs."
+      ],
+      "context": {
+        "tags": [
+          "summary",
+          "macro",
+          "projection"
+        ],
+        "notes": "This is the summary/aggregate-only path for lightweight agents."
+      }
+    },
+    {
+      "dependencies": [
+        "pmo-profiles-002",
+        "pmo-profiles-003"
+      ],
+      "id": "pmo-profiles-004",
+      "title": "Add PMO profile registration fixtures and tests",
+      "kind": "task",
+      "parent_id": "pmo-profiles-000",
+      "goal": "Prove profile-specific MCP registration works and cannot be bypassed by agents guessing hidden tool names.",
+      "status": "not_started",
+      "placement": {
+        "swimlaneId": "pmo-omni-tools",
+        "priorityId": "p1"
+      },
+      "assignee": null,
+      "references": [
+        "control-plane/packages/program-manager/tests/program-tools.test.js:1",
+        "control-plane/packages/program-manager/tests/mcp-server-restart-smoke.test.js:1"
+      ],
+      "definition_of_done": [
+        "Tests cover summary profile read-only aggregate access.",
+        "Tests cover executor profile full update guidance with existing authority checks.",
+        "Tests prove summary profile attempts to call write actions return blocked guidance."
+      ],
+      "context": {
+        "tags": [
+          "tests",
+          "fixtures",
+          "mcp-profiles"
+        ],
+        "notes": "Protects profile-specific visibility and server-side enforcement."
       }
     }
   ]

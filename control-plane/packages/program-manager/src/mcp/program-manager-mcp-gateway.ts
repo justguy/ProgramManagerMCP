@@ -207,8 +207,7 @@ export class ProgramManagerMcpGateway {
     actor: ProgramToolActor
   ) {
     const input = isRecord(request) ? request : {};
-    const portfolioId =
-      typeof input.portfolioId === "string" ? input.portfolioId : actor.portfolioGrants[0] ?? "portfolio://default";
+    const portfolioId = guidancePortfolioId(input, actor);
     const traceId =
       typeof input.traceId === "string" ? input.traceId : `trace://pmo-guidance/${toolName}`;
     const correlationId =
@@ -222,7 +221,14 @@ export class ProgramManagerMcpGateway {
       path: issue.path.join(".") || "<root>",
       message: issue.message
     }));
-    const correction = correctionForToolInput(toolName, input, portfolioId, traceId, correlationId);
+    const refRepairs = guidanceRefRepairs(input, {
+      actor,
+      integrationCandidates,
+      portfolioId,
+      programs: programsAndProjects.programs,
+      projects: programsAndProjects.projects
+    });
+    const correction = correctionForToolInput(toolName, refRepairs.input, portfolioId, traceId, correlationId);
 
     return {
       schemaVersion: "1",
@@ -250,6 +256,7 @@ export class ProgramManagerMcpGateway {
           canonicalRefOrdering: buildPmoCanonicalRefGuidance(),
           allowedActions: allowedActionsForTool(toolName),
           issues,
+          normalizationHints: refRepairs.hints,
           correctionSummary: correction.summary,
           fieldGuidance: correction.fieldGuidance,
           correctForm: correction.correctForm,
@@ -327,6 +334,230 @@ function isZodError(value: unknown): value is ZodError {
   return value instanceof ZodError || Boolean(isRecord(value) && Array.isArray(value.issues));
 }
 
+const POINTER_REF_PATTERN = /^[a-z][a-z0-9_-]*:\/\/\S+$/;
+
+type GuidanceRefRepairContext = {
+  actor: ProgramToolActor;
+  integrationCandidates: Array<{ integrationPointId: string }>;
+  portfolioId: string;
+  programs: unknown[];
+  projects: unknown[];
+};
+
+function guidancePortfolioId(input: Record<string, unknown>, actor: ProgramToolActor): string {
+  const submittedPortfolioId = stringValue(input.portfolioId);
+  if (submittedPortfolioId && isPointerRef(submittedPortfolioId)) {
+    return submittedPortfolioId;
+  }
+  if (submittedPortfolioId === "default") {
+    return "portfolio://default";
+  }
+  return actor.portfolioGrants[0] ?? "portfolio://default";
+}
+
+function guidanceRefRepairs(
+  input: Record<string, unknown>,
+  context: GuidanceRefRepairContext
+): { input: Record<string, unknown>; hints: string[] } {
+  const hints: string[] = [];
+  const repaired: Record<string, unknown> = { ...input, portfolioId: context.portfolioId };
+  addNormalizationHint(hints, "portfolioId", stringValue(input.portfolioId), context.portfolioId);
+
+  const knownProgramRefs = sortUniqueStrings([
+    ...refsFromRecords(context.programs, "programId"),
+    ...context.actor.programGrants
+  ]);
+  const knownProjectRefs = sortUniqueStrings([
+    ...refsFromRecords(context.projects, "projectId"),
+    ...context.actor.projectGrants
+  ]);
+  const knownIntegrationRefs = sortUniqueStrings(
+    context.integrationCandidates.map((integration) => integration.integrationPointId)
+  );
+
+  const integration = recordValue(repaired.integration);
+  const inferredProgramId = inferProgramRefFromIntegrationRef(
+    stringValue(integration?.integrationPointId),
+    knownProgramRefs
+  );
+  const normalizeProgram = (value: unknown, path: string) =>
+    normalizeRefForGuidance(value, {
+      fallbackRefs: context.actor.programGrants,
+      inferredRef: inferredProgramId,
+      kind: "program",
+      knownRefs: knownProgramRefs,
+      path,
+      hints
+    });
+  const normalizeProject = (value: unknown, path: string) =>
+    normalizeRefForGuidance(value, {
+      kind: "project",
+      knownRefs: knownProjectRefs,
+      path,
+      hints
+    });
+  const normalizeIntegration = (value: unknown, path: string) =>
+    normalizeRefForGuidance(value, {
+      kind: "integration",
+      knownRefs: knownIntegrationRefs,
+      path,
+      hints
+    });
+  const normalizeTarget = (value: unknown, path: string) =>
+    normalizeTargetRefForGuidance(value, {
+      knownIntegrationRefs,
+      knownProgramRefs,
+      knownProjectRefs,
+      path,
+      hints
+    });
+
+  const normalizedProgramId = normalizeProgram(repaired.programId, "programId");
+  if (normalizedProgramId) {
+    repaired.programId = normalizedProgramId;
+  }
+  const normalizedProjectIds = normalizeRefArrayForGuidance(
+    repaired.projectIds,
+    "projectIds",
+    normalizeProject
+  );
+  if (normalizedProjectIds) {
+    repaired.projectIds = normalizedProjectIds;
+  }
+
+  const program = recordValue(repaired.program);
+  if (program) {
+    const nextProgram = { ...program };
+    const programProgramId = normalizeProgram(nextProgram.programId, "program.programId");
+    if (programProgramId) {
+      nextProgram.programId = programProgramId;
+    }
+    repaired.program = nextProgram;
+  }
+
+  const project = recordValue(repaired.project);
+  if (project) {
+    const nextProject = { ...project };
+    const projectProgramId = normalizeProgram(nextProject.programId, "project.programId");
+    if (projectProgramId) {
+      nextProject.programId = projectProgramId;
+    }
+    const projectProjectId = normalizeProject(nextProject.projectId, "project.projectId");
+    if (projectProjectId) {
+      nextProject.projectId = projectProjectId;
+    }
+    repaired.project = nextProject;
+  }
+
+  if (integration) {
+    repaired.integration = normalizeIntegrationPayloadForGuidance(integration, {
+      normalizeIntegration,
+      normalizeProject
+    });
+  }
+
+  const inputRecord = recordValue(repaired.input);
+  if (inputRecord) {
+    repaired.input = normalizeMacroPayloadForGuidance(inputRecord, normalizeTarget);
+  }
+  const macroInputRecord = recordValue(repaired.macroInput);
+  if (macroInputRecord) {
+    repaired.macroInput = normalizeMacroPayloadForGuidance(macroInputRecord, normalizeTarget);
+  }
+
+  const evidenceItem = recordValue(repaired.evidenceItem);
+  if (evidenceItem) {
+    const nextEvidenceItem = { ...evidenceItem };
+    const attachesToRefs = normalizeRefArrayForGuidance(
+      nextEvidenceItem.attachesToRefs,
+      "evidenceItem.attachesToRefs",
+      normalizeTarget
+    );
+    if (attachesToRefs) {
+      nextEvidenceItem.attachesToRefs = attachesToRefs;
+    }
+    repaired.evidenceItem = nextEvidenceItem;
+  }
+
+  return { input: repaired, hints };
+}
+
+function normalizeIntegrationPayloadForGuidance(
+  integration: Record<string, unknown>,
+  normalizers: {
+    normalizeIntegration: (value: unknown, path: string) => string | undefined;
+    normalizeProject: (value: unknown, path: string) => string | undefined;
+  }
+): Record<string, unknown> {
+  const repaired = { ...integration };
+  const integrationPointId = normalizers.normalizeIntegration(
+    repaired.integrationPointId,
+    "integration.integrationPointId"
+  );
+  if (integrationPointId) {
+    repaired.integrationPointId = integrationPointId;
+  }
+  const producerProjectId = normalizers.normalizeProject(
+    repaired.producerProjectId,
+    "integration.producerProjectId"
+  );
+  if (producerProjectId) {
+    repaired.producerProjectId = producerProjectId;
+  }
+  const consumerProjectIds = normalizeRefArrayForGuidance(
+    repaired.consumerProjectIds,
+    "integration.consumerProjectIds",
+    normalizers.normalizeProject
+  );
+  if (consumerProjectIds) {
+    repaired.consumerProjectIds = consumerProjectIds;
+  }
+
+  const item = recordValue(repaired.item);
+  if (item) {
+    repaired.item = normalizeIntegrationItemForGuidance(item, normalizers.normalizeProject);
+  }
+  return repaired;
+}
+
+function normalizeIntegrationItemForGuidance(
+  item: Record<string, unknown>,
+  normalizeProject: (value: unknown, path: string) => string | undefined
+): Record<string, unknown> {
+  const repaired = { ...item };
+  for (const key of ["blockedProjectId", "ownerProjectId", "projectId", "reporterProjectId"]) {
+    const value = normalizeProject(repaired[key], `integration.item.${key}`);
+    if (value) {
+      repaired[key] = value;
+    }
+  }
+  const affectedProjectIds = normalizeRefArrayForGuidance(
+    repaired.affectedProjectIds,
+    "integration.item.affectedProjectIds",
+    normalizeProject
+  );
+  if (affectedProjectIds) {
+    repaired.affectedProjectIds = affectedProjectIds;
+  }
+  return repaired;
+}
+
+function normalizeMacroPayloadForGuidance(
+  payload: Record<string, unknown>,
+  normalizeTarget: (value: unknown, path: string) => string | undefined
+): Record<string, unknown> {
+  const repaired = { ...payload };
+  const targetRefs = normalizeRefArrayForGuidance(repaired.targetRefs, "input.targetRefs", normalizeTarget);
+  if (targetRefs) {
+    repaired.targetRefs = targetRefs;
+  }
+  const managedRefs = normalizeRefArrayForGuidance(repaired.managedRefs, "input.managedRefs", normalizeTarget);
+  if (managedRefs) {
+    repaired.managedRefs = managedRefs;
+  }
+  return repaired;
+}
+
 function correctionForToolInput(
   toolName: string,
   input: Record<string, unknown>,
@@ -351,6 +582,9 @@ function correctionForToolInput(
   }
   if (toolName === "manage_evidence_items") {
     return manageEvidenceItemsCorrection(input, portfolioId, traceId, correlationId, help);
+  }
+  if (toolName === "pmo_macro") {
+    return pmoMacroCorrection(input, portfolioId, traceId, correlationId, help);
   }
 
   const retryExample = retryExamplesForTool(toolName, portfolioId, traceId, correlationId)[0];
@@ -460,6 +694,7 @@ function manageIntegrationsCorrection(
   const integrationPointId =
     stringValue(integration?.integrationPointId) ?? "integration://<integration-slug>";
   const evidenceRefs = stringArrayValue(input.evidenceRefs);
+  const projectIds = stringArrayValue(input.projectIds);
   const misplacedArtifactRefs = stringArrayValue(input.artifactRefs);
   const itemArtifactRefs = stringArrayValue(item?.artifactRefs);
   const artifactRef =
@@ -470,6 +705,7 @@ function manageIntegrationsCorrection(
   const baseArguments = {
     portfolioId,
     ...(programId ? { programId } : {}),
+    ...(projectIds.length > 0 ? { projectIds } : {}),
     traceId,
     correlationId
   };
@@ -685,6 +921,64 @@ function manageIntegrationsCorrection(
   };
 }
 
+function pmoMacroCorrection(
+  input: Record<string, unknown>,
+  portfolioId: string,
+  traceId: string,
+  correlationId: string,
+  help: { toolName: string; arguments: Record<string, unknown> }
+) {
+  const action = stringValue(input.action) ?? "help";
+  const correctedAction = allowedActionsForTool("pmo_macro").includes(action) ? action : "help";
+  const programId = stringValue(input.programId);
+  const projectIds = stringArrayValue(input.projectIds);
+  const macroId =
+    stringValue(input.macroId) ??
+    (stringValue(input.macroName) ? `macro://pmo/${stringValue(input.macroName)}` : "macro://pmo/catch_me_up");
+  const macroPayload =
+    recordValue(input.input) ?? recordValue(input.macroInput) ?? { targetRefs: ["integration://<integration-slug>"] };
+  const baseArguments = {
+    action: correctedAction,
+    portfolioId,
+    ...(programId ? { programId } : {}),
+    ...(projectIds.length > 0 ? { projectIds } : {}),
+    traceId,
+    correlationId
+  };
+  const argumentsForAction =
+    correctedAction === "invoke" || correctedAction === "validate" || correctedAction === "describe"
+      ? {
+          ...baseArguments,
+          macroId,
+          ...(correctedAction === "invoke" ? { macroVersion: stringValue(input.macroVersion) ?? "1.0.0" } : {}),
+          input: macroPayload
+        }
+      : baseArguments;
+
+  return {
+    summary:
+      "pmo_macro rejected the payload shape. Retry with correctForm, using URI-shaped refs and sorted set-like ref arrays.",
+    fieldGuidance: [
+      "Required common fields: action, portfolioId, traceId, correlationId.",
+      "For invoke, use macroId = macro://pmo/<macro-name> and put macro payload under input.",
+      "Use projectIds for project scope and input.targetRefs for target PMO object refs.",
+      "Sort set-like arrays lexicographically before retrying."
+    ],
+    correctForm: {
+      toolName: "pmo_macro",
+      arguments: argumentsForAction
+    },
+    help,
+    retryExamples: [
+      {
+        purpose: `Retry pmo_macro ${correctedAction} with URI-shaped refs and sorted scope arrays.`,
+        toolName: "pmo_macro",
+        arguments: argumentsForAction
+      }
+    ]
+  };
+}
+
 function manageEvidenceItemsCorrection(
   input: Record<string, unknown>,
   portfolioId: string,
@@ -878,6 +1172,123 @@ function stringArrayValue(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function refsFromRecords(records: unknown[], key: string): string[] {
+  return records
+    .map((record) => stringValue(recordValue(record)?.[key]))
+    .filter((ref): ref is string => Boolean(ref));
+}
+
+function isPointerRef(value: string): boolean {
+  return POINTER_REF_PATTERN.test(value);
+}
+
+function normalizeRefArrayForGuidance(
+  value: unknown,
+  path: string,
+  normalize: (value: unknown, path: string) => string | undefined
+): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const normalized = sortUniqueStrings(
+    value
+      .map((item, index) => normalize(item, `${path}.${index}`))
+      .filter((item): item is string => Boolean(item))
+  );
+  return normalized;
+}
+
+function normalizeRefForGuidance(
+  value: unknown,
+  options: {
+    fallbackRefs?: string[];
+    inferredRef?: string;
+    kind: string;
+    knownRefs: string[];
+    path: string;
+    hints: string[];
+  }
+): string | undefined {
+  const submitted = stringValue(value);
+  if (!submitted) {
+    return undefined;
+  }
+  if (isPointerRef(submitted)) {
+    return submitted;
+  }
+
+  const knownRef = findKnownRefForSlug(submitted, options.knownRefs);
+  const fallbackRef =
+    knownRef ??
+    options.inferredRef ??
+    (options.fallbackRefs?.length === 1 ? options.fallbackRefs[0] : undefined) ??
+    `${options.kind}://${submitted}`;
+  addNormalizationHint(options.hints, options.path, submitted, fallbackRef);
+  return fallbackRef;
+}
+
+function normalizeTargetRefForGuidance(
+  value: unknown,
+  options: {
+    knownIntegrationRefs: string[];
+    knownProgramRefs: string[];
+    knownProjectRefs: string[];
+    path: string;
+    hints: string[];
+  }
+): string | undefined {
+  const submitted = stringValue(value);
+  if (!submitted) {
+    return undefined;
+  }
+  if (isPointerRef(submitted)) {
+    return submitted;
+  }
+
+  const knownRef =
+    findKnownRefForSlug(submitted, options.knownIntegrationRefs) ??
+    findKnownRefForSlug(submitted, options.knownProjectRefs) ??
+    findKnownRefForSlug(submitted, options.knownProgramRefs);
+  const fallbackRef = knownRef ?? `integration://${submitted}`;
+  addNormalizationHint(options.hints, options.path, submitted, fallbackRef);
+  return fallbackRef;
+}
+
+function findKnownRefForSlug(slug: string, refs: string[]): string | undefined {
+  return refs.find((ref) => refSlug(ref) === slug || refTail(ref) === slug || refBody(ref) === slug);
+}
+
+function inferProgramRefFromIntegrationRef(value: string | undefined, knownProgramRefs: string[]): string | undefined {
+  if (!value || !isPointerRef(value)) {
+    return undefined;
+  }
+  const namespace = refBody(value).split("/")[0];
+  if (!namespace) {
+    return undefined;
+  }
+  const inferred = `program://${namespace}`;
+  return knownProgramRefs.includes(inferred) ? inferred : undefined;
+}
+
+function refBody(ref: string): string {
+  return ref.split("://")[1] ?? ref;
+}
+
+function refTail(ref: string): string {
+  const segments = refBody(ref).split("/").filter(Boolean);
+  return segments[segments.length - 1] ?? refBody(ref);
+}
+
+function refSlug(ref: string): string {
+  return refBody(ref);
+}
+
+function addNormalizationHint(hints: string[], path: string, submitted: string | undefined, normalized: string): void {
+  if (submitted && submitted !== normalized) {
+    hints.push(`${path}: normalized "${submitted}" to "${normalized}".`);
+  }
 }
 
 function sortUniqueStrings(values: string[]): string[] {
